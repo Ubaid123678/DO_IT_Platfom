@@ -1,0 +1,32 @@
+# Dependencies
+**/node_modules/
+
+# Build and cache
+**/.next/
+**/.expo/
+**/.net/
+**/.net
+**/.net/**
+**/dist/
+**/coverage/
+
+# Logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.pnpm-debug.log*
+
+# Environment and secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# OS and editor
+**/.DS_Store
+**/.vscode/
+**/*.swp
+**/*.swo
+
+# Expo generated native folders (if prebuild is used)
+mobile/android/
+mobile/ios/
