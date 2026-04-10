@@ -24,7 +24,7 @@ DO_IT_Platform/
 │   ├── app.json               # Expo configuration
 │   └── package.json
 │
-├── web/                        # Next.js Website
+├── web/                        # Next.js Website (Public + Private Admin)
 │   ├── app/                   # App router pages
 │   ├── components/            # React components
 │   ├── public/                # Static assets
@@ -37,6 +37,12 @@ DO_IT_Platform/
     ├── IMPLEMENTATION_STATUS.md
     └── SPRINT_TASK_BOARD.md
 ```
+
+## Current Execution Mode
+
+As of 2026-04-10, active implementation is app-first:
+- Active build track: mobile app + shared backend
+- Deferred track: website frontend + private admin portal UI (to be finalized after app completion)
 
 ## Getting Started Locally
 
@@ -68,15 +74,20 @@ npm run android      # Android emulator
 npm run ios          # iOS simulator (macOS only)
 ```
 
-### Website Setup
+### Website Setup (Deferred Track)
 
-```bash
+```bash                     
 cd web
 npm install
 npm run dev
 ```
 
 Website runs on: http://localhost:3000
+
+Website paths (scaffold only for now):
+- Public website home/content: http://localhost:3000/
+- Public blog/content section: http://localhost:3000/blog
+- Private admin portal path: http://localhost:3000/admin
 
 ## Development Workflow
 
@@ -94,7 +105,10 @@ Website runs on: http://localhost:3000
 
 ### Website
 - Fast refresh enabled
-- API client configured to hit backend
+- Public website contains content/blog only
+- Private admin portal is isolated under a separate path
+- End-user auth flows (register/login/OTP/reset) are mobile-app only
+- Website/admin feature implementation is currently paused
 
 ## Key Architecture Decisions
 
@@ -102,6 +116,7 @@ Website runs on: http://localhost:3000
 2. **Shared Backend**: Single Express API serves both mobile and web
 3. **TypeScript**: All projects use TypeScript for type safety
 4. **Environment Variables**: .env files for local dev, separate secrets management for production
+5. **Website Split**: Web has public content/blog + private admin portal. Consumer auth belongs to mobile app.
 
 ## Sprint 01 - Phase 0 Objectives (Complete)
 - ✅ Initialize repositories/workspace structure
@@ -122,10 +137,10 @@ For development:
 
 ## Next Steps
 
-1. Start Sprint 02: Auth and Account Foundation
-2. Set up CI/CD pipeline (GitHub Actions, etc.)
-3. Configure actual Stripe, Twilio, SendGrid credentials for staging
-4. Invite team members and share documentation
+1. Continue app-first phases (mobile + backend), starting from current Phase 2 targets
+2. Complete all app features and API coverage from implementation docs
+3. Start website/admin implementation in the final stage after app completion
+4. Configure production credentials and launch hardening before release
 
 ## Support
 

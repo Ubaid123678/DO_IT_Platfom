@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 1.0
-Last updated: 2026-04-08
+Version: 1.2
+Last updated: 2026-04-10 (App-first execution mode)
 Owner: Engineering
 
 ## 1. Purpose
@@ -13,9 +13,16 @@ Update this file at the end of each completed phase.
 ## 2. Overall Progress
 
 - Total phases planned: 13
-- Completed phases: 1
+- Completed phases: 2
 - In progress phases: 0
-- Next phase: Phase 1 - Identity, Auth, and Account Foundation
+- Current phase: Phase 2 - KYC and Provider Activation (next)
+- Next phase: Phase 2 - KYC and Provider Activation
+
+## 2.1 Execution Mode Update (2026-04-10)
+
+- Active delivery scope is mobile app + shared backend.
+- Website frontend and admin portal implementation are deferred until app completion.
+- Any existing web pages are scaffolding only and not part of current sprint commitments.
 
 ## 3. Phase Completion Log
 
@@ -52,10 +59,11 @@ Backend:
 Mobile:
 - Expo React Native app template initialized
 - TypeScript and routing scaffold available
+- Migration to src-based frontend structure completed
 - Key structure present:
   - mobile/app
-  - mobile/components
-  - mobile/constants
+  - mobile/src
+  - mobile/assets
   - mobile/app.json
 
 Website:
@@ -89,22 +97,94 @@ Utility:
 - backend npm audit showed vulnerabilities inherited from dependency graph.
 - Hardening and dependency updates are tracked in later security and stabilization phases.
 - Root .gitignore now excludes generated and sensitive paths globally, including node_modules, .next/.net, .expo, and .env files.
+- Mobile route layer now imports from src-based screens/hooks/theme; old template folders mobile/components and mobile/constants were removed.
+
+## Phase 1 - Identity, Auth, and Account Foundation
+
+Status: Completed
+Completion date: 2026-04-09
+
+### Completed scope
+
+Backend:
+- Added Mongo user auth model with verification and reset fields
+- Implemented auth APIs:
+  - POST /api/v1/auth/register
+  - POST /api/v1/auth/verify-email
+  - POST /api/v1/auth/verify-phone
+  - POST /api/v1/auth/login
+  - POST /api/v1/auth/refresh-token
+  - POST /api/v1/auth/logout
+  - POST /api/v1/auth/forgot-password
+  - POST /api/v1/auth/reset-password
+  - GET /api/v1/auth/me
+  - PATCH /api/v1/auth/me
+- Added auth validation (Joi), JWT token helpers, OTP generation, and reset token flow
+- Added auth middleware for protected endpoints
+- Added auth lockout baseline (failed login tracking + temporary account lock)
+- Added auth audit logging utility events for key security actions
+- Added API router registration and database bootstrap wiring in backend server
+- Fixed Express error middleware signature to guarantee structured JSON error responses
+- Added backend auth HTTP integration tests with Vitest + Supertest
+
+Mobile frontend:
+- Implemented reusable auth UI primitives:
+  - src/components/common/Button.tsx
+  - src/components/common/Input.tsx
+  - src/components/common/Loader.tsx
+- Implemented auth and onboarding screens with API calls:
+  - src/screens/auth/LoginScreen.tsx
+  - src/screens/auth/ForgotPasswordScreen.tsx
+  - src/screens/auth/ResetPasswordScreen.tsx
+  - src/screens/onboarding/RegisterScreen.tsx
+  - src/screens/onboarding/OTPScreen.tsx
+- Added Expo Router paths for auth and onboarding:
+  - app/auth/login.tsx
+  - app/auth/forgot-password.tsx
+  - app/auth/reset-password.tsx
+  - app/onboarding/register.tsx
+  - app/onboarding/otp.tsx
+- Added missing src hooks required by routing/theme layer:
+  - src/hooks/useColorScheme.ts
+  - src/hooks/useColorScheme.web.ts
+  - src/hooks/useClientOnlyValue.ts
+  - src/hooks/useClientOnlyValue.web.ts
+- Extended mobile auth service with full Phase 1 endpoint methods and types
+
+Web frontend:
+- Website/auth prototype and route scaffolding were created.
+- Effective 2026-04-10, website and admin portal implementation are paused and moved to final-stage delivery.
+
+### Verification completed
+
+- Backend TypeScript build passes (`npm run build`)
+- Backend auth tests pass (`npm test -- --run`)
+- Mobile TypeScript check passes (`npx tsc --noEmit`)
+- Web prototype build passed before deferral (`npm run build`)
 
 ## 4. Current Repositories and Source Layout
 
-Current workspace uses separate git repositories inside:
-- mobile/.git
-- web/.git
+Current workspace uses a single root git repository:
+- DO_IT_Platfom/.git
 
-The backend currently has project files but no standalone backend .git repository created yet in this workspace snapshot.
+No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
 
-Phase 1 implementation:
-- Auth endpoints (register, login, refresh, logout)
-- OTP verification (email and phone)
-- Password reset flow
-- Initial auth UI integration in mobile and web
+Phase 2 implementation (app + backend):
+- Provider KYC document upload pipeline and status tracking
+- Provider activation gating based on KYC status
+- Admin KYC review endpoints (approve/reject with reason)
+- Provider profile setup baseline (skills/categories/availability)
+- Mobile KYC and provider activation screens connected to backend APIs
+
+Mobile frontend scaffolding pre-work completed (2026-04-10):
+- Route architecture aligned to grouped Expo Router structure:
+  - (auth), (onboarding), (client), (provider), (shared), (help)
+- Missing baseline screen files and route wrappers scaffolded for full 51-screen map
+- Theme tokens aligned with master frontend guidance (`src/theme/colors.ts`, `src/theme/typography.ts`)
+- Shared UI foundation extended with required common/job components placeholders
+- Mobile TypeScript validation passes after scaffold updates (`npx tsc --noEmit`)
 
 ## 6. Update Template For Future Phase Completions
 
@@ -141,9 +221,11 @@ Project summary:
 
 Current status:
 - Phase 0 is completed and verified.
+- Phase 1 is completed and verified for backend auth foundation and mobile auth integration.
 - Backend scaffold exists with TypeScript, middleware, env config, and health endpoints.
-- Mobile template is initialized (Expo, TypeScript, routing scaffold).
-- Web template is initialized (Next.js, TypeScript, Tailwind, ESLint).
+- Backend auth routes, validation, OTP, JWT token handling, reset flow, lockout baseline, audit logging, and auth tests are implemented.
+- Mobile auth/onboarding screens are wired to backend auth APIs.
+- Website and admin portal implementation are deferred until app completion.
 - Core docs are available:
   - docs/DO_IT_MASTER_DOCUMENTATION.md
   - docs/IMPLEMENTATION_PHASES.md
@@ -156,13 +238,16 @@ Verified runtime:
 - Mobile web: localhost:8081
 
 Instruction for this chat:
-- Continue implementation from Phase 1.
+- Continue implementation from Phase 2.
 - Keep backend shared for mobile and website.
-- Keep mobile and web as separate frontend codebases.
+- Keep website/admin web delivery paused until app completion.
+- Keep mobile app as the active frontend implementation target.
 - After each fully completed phase, update docs/IMPLEMENTATION_STATUS.md with exact completed scope, created files/endpoints, and verification.
 - Do not create separate phase completion markdown files.
 
-Immediate next work (Phase 1):
-- Implement auth module on backend (register, login, refresh, logout, forgot/reset password, OTP verify)
-- Integrate auth flows in mobile and web
-- Add tests for critical auth flows
+Immediate next work (Phase 2):
+- Implement KYC document upload endpoint design and storage flow
+- Add provider KYC status model fields and transitions
+- Implement admin KYC review APIs (approve/reject)
+- Wire provider KYC screens in mobile app to backend APIs
+- Defer private admin portal UI delivery until app completion milestone

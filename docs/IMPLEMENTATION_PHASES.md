@@ -1,8 +1,8 @@
 # Do It Platform - Implementation Phases
 
-Version: 1.0
-Last updated: 2026-04-06
-Purpose: Delivery roadmap to build the complete mobile app, website, and backend in controlled phases.
+Version: 1.1
+Last updated: 2026-04-10
+Purpose: Delivery roadmap to build the complete mobile app and shared backend first, then finalize website and admin portal in the final stage.
 
 ## Delivery Model
 
@@ -10,13 +10,14 @@ Purpose: Delivery roadmap to build the complete mobile app, website, and backend
 - Cadence: 2-week sprints (adjustable)
 - Environments: local -> dev -> staging -> production
 - Launch strategy: staged rollout by region
+- Execution mode update (2026-04-10): website/admin implementation is deferred until mobile app completion milestone.
 
 ## Phase 0 - Program Setup and Architecture Baseline
 
 Duration: 1 sprint
 
 Goals:
-- Initialize repositories/workspace structure for mobile app, website, and backend
+- Initialize repositories/workspace structure for mobile app, backend, and deferred website track
 - Define coding standards, branching model, PR templates, and CI baseline
 - Set up environment configuration and secret management pattern
 
@@ -24,12 +25,12 @@ Deliverables:
 - Monorepo or coordinated repos decided and initialized
 - Backend service bootstrap (Express modular structure)
 - Mobile app bootstrap (Expo + navigation + theme tokens)
-- Website bootstrap (Next.js + shared theme tokens + API client)
+- Website bootstrap only (scaffold reserved for final-stage implementation)
 - CI pipeline for lint/test/build
 - Environment templates (.env.example) for all services
 
 Exit Criteria:
-- Fresh clone can run backend, app, and website locally
+- Fresh clone can run backend and app locally; website scaffold is optional in active delivery
 - CI passes on default branch
 
 ## Phase 1 - Identity, Auth, and Account Foundation
@@ -212,22 +213,22 @@ Exit Criteria:
 - Full screen inventory complete and connected to live APIs
 - QA sign-off for responsiveness and interaction quality
 
-## Phase 11 - Website Build and Web QA
+## Phase 11 - Website and Admin Portal Finalization (Deferred Until App Complete)
 
 Duration: 1-2 sprints
 
 Goals:
-- Build and finalize the website in parallel with shared backend contracts
+- Build and finalize public website and private admin portal after app completion
 
 Deliverables:
 - Public website pages implemented (home, how it works, categories, trust and safety, help, legal)
-- Auth flows connected to shared backend where required
-- Shared API contract validation with mobile and backend
+- Private admin portal pages implemented for admin workflows
+- Admin UI connected to existing backend admin endpoints
 - Responsive QA across mobile web, tablet, laptop, and desktop
 - Performance and SEO baseline setup for public pages
 
 Exit Criteria:
-- Website pages are production-ready and content complete
+- Website pages and private admin portal are production-ready and content complete
 - Responsive and accessibility QA sign-off achieved
 
 ## Phase 12 - Performance, Reliability, and Pre-Launch Stabilization
@@ -246,7 +247,7 @@ Deliverables:
 
 Exit Criteria:
 - Target p95 API and app performance metrics met in staging
-- Website performance baseline met in staging
+- Website/admin performance baseline met in staging
 - Stability metrics pass release threshold
 
 ## Phase 13 - Production Launch and Post-Launch Operations
@@ -287,17 +288,17 @@ Exit Criteria:
 ## Recommended Team Sequencing
 
 - Backend team starts Phases 0-3 quickly with mobile consuming mocks where needed
-- Website team starts from Phase 0 and syncs API contracts from Phase 2 onward
+- Website/admin implementation starts after app core completion (Phase 11)
 - Payments/disputes/fraud are treated as critical-path features
-- Mobile and website frontend teams progress in parallel by module while backend contracts stabilize
-- Final pre-launch requires full-stack hardening together
+- Mobile frontend progresses continuously by module while backend contracts stabilize
+- Final pre-launch requires full-stack hardening together including deferred website/admin stage
 
 ## Milestone View (High Level)
 
 - Milestone M1: Auth + KYC + Job Core (Phases 0-3)
 - Milestone M2: Matching + Escrow + Payout (Phases 4-6)
 - Milestone M3: Disputes + Realtime + Fraud (Phases 7-9)
-- Milestone M4: Mobile UI + Website + Stabilization + Launch (Phases 10-13)
+- Milestone M4: Mobile completion + Website/Admin finalization + Stabilization + Launch (Phases 10-13)
 
 ## Dependency and Risk Notes
 
@@ -312,7 +313,7 @@ Top risks:
 - KYC operational bottlenecks
 - Realtime scaling and notification reliability
 - Geolocation quality and edge-case matching logic
-- Contract drift between mobile and website frontend integrations
+- Contract drift when deferred website/admin implementation begins late
 
 Mitigations:
 - Early staging integrations

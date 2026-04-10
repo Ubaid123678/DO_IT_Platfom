@@ -1,8 +1,12 @@
-import express, { Express, Request, Response } from 'express';
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+
+import { AppError } from './common/errors/AppError.js';
+import { connectDatabase } from './config/database.js';
+import apiRouter from './routes/index.js';
 
 // Load environment variables
 dotenv.config();
@@ -49,6 +53,9 @@ app.get('/api/v1/health', (_req: Request, res: Response) => {
   });
 });
 
+// API routes
+app.use('/api/v1', apiRouter);
+
 // 404 Handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({
@@ -61,20 +68,38 @@ app.use((req: Request, res: Response) => {
 });
 
 // Error Handler Middleware
-app.use((err: any, _req: Request, res: Response) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof AppError) {
+    res.status(err.statusCode).json({
+      success: false,
+      error: {
+        code: err.code,
+        message: err.message,
+        ...(err.details ? { details: err.details } : {}),
+      },
+    });
+    return;
+  }
+
+  console.error('Unhandled error:', err);
+  res.status(500).json({
     success: false,
     error: {
-      code: err.code || 'INTERNAL_ERROR',
-      message: err.message || 'An unexpected error occurred',
+      code: 'INTERNAL_ERROR',
+      message: 'An unexpected error occurred',
     },
   });
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`
+const bootstrap = async (): Promise<void> => {
+  try {
+    await connectDatabase();
+  } catch (error) {
+    console.error('[database] Connection failed. Server will start, but DB features may fail.', error);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
 ║         Do It Platform - Backend Server Started           ║
@@ -86,6 +111,11 @@ app.listen(PORT, () => {
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝
   `);
-});
+  });
+};
+
+if (process.env.NODE_ENV !== 'test') {
+  void bootstrap();
+}
 
 export default app;

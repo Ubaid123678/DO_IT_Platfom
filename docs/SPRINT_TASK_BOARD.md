@@ -1,15 +1,15 @@
 # Do It Platform - Sprint Task Board
 
-Version: 1.0
-Last updated: 2026-04-06
-Purpose: Actionable sprint plan for implementation across backend, mobile, website, QA, security, and DevOps.
+Version: 1.1
+Last updated: 2026-04-10
+Purpose: Actionable sprint plan for mobile app + backend delivery first, with website/admin implementation deferred to final stage.
 
 ## Team Lanes
 
 - Product and Design
 - Backend
 - Mobile (React Native)
-- Website (Next.js)
+- Website/Admin (Deferred until post-app stage)
 - QA and Automation
 - Security and Compliance
 - DevOps and Infrastructure
@@ -21,11 +21,12 @@ Purpose: Actionable sprint plan for implementation across backend, mobile, websi
 - No sprint closes with unresolved critical defects
 - API contracts are versioned and shared before frontend consumption
 - Financial and security-sensitive features require threat and failure-path tests
+- Website/admin frontend work is paused u1ntil mobile app completion milestone
 
 ## Sprint 01 - Foundation Setup (Phase 0)
 
 Sprint Goal:
-- Set up project foundations for backend, mobile, and website
+- Set up project foundations for backend and mobile, with website scaffold reserved for later
 
 Backlog by lane:
 - Product and Design:
@@ -39,10 +40,8 @@ Backlog by lane:
   - Initialize Expo app structure
   - Add navigation shell and theme token scaffolding
   - Add API client foundation and auth storage abstraction
-- Website:
-  - Initialize Next.js app structure
-  - Configure base routing and global theme tokens
-  - Add API client foundation shared contract format
+- Website/Admin:
+  - Keep minimal scaffold only for later-stage implementation
 - QA and Automation:
   - Configure lint and formatting checks for all codebases
   - Add initial unit test runner setup
@@ -54,7 +53,7 @@ Backlog by lane:
   - Prepare dev/staging environment templates
 
 Exit checks:
-- Backend, mobile, website run locally
+- Backend and mobile run locally
 - CI green on default branch
 
 ## Sprint 02 - Auth Core APIs and Shared Client Integration (Phase 1)
@@ -72,9 +71,8 @@ Backlog by lane:
 - Mobile:
   - Build login and register screens with validation
   - Integrate auth APIs and token lifecycle
-- Website:
-  - Build login and register pages with validation
-  - Integrate auth APIs and token lifecycle
+- Website/Admin:
+  - Deferred
 - QA and Automation:
   - Add integration tests for register/login/refresh/logout
   - Add frontend smoke tests for auth navigation
@@ -84,7 +82,7 @@ Backlog by lane:
   - Add auth-related environment variables in deployment templates
 
 Exit checks:
-- User can register and login from app and website
+- User can register and login from app
 - Token refresh and logout are stable
 
 ## Sprint 03 - OTP Verification and Password Recovery (Phase 1)
@@ -99,8 +97,8 @@ Backlog by lane:
   - Add OTP retry limits and cooldown logic
 - Mobile:
   - Build OTP verification screens and reset password flow
-- Website:
-  - Build OTP verification pages and reset password flow
+- Website/Admin:
+  - Deferred
 - QA and Automation:
   - Add tests for OTP expiry, retry, and cooldown paths
 - Security and Compliance:
@@ -109,7 +107,7 @@ Backlog by lane:
   - Integrate SendGrid and Twilio credentials in staging
 
 Exit checks:
-- Verification and recovery complete on both frontends
+- Verification and recovery complete on app
 
 ## Sprint 04 - KYC Submission and Review (Phase 2)
 
@@ -125,8 +123,8 @@ Backlog by lane:
   - Implement admin KYC review endpoints
 - Mobile:
   - Build provider KYC upload and status screens
-- Website:
-  - Build web KYC flow and account status indicators where needed
+- Website/Admin:
+  - Deferred
 - QA and Automation:
   - Add tests for document upload and status transitions
 - Security and Compliance:
@@ -149,8 +147,8 @@ Backlog by lane:
   - Add geo indexes for physical jobs
 - Mobile:
   - Build post-a-job flow and client jobs list/detail
-- Website:
-  - Build web job posting and listing where in scope
+- Website/Admin:
+  - Deferred
 - QA and Automation:
   - Add API tests for job lifecycle open and cancel cases
 - Security and Compliance:
@@ -173,8 +171,8 @@ Backlog by lane:
   - Trigger notifications for proposal and acceptance events
 - Mobile:
   - Build browse jobs, apply proposal, and review proposals
-- Website:
-  - Build proposal flows where applicable
+- Website/Admin:
+  - Deferred
 - QA and Automation:
   - Add tests for one-accepted-proposal rule
   - Add matching correctness tests
@@ -198,8 +196,8 @@ Backlog by lane:
   - Implement escrow lock on accepted proposal
 - Mobile:
   - Build wallet overview and top-up initiation screens
-- Website:
-  - Build wallet overview pages where in scope
+- Website/Admin:
+  - Deferred
 - QA and Automation:
   - Add tests for wallet balance consistency and escrow lock
 - Security and Compliance:
@@ -222,8 +220,8 @@ Backlog by lane:
   - Finalize immutable transaction records and reconciliation tasks
 - Mobile:
   - Build job completion confirmation flow
-- Website:
-  - Build completion confirmation where in scope
+- Website/Admin:
+  - Deferred
 - QA and Automation:
   - Add failure-path tests for financial operations
 - Security and Compliance:
@@ -246,8 +244,8 @@ Backlog by lane:
   - Normalize storage in USD and display conversion outputs
 - Mobile:
   - Build payout request and transaction history screens
-- Website:
-  - Build payout and transaction history views where in scope
+- Website/Admin:
+  - Deferred
 - QA and Automation:
   - Add FX consistency and payout flow tests
 - Security and Compliance:
@@ -269,8 +267,8 @@ Backlog by lane:
   - Implement review create and listing endpoints
 - Mobile:
   - Build raise dispute and leave review flows
-- Website:
-  - Build dispute and review interfaces where in scope
+- Website/Admin:
+  - Deferred
 - QA and Automation:
   - Add tests for dispute state transitions and verdict routing
 - Security and Compliance:
@@ -293,8 +291,8 @@ Backlog by lane:
   - Implement notifications center APIs
 - Mobile:
   - Build chat and notifications screens with real-time updates
-- Website:
-  - Build web chat and notifications where in scope
+- Website/Admin:
+  - Deferred
 - QA and Automation:
   - Add realtime integration tests and delivery retries tests
 - Security and Compliance:
@@ -317,8 +315,8 @@ Backlog by lane:
   - Harden request validation and file upload protections
 - Mobile:
   - Add user-facing security state handling and warning states
-- Website:
-  - Add user-facing security state handling and warning states
+- Website/Admin:
+  - Deferred
 - QA and Automation:
   - Add abuse and suspicious-flow regression tests
 - Security and Compliance:
@@ -352,14 +350,14 @@ Backlog by lane:
 Exit checks:
 - Mobile app is feature-complete and QA signed
 
-## Sprint 14 - Website Completion and Web QA (Phase 11)
+## Sprint 14 - Website and Admin Completion (Phase 11)
 
 Sprint Goal:
-- Complete website scope and web quality gates
+- Complete public website + private admin portal after app completion
 
 Backlog by lane:
 - Website:
-  - Finish public pages and in-scope authenticated pages
+  - Finish public pages and private admin portal pages
   - Responsive validation across mobile web/tablet/laptop/desktop
   - Accessibility and SEO baseline completion
 - Backend:
@@ -385,7 +383,7 @@ Backlog by lane:
   - Tune caches and queue retry/backoff policies
 - Mobile:
   - Fix high-priority performance and crash issues
-- Website:
+- Website/Admin:
   - Fix high-priority performance and rendering issues
 - QA and Automation:
   - Execute load, soak, and reliability test suites
@@ -410,7 +408,7 @@ Backlog by lane:
   - Launch support and hotfix handling
 - Mobile:
   - Publish release build and monitor crashes/events
-- Website:
+- Website/Admin:
   - Publish release and monitor web vitals/errors
 - QA and Automation:
   - Run post-deploy smoke tests and rollback checks
@@ -436,7 +434,7 @@ Every sprint must produce:
 - Product and Design: scope clarity, acceptance criteria, UX consistency
 - Backend: business logic, data integrity, integrations
 - Mobile: app UX, responsiveness, integration completeness
-- Website: web UX, responsiveness, SEO and accessibility baseline
+- Website/Admin: web UX, responsiveness, SEO and accessibility baseline
 - QA and Automation: regression quality and release confidence
 - Security and Compliance: risk reduction and policy adherence
 - DevOps and Infrastructure: stability, deployment safety, observability
@@ -445,6 +443,7 @@ Every sprint must produce:
 
 1. Execute Sprint 01 setup immediately
 2. Start Sprint 02 with auth and contract-first API definitions
-3. Keep mobile and website in parallel from Sprint 02 onward
+3. Keep mobile + backend as active delivery track through app completion
 4. Treat Sprints 07-12 as critical path due to finance and trust features
-5. Enter launch only after Sprint 15 gates are objectively met
+5. Start website/admin implementation at Sprint 14 after app completion milestone
+6. Enter launch only after Sprint 15 gates are objectively met

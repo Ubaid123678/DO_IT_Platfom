@@ -1,7 +1,7 @@
 # Do It Platform - Master Documentation
 
-Version: 2.0 (Implementation Handoff)
-Last updated: 2026-04-06
+Version: 2.1 (Implementation Handoff)
+Last updated: 2026-04-10
 Status: Approved for implementation
 
 ## 1. Executive Summary
@@ -13,15 +13,14 @@ Do It is a global service marketplace mobile platform connecting clients and pro
 The product is now moving from planning to implementation.
 
 Current implementation scope:
-- Build complete mobile app + website + backend + admin API capabilities
-- Mobile app and website frontend are separate codebases sharing the same backend services
-- Shared database and core backend services must support app and website together without breaking changes
+- Build complete mobile app + shared backend first
+- Defer website frontend and admin portal implementation until final stage after app completion
+- Keep backend forward-compatible so website/admin can be added later without breaking changes
 
 ## 2. Product Scope
 
 ### 2.1 In Scope (Now)
 - React Native mobile app (client + provider experiences)
-- Next.js website (public pages + authenticated web experiences as required)
 - Authentication and verification
 - KYC lifecycle for providers
 - Job posting, proposal lifecycle, matching, and completion
@@ -34,6 +33,7 @@ Current implementation scope:
 
 ### 2.2 Out of Scope (Now)
 - Native desktop app
+- Website frontend and admin portal implementation (deferred to final stage)
 - Advanced BI dashboards beyond required operational analytics
 
 ### 2.3 Principle
@@ -99,9 +99,9 @@ Frontend separation rules:
 ## 5.4 Website Scope Baseline
 Website module scope in this program:
 - Public pages: home, how it works, categories, trust and safety, support, legal
-- Authenticated web flows where required by product roadmap
-- Shared auth and profile APIs with mobile
-- Shared i18n and currency display rules aligned with backend configuration
+- Private admin portal pages for operational workflows
+- Implementation timing: deferred until mobile app completion milestone
+- Shared i18n and currency display rules aligned with backend configuration once website build starts
 
 ## 6. Core Business Flows
 
