@@ -22,9 +22,15 @@ export const authValidators = {
     email,
     otp,
   }),
+  resendEmailOtp: Joi.object({
+    email,
+  }),
   verifyPhone: Joi.object({
     phone,
     otp,
+  }),
+  resendPhoneOtp: Joi.object({
+    phone,
   }),
   refreshToken: Joi.object({
     refreshToken: Joi.string().required(),

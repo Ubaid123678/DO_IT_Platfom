@@ -45,6 +45,19 @@ export type VerifyPhonePayload = {
   otp: string;
 };
 
+export type OtpFlowType = 'email' | 'phone' | 'reset';
+
+export type VerifyOtpPayload = {
+  type: OtpFlowType;
+  contact: string;
+  otp: string;
+};
+
+export type ResendOtpPayload = {
+  type: OtpFlowType;
+  contact: string;
+};
+
 export type ForgotPasswordPayload = {
   email: string;
 };
@@ -67,11 +80,39 @@ export const authService = {
     ),
   verifyEmail: (payload: VerifyEmailPayload) => api.post<ApiResponse<{ verified: boolean }>>('/auth/verify-email', payload),
   verifyPhone: (payload: VerifyPhonePayload) => api.post<ApiResponse<{ verified: boolean }>>('/auth/verify-phone', payload),
+  verifyOTP: (payload: VerifyOtpPayload) => {
+    if (payload.type === 'email') {
+      return api.post<ApiResponse<{ verified: boolean }>>('/auth/verify-email', {
+        email: payload.contact,
+        otp: payload.otp,
+      });
+    }
+
+    return api.post<ApiResponse<{ verified: boolean }>>('/auth/verify-phone', {
+      phone: payload.contact,
+      otp: payload.otp,
+    });
+  },
+  resendOTP: (payload: ResendOtpPayload) => {
+    if (payload.type === 'reset') {
+      return api.post<ApiResponse<{ debugResetToken?: string }>>('/auth/forgot-password', {
+        email: payload.contact,
+      });
+    }
+
+    const endpoint = payload.type === 'email' ? '/auth/resend-email-otp' : '/auth/resend-phone-otp';
+    const key = payload.type === 'email' ? 'email' : 'phone';
+    return api.post<ApiResponse<{ resent: boolean }>>(endpoint, { [key]: payload.contact });
+  },
   login: (payload: LoginPayload) =>
     api.post<ApiResponse<{ user: AuthUser; accessToken: string; refreshToken: string }>>('/auth/login', payload),
   refreshToken: (refreshToken: string) =>
     api.post<ApiResponse<TokenPair>>('/auth/refresh-token', { refreshToken }),
   logout: (refreshToken: string) => api.post<ApiResponse<null>>('/auth/logout', { refreshToken }),
+  sendResetCode: (contact: string) =>
+    api.post<ApiResponse<{ debugResetToken?: string }>>('/auth/forgot-password', {
+      email: contact,
+    }),
   forgotPassword: (payload: ForgotPasswordPayload) =>
     api.post<ApiResponse<{ debugResetToken?: string }>>('/auth/forgot-password', payload),
   resetPassword: (payload: ResetPasswordPayload) =>

@@ -71,7 +71,23 @@ cd mobile
 npm install
 npm run web          # Run web version
 npm run android      # Android emulator
+npm run android:stable  # Stable Android mode (localhost + clean cache)
+npm run android:offline  # Android fallback if Expo shows fetch/network failure
 npm run ios          # iOS simulator (macOS only)
+```
+
+If `npm run android` shows `TypeError: fetch failed`, retry with:
+
+```bash
+npm run android:offline
+```
+
+Then switch back to `npm run android` once network access to Expo/GitHub is available.
+
+If Android Expo Go stays on loading/bundling for too long, use:
+
+```bash
+npm run android:stable
 ```
 
 ### Website Setup (Deferred Track)

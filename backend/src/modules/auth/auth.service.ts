@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 import { AppError } from '../../common/errors/AppError.js';
 import { logAuthAudit } from '../../common/utils/audit.js';
@@ -116,6 +116,23 @@ export const authService = {
     await user.save();
   },
 
+  resendEmailOtp: async (email: string): Promise<{ emailOtp: string }> => {
+    const user = await UserModel.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    const emailOtp = generateOtp();
+    user.emailOtp = {
+      code: emailOtp,
+      expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
+      attempts: 0,
+    };
+    await user.save();
+
+    return { emailOtp };
+  },
+
   verifyPhone: async (phone: string, otp: string): Promise<void> => {
     const user = await UserModel.findOne({ phone });
     if (!user) {
@@ -143,6 +160,23 @@ export const authService = {
     user.phoneVerified = true;
     user.phoneOtp = undefined;
     await user.save();
+  },
+
+  resendPhoneOtp: async (phone: string): Promise<{ phoneOtp: string }> => {
+    const user = await UserModel.findOne({ phone });
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    const phoneOtp = generateOtp();
+    user.phoneOtp = {
+      code: phoneOtp,
+      expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
+      attempts: 0,
+    };
+    await user.save();
+
+    return { phoneOtp };
   },
 
   login: async (input: LoginInput): Promise<{ user: IUser; accessToken: string; refreshToken: string }> => {

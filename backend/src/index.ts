@@ -98,7 +98,7 @@ const bootstrap = async (): Promise<void> => {
     console.error('[database] Connection failed. Server will start, but DB features may fail.', error);
   }
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
@@ -111,6 +111,16 @@ const bootstrap = async (): Promise<void> => {
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝
   `);
+  });
+
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`[server] Port ${PORT} is already in use. Stop the existing process or change PORT in backend/.env.`);
+      process.exit(1);
+    }
+
+    console.error('[server] Failed to start HTTP server.', error);
+    process.exit(1);
   });
 };
 

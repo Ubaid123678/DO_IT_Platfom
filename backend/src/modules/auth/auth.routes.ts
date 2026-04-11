@@ -7,7 +7,9 @@ const authRouter = Router();
 
 authRouter.post('/register', authController.register);
 authRouter.post('/verify-email', authController.verifyEmail);
+authRouter.post('/resend-email-otp', authController.resendEmailOtp);
 authRouter.post('/verify-phone', authController.verifyPhone);
+authRouter.post('/resend-phone-otp', authController.resendPhoneOtp);
 authRouter.post('/login', authController.login);
 authRouter.post('/refresh-token', authController.refreshToken);
 authRouter.post('/logout', authController.logout);

@@ -49,6 +49,22 @@ export const authController = {
     });
   }),
 
+  resendEmailOtp: asyncHandler(async (req: Request, res: Response) => {
+    const payload = validate(authValidators.resendEmailOtp, req.body);
+    const result = await authService.resendEmailOtp(payload.email);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        resent: true,
+        ...(isDev ? { debugOtp: result.emailOtp } : {}),
+      },
+      meta: {
+        message: 'Email OTP resent successfully.',
+      },
+    });
+  }),
+
   verifyPhone: asyncHandler(async (req: Request, res: Response) => {
     const payload = validate(authValidators.verifyPhone, req.body);
     await authService.verifyPhone(payload.phone, payload.otp);
@@ -60,6 +76,22 @@ export const authController = {
       },
       meta: {
         message: 'Phone verified successfully.',
+      },
+    });
+  }),
+
+  resendPhoneOtp: asyncHandler(async (req: Request, res: Response) => {
+    const payload = validate(authValidators.resendPhoneOtp, req.body);
+    const result = await authService.resendPhoneOtp(payload.phone);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        resent: true,
+        ...(isDev ? { debugOtp: result.phoneOtp } : {}),
+      },
+      meta: {
+        message: 'Phone OTP resent successfully.',
       },
     });
   }),
