@@ -15,6 +15,7 @@ interface Config {
   stripe_secret_key: string;
   wise_api_key: string;
   sendgrid_api_key: string;
+  sendgrid_from_email: string;
   twilio_account_sid: string;
   twilio_auth_token: string;
   twilio_phone_number: string;
@@ -28,6 +29,7 @@ interface Config {
   admin_jwt_secret: string;
   admin_ip_whitelist: string;
   log_level: string;
+  otp_debug_mode: boolean;
 }
 
 const config: Config = {
@@ -43,6 +45,7 @@ const config: Config = {
   stripe_secret_key: process.env.STRIPE_SECRET_KEY || '',
   wise_api_key: process.env.WISE_API_KEY || '',
   sendgrid_api_key: process.env.SENDGRID_API_KEY || '',
+  sendgrid_from_email: process.env.SENDGRID_FROM_EMAIL || '',
   twilio_account_sid: process.env.TWILIO_ACCOUNT_SID || '',
   twilio_auth_token: process.env.TWILIO_AUTH_TOKEN || '',
   twilio_phone_number: process.env.TWILIO_PHONE_NUMBER || '',
@@ -56,6 +59,10 @@ const config: Config = {
   admin_jwt_secret: process.env.ADMIN_JWT_SECRET || 'change-me',
   admin_ip_whitelist: process.env.ADMIN_IP_WHITELIST || '127.0.0.1,::1',
   log_level: process.env.LOG_LEVEL || 'info',
+  otp_debug_mode:
+    process.env.OTP_DEBUG_MODE !== undefined
+      ? process.env.OTP_DEBUG_MODE === 'true'
+      : process.env.NODE_ENV === 'test',
 };
 
 export default config;

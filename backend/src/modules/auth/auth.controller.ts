@@ -15,7 +15,7 @@ const validate = <T>(schema: { validate: (value: unknown) => { error?: { message
   return result.value;
 };
 
-const isDev = config.node_env !== 'production';
+const allowDebugOtp = config.otp_debug_mode;
 
 export const authController = {
   register: asyncHandler(async (req: Request, res: Response) => {
@@ -26,7 +26,7 @@ export const authController = {
       success: true,
       data: {
         user,
-        ...(isDev ? { debugOtp: { emailOtp, phoneOtp } } : {}),
+        ...(allowDebugOtp ? { debugOtp: { emailOtp, phoneOtp } } : {}),
       },
       meta: {
         message: 'Registration successful. Verify email and phone OTP.',
@@ -57,7 +57,7 @@ export const authController = {
       success: true,
       data: {
         resent: true,
-        ...(isDev ? { debugOtp: result.emailOtp } : {}),
+        ...(allowDebugOtp ? { debugOtp: result.emailOtp } : {}),
       },
       meta: {
         message: 'Email OTP resent successfully.',
@@ -88,7 +88,7 @@ export const authController = {
       success: true,
       data: {
         resent: true,
-        ...(isDev ? { debugOtp: result.phoneOtp } : {}),
+        ...(allowDebugOtp ? { debugOtp: result.phoneOtp } : {}),
       },
       meta: {
         message: 'Phone OTP resent successfully.',
@@ -146,7 +146,7 @@ export const authController = {
     res.status(200).json({
       success: true,
       data: {
-        ...(isDev && result.resetToken ? { debugResetToken: result.resetToken } : {}),
+        ...(allowDebugOtp && result.resetToken ? { debugResetToken: result.resetToken } : {}),
       },
       meta: {
         message: 'If this email exists, a reset flow has been initiated.',

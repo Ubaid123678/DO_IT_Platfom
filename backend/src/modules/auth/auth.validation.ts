@@ -11,7 +11,7 @@ export const authValidators = {
     email,
     phone,
     password,
-    role: Joi.string().valid('client', 'provider').required(),
+    role: Joi.string().valid('client', 'provider').optional(),
     countryCode: Joi.string().trim().length(2).uppercase().required(),
   }),
   login: Joi.object({
@@ -47,5 +47,6 @@ export const authValidators = {
   }),
   updateMe: Joi.object({
     fullName: Joi.string().trim().min(2).max(120),
+    role: Joi.string().valid('client', 'provider'),
   }).min(1),
 };

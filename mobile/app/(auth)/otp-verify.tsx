@@ -19,7 +19,7 @@ import { authService, type OtpFlowType } from '@/src/services/authService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const OTP_LENGTH = 6;
-const INITIAL_TIMER = 600;
+const INITIAL_TIMER = 60;
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60)
@@ -61,7 +61,11 @@ export default function OtpVerifyScreen() {
     contact?: string;
     email?: string;
     phone?: string;
+    nextType?: string;
+    nextContact?: string;
     nextRoute?: string;
+    debugOtp?: string;
+    nextDebugOtp?: string;
   }>();
 
   const flowType: OtpFlowType =
@@ -72,6 +76,9 @@ export default function OtpVerifyScreen() {
         : 'email';
 
   const rawContact = params.contact ?? params.email ?? params.phone ?? '';
+  const nextType = params.nextType === 'email' || params.nextType === 'phone' ? params.nextType : undefined;
+  const nextContact = params.nextContact;
+  const nextDebugOtp = params.nextDebugOtp;
   const contact = useMemo(() => maskContact(rawContact, flowType), [flowType, rawContact]);
   const resolvedNextRoute = (params.nextRoute || '/(auth)/login') as Href;
 
@@ -81,6 +88,7 @@ export default function OtpVerifyScreen() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [debugOtp, setDebugOtp] = useState(params.debugOtp ?? '');
 
   const otpRefs = useRef<Array<TextInput | null>>([]);
 
@@ -161,6 +169,20 @@ export default function OtpVerifyScreen() {
         contact: rawContact,
         otp: otp.join(''),
       });
+
+      if (nextType && nextContact) {
+        router.replace({
+          pathname: '/(auth)/otp-verify',
+          params: {
+            type: nextType,
+            contact: nextContact,
+            nextRoute: resolvedNextRoute as string,
+            debugOtp: nextDebugOtp,
+          },
+        });
+        return;
+      }
+
       setSuccess(true);
     } catch {
       setError('Invalid code. Please try again.');
@@ -176,10 +198,13 @@ export default function OtpVerifyScreen() {
 
     try {
       setError('');
-      await authService.resendOTP({
+      const response = await authService.resendOTP({
         type: flowType,
         contact: rawContact,
       });
+
+      const resentOtp = response.data.data.debugOtp ?? '';
+      setDebugOtp(resentOtp);
       setOtp(Array(OTP_LENGTH).fill(''));
       setTimer(INITIAL_TIMER);
       otpRefs.current[0]?.focus();
@@ -221,6 +246,14 @@ export default function OtpVerifyScreen() {
             <Text style={styles.title}>{isEmailFlow ? 'Check Your Email' : 'Check Your Phone'}</Text>
             <Text style={styles.subtitle}>We sent a 6-digit code to{`\n`}</Text>
             <Text style={styles.contactText}>{contact || 'your contact'}</Text>
+            <Text style={styles.contactHintText}>{rawContact || ''}</Text>
+
+            {debugOtp ? (
+              <View style={styles.debugCodeWrap}>
+                <Text style={styles.debugCodeLabel}>Testing Code</Text>
+                <Text style={styles.debugCodeValue}>{debugOtp}</Text>
+              </View>
+            ) : null}
 
             <View style={styles.otpRow}>
               {otp.map((digit, index) => {
@@ -255,7 +288,7 @@ export default function OtpVerifyScreen() {
             </View>
 
             <View style={styles.timerRow}>
-              <Text style={styles.timerLabel}>Code expires in</Text>
+              <Text style={styles.timerLabel}>Resend available in</Text>
               <Text style={styles.timerValue}>{formatTime(timer)}</Text>
             </View>
 
@@ -363,6 +396,33 @@ const makeStyles = (C: AppColors) =>
       fontSize: 14,
       fontWeight: '600',
       color: C.textPrimary,
+    },
+    contactHintText: {
+      marginTop: 4,
+      textAlign: 'center',
+      fontSize: 12,
+      color: C.textSecondary,
+    },
+    debugCodeWrap: {
+      marginTop: 14,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      backgroundColor: C.card,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+    },
+    debugCodeLabel: {
+      fontSize: 12,
+      color: C.textSecondary,
+      marginBottom: 2,
+    },
+    debugCodeValue: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: C.primary,
+      letterSpacing: 2,
     },
     otpRow: {
       flexDirection: 'row',

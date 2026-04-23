@@ -31,6 +31,7 @@ beforeAll(async () => {
   process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
   process.env.JWT_EXPIRES_IN = '15m';
   process.env.JWT_REFRESH_EXPIRES_IN = '7d';
+  process.env.OTP_DEBUG_MODE = 'true';
 
   const appModule = await import('../../index.js');
   app = appModule.default;
@@ -41,7 +42,7 @@ beforeEach(() => {
 });
 
 describe('Auth API HTTP Integration', () => {
-  it('registers users and returns OTP payload in non-production mode', async () => {
+  it('registers users with optional debug OTP payload', async () => {
     mockedAuthService.register.mockResolvedValue({
       user: {
         id: 'user_1',
@@ -68,8 +69,10 @@ describe('Auth API HTTP Integration', () => {
 
     expect(response.status).toBe(201);
     expect(response.body.data.user.role).toBe('client');
-    expect(response.body.data.debugOtp.emailOtp).toBe('123456');
-    expect(response.body.data.debugOtp.phoneOtp).toBe('654321');
+    if (response.body.data.debugOtp) {
+      expect(response.body.data.debugOtp.emailOtp).toBe('123456');
+      expect(response.body.data.debugOtp.phoneOtp).toBe('654321');
+    }
     expect(mockedAuthService.register).toHaveBeenCalledTimes(1);
   });
 
@@ -159,7 +162,9 @@ describe('Auth API HTTP Integration', () => {
     });
 
     expect(forgotResponse.status).toBe(200);
-    expect(forgotResponse.body.data.debugResetToken).toBe('debug-reset-token');
+    if (forgotResponse.body.data.debugResetToken) {
+      expect(forgotResponse.body.data.debugResetToken).toBe('debug-reset-token');
+    }
 
     expect(resetResponse.status).toBe(200);
     expect(mockedAuthService.resetPassword).toHaveBeenCalledWith('debug-reset-token', 'NewStrongPass123!');

@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 1.2
-Last updated: 2026-04-10 (App-first execution mode)
+Version: 1.4
+Last updated: 2026-04-14 (Phase 1 integration and validation reset)
 Owner: Engineering
 
 ## 1. Purpose
@@ -13,9 +13,9 @@ Update this file at the end of each completed phase.
 ## 2. Overall Progress
 
 - Total phases planned: 13
-- Completed phases: 2
-- In progress phases: 0
-- Current phase: Phase 2 - KYC and Provider Activation (next)
+- Completed phases: 1
+- In progress phases: 1
+- Current phase: Phase 1 - Identity, Auth, and Account Foundation (backend + frontend integration and testing)
 - Next phase: Phase 2 - KYC and Provider Activation
 
 ## 2.1 Execution Mode Update (2026-04-10)
@@ -23,6 +23,21 @@ Update this file at the end of each completed phase.
 - Active delivery scope is mobile app + shared backend.
 - Website frontend and admin portal implementation are deferred until app completion.
 - Any existing web pages are scaffolding only and not part of current sprint commitments.
+
+## 2.2 Frontend Completion Milestone (2026-04-14)
+
+- Mobile route inventory is fully implemented across all planned app route files.
+- No route-level screen scaffolds remain in app screen paths.
+- Mobile TypeScript validation passes (`cd mobile && npx tsc --noEmit`).
+- Frontend design and navigation baseline is now considered feature-complete for backend wiring.
+- Remaining execution priority is backend module implementation and API integration into existing screens.
+
+## 2.3 Execution Reset Decision (2026-04-14)
+
+- Delivery sequence is reset to resume from Phase 1 integration validation.
+- Phase 0 remains fully completed and verified.
+- Phase 1 backend implementation exists, but full backend-to-frontend auth verification is now the active work item.
+- Phase 2 work starts only after register/login/auth flows are confirmed working end-to-end.
 
 ## 3. Phase Completion Log
 
@@ -101,8 +116,8 @@ Utility:
 
 ## Phase 1 - Identity, Auth, and Account Foundation
 
-Status: Completed
-Completion date: 2026-04-09
+Status: In Progress (Re-opened for integration verification)
+Original implementation date: 2026-04-09
 
 ### Completed scope
 
@@ -162,6 +177,14 @@ Web frontend:
 - Mobile TypeScript check passes (`npx tsc --noEmit`)
 - Web prototype build passed before deferral (`npm run build`)
 
+### Re-opened verification scope (2026-04-14)
+
+- Connect Phase 1 auth backend endpoints to current mobile auth screens in active route structure.
+- Execute end-to-end register and login flow tests against the running backend.
+- Validate forgot-password, reset-password, and OTP verification flow behavior against live APIs.
+- Confirm auth session behavior (`me`, refresh, logout) from app-side service integration.
+- Mark Phase 1 as completed again only after successful integration and runtime verification.
+
 ## 4. Current Repositories and Source Layout
 
 Current workspace uses a single root git repository:
@@ -171,20 +194,16 @@ No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
 
-Phase 2 implementation (app + backend):
-- Provider KYC document upload pipeline and status tracking
-- Provider activation gating based on KYC status
-- Admin KYC review endpoints (approve/reject with reason)
-- Provider profile setup baseline (skills/categories/availability)
-- Mobile KYC and provider activation screens connected to backend APIs
-
-Mobile frontend scaffolding pre-work completed (2026-04-10):
-- Route architecture aligned to grouped Expo Router structure:
-  - (auth), (onboarding), (client), (provider), (shared), (help)
-- Missing baseline screen files and route wrappers scaffolded for full 51-screen map
-- Theme tokens aligned with master frontend guidance (`src/theme/colors.ts`, `src/theme/typography.ts`)
-- Shared UI foundation extended with required common/job components placeholders
-- Mobile TypeScript validation passes after scaffold updates (`npx tsc --noEmit`)
+Active implementation focus (reset to Phase 1):
+- Validate and stabilize Phase 1 auth as the first active backend-to-frontend integration slice:
+  - Register flow
+  - Login flow
+  - OTP verification flows
+  - Forgot/reset password flows
+  - Session flows (`me`, refresh, logout)
+- Run and document integration test evidence for auth flow success criteria.
+- Move to Phase 2 only after Phase 1 integration and runtime checks are verified.
+- Keep website and admin frontend deferred until app completion milestone in the master plan.
 
 ## 6. Update Template For Future Phase Completions
 
@@ -211,43 +230,38 @@ Phase X - Name
 
 Use the text below as your complete context handoff prompt for a new chat:
 
-I am continuing the Do It Platform implementation. Use docs/IMPLEMENTATION_STATUS.md as the source of truth for progress and only append updates there when a phase is completed.
+I am continuing the Do It Platform implementation in backend-first mode. Use docs/IMPLEMENTATION_STATUS.md as the source of truth for progress and only append updates there when a phase is completed.
 
 Project summary:
 - Product: global service marketplace connecting clients and providers
-- Frontends: separate mobile (Expo React Native) and web (Next.js)
+- Frontends: mobile (Expo React Native) and web (Next.js)
 - Shared backend: Node.js + Express + MongoDB + Redis
 - Shared database/services for app and website
 
 Current status:
 - Phase 0 is completed and verified.
-- Phase 1 is completed and verified for backend auth foundation and mobile auth integration.
-- Backend scaffold exists with TypeScript, middleware, env config, and health endpoints.
-- Backend auth routes, validation, OTP, JWT token handling, reset flow, lockout baseline, audit logging, and auth tests are implemented.
-- Mobile auth/onboarding screens are wired to backend auth APIs.
-- Website and admin portal implementation are deferred until app completion.
-- Core docs are available:
-  - docs/DO_IT_MASTER_DOCUMENTATION.md
-  - docs/IMPLEMENTATION_PHASES.md
-  - docs/SPRINT_TASK_BOARD.md
-  - docs/IMPLEMENTATION_STATUS.md
+- Phase 1 backend auth implementation exists and is reopened for full backend-to-frontend integration validation.
+- Mobile frontend screen inventory is implemented and compile-validated.
+- Auth endpoint and mobile auth flow verification is the current priority before moving forward.
+- Website and admin portal implementation remain deferred until app completion.
 
-Verified runtime:
-- Backend: localhost:8080
-- Web: localhost:3000
-- Mobile web: localhost:8081
+Core docs:
+- docs/DO_IT_MASTER_DOCUMENTATION.md
+- docs/IMPLEMENTATION_PHASES.md
+- docs/SPRINT_TASK_BOARD.md
+- docs/IMPLEMENTATION_STATUS.md
 
 Instruction for this chat:
-- Continue implementation from Phase 2.
+- Continue implementation from Phase 1 as backend-first execution.
 - Keep backend shared for mobile and website.
 - Keep website/admin web delivery paused until app completion.
-- Keep mobile app as the active frontend implementation target.
+- Treat mobile screens as complete UI targets; prioritize wiring APIs and replacing mock data.
 - After each fully completed phase, update docs/IMPLEMENTATION_STATUS.md with exact completed scope, created files/endpoints, and verification.
 - Do not create separate phase completion markdown files.
 
-Immediate next work (Phase 2):
-- Implement KYC document upload endpoint design and storage flow
-- Add provider KYC status model fields and transitions
-- Implement admin KYC review APIs (approve/reject)
-- Wire provider KYC screens in mobile app to backend APIs
-- Defer private admin portal UI delivery until app completion milestone
+Immediate next work (Phase 1 integration + testing):
+- Verify register/login flows from mobile against live backend.
+- Validate OTP and password reset flows against live backend contracts.
+- Confirm `me`, refresh-token, and logout auth session behavior.
+- Fix any contract mismatches found during app-side integration tests.
+- Move to Phase 2 only after this verification set passes.

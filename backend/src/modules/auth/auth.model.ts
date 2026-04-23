@@ -1,6 +1,6 @@
 import mongoose, { type Document, type Model, Schema } from 'mongoose';
 
-export type UserRole = 'client' | 'provider' | 'admin';
+export type UserRole = 'pending' | 'client' | 'provider' | 'admin';
 
 type OtpState = {
   code: string;
@@ -45,8 +45,8 @@ const userSchema = new Schema<IUser>(
     passwordHash: { type: String, required: true },
     role: {
       type: String,
-      enum: ['client', 'provider', 'admin'],
-      default: 'client',
+      enum: ['pending', 'client', 'provider', 'admin'],
+      default: 'pending',
       required: true,
       index: true,
     },

@@ -1,8 +1,10 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   ScrollView,
   StyleSheet,
@@ -13,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { authService } from '@/src/services/authService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 type Role = 'client' | 'provider';
@@ -29,6 +32,8 @@ const providerBullets = [
   'Build your reputation with reviews',
 ];
 
+const ONBOARDING_KEY = 'hasSeenOnboarding';
+
 export default function RoleSelectScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
@@ -36,6 +41,8 @@ export default function RoleSelectScreen() {
   const styles = makeStyles(C);
 
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const clientScale = useRef(new Animated.Value(1)).current;
   const providerScale = useRef(new Animated.Value(1)).current;
@@ -49,12 +56,64 @@ export default function RoleSelectScreen() {
     }).start();
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!selectedRole) {
       return;
     }
 
-    router.replace(selectedRole === 'client' ? '/(client)/home' : '/(provider)/home');
+    try {
+      setLoading(true);
+      setError('');
+
+      const [[, pendingEmail], [, pendingPassword]] = await AsyncStorage.multiGet(['pendingAuthEmail', 'pendingAuthPassword']);
+
+      if (!pendingEmail || !pendingPassword) {
+        router.replace('/(auth)/register');
+        return;
+      }
+
+      const loginResponse = await authService.login({
+        email: pendingEmail,
+        password: pendingPassword,
+      });
+
+      const loginPayload = loginResponse.data.data;
+
+      if (!loginPayload.user.emailVerified || !loginPayload.user.phoneVerified) {
+        router.replace({
+          pathname: '/(auth)/verification-status',
+          params: {
+            email: loginPayload.user.email,
+            phone: loginPayload.user.phone,
+            emailVerified: String(loginPayload.user.emailVerified),
+            phoneVerified: String(loginPayload.user.phoneVerified),
+          },
+        });
+        return;
+      }
+
+      const updateResponse = await authService.updateMe(loginPayload.accessToken, {
+        role: selectedRole,
+      });
+
+      const updatedUser = updateResponse.data.data.user;
+
+      await AsyncStorage.multiSet([
+        ['accessToken', loginPayload.accessToken],
+        ['refreshToken', loginPayload.refreshToken],
+        ['role', updatedUser.role],
+        ['user', JSON.stringify(updatedUser)],
+        [ONBOARDING_KEY, 'true'],
+      ]);
+
+      await AsyncStorage.multiRemove(['pendingAuthEmail', 'pendingAuthPassword']);
+
+      router.replace(updatedUser.role === 'provider' ? '/(provider)/home' : '/(client)/home');
+    } catch {
+      setError('Unable to complete onboarding. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -159,21 +218,26 @@ export default function RoleSelectScreen() {
       </ScrollView>
 
       <View style={styles.bottomCtaWrap}>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <TouchableOpacity
           style={[
             styles.continueButton,
-            { backgroundColor: selectedRole ? C.primary : C.textHint },
+            { backgroundColor: selectedRole && !loading ? C.primary : C.textHint },
           ]}
           onPress={handleContinue}
-          disabled={!selectedRole}
+          disabled={!selectedRole || loading}
         >
-          <Text style={styles.continueText}>
-            {selectedRole === 'client'
-              ? 'Continue as Client'
-              : selectedRole === 'provider'
-                ? 'Continue as Provider'
-                : 'Select a role to continue'}
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.continueText}>
+              {selectedRole === 'client'
+                ? 'Continue as Client'
+                : selectedRole === 'provider'
+                  ? 'Continue as Provider'
+                  : 'Select a role to continue'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -318,5 +382,11 @@ const makeStyles = (C: AppColors) =>
       color: 'white',
       fontSize: 16,
       fontWeight: '600',
+    },
+    errorText: {
+      textAlign: 'center',
+      color: C.error,
+      fontSize: 13,
+      marginBottom: 10,
     },
   });

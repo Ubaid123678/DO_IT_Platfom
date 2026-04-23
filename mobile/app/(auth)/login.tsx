@@ -25,7 +25,7 @@ export default function LoginScreen() {
   const C = scheme === 'dark' ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
 
-  const [emailOrPhone, setEmailOrPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -33,8 +33,13 @@ export default function LoginScreen() {
   const [biometric, setBiometric] = useState(false);
 
   const handleSignIn = async () => {
-    if (!emailOrPhone.trim() || !password.trim()) {
-      setError('Please enter your email or phone number and password.');
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter your email and password.');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      setError('Login currently supports email. Please enter a valid email address.');
       return;
     }
 
@@ -43,11 +48,42 @@ export default function LoginScreen() {
       setError('');
 
       const response = await authService.login({
-        email: emailOrPhone.trim(),
+        email: email.trim().toLowerCase(),
         password,
       });
 
       const payload = response.data.data;
+
+      if (!payload.user.emailVerified || !payload.user.phoneVerified) {
+        await AsyncStorage.multiSet([
+          ['pendingAuthEmail', email.trim().toLowerCase()],
+          ['pendingAuthPassword', password],
+        ]);
+
+        await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'role', 'user']);
+
+        router.replace({
+          pathname: '/(auth)/verification-status',
+          params: {
+            email: payload.user.email,
+            phone: payload.user.phone,
+            emailVerified: String(payload.user.emailVerified),
+            phoneVerified: String(payload.user.phoneVerified),
+          },
+        });
+        return;
+      }
+
+      if (payload.user.role === 'pending') {
+        await AsyncStorage.multiSet([
+          ['pendingAuthEmail', email.trim().toLowerCase()],
+          ['pendingAuthPassword', password],
+        ]);
+
+        await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'role', 'user']);
+        router.replace('/(onboarding)/role-select');
+        return;
+      }
 
       await AsyncStorage.multiSet([
         ['accessToken', payload.accessToken],
@@ -62,8 +98,16 @@ export default function LoginScreen() {
       }
 
       router.replace('/(client)/home');
-    } catch {
-      setError('Unable to sign in. Please check your credentials and try again.');
+    } catch (error) {
+      const message =
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message === 'string'
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Unable to sign in. Please check your credentials and try again.';
+
+      setError(message || 'Unable to sign in. Please check your credentials and try again.');
     } finally {
       setLoading(false);
     }
@@ -90,17 +134,17 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.formWrap}>
-            <Text style={styles.label}>Email or Phone Number</Text>
+            <Text style={styles.label}>Email</Text>
             <View style={styles.inputRow}>
               <Ionicons name="at-outline" size={20} color={C.textHint} style={styles.leftIcon} />
               <TextInput
                 style={styles.inputText}
-                placeholder="Enter email or phone"
+                placeholder="Enter your email"
                 placeholderTextColor={C.textHint}
                 autoCapitalize="none"
                 keyboardType="email-address"
-                value={emailOrPhone}
-                onChangeText={setEmailOrPhone}
+                value={email}
+                onChangeText={setEmail}
               />
             </View>
 

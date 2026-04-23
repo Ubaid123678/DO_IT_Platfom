@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -158,24 +159,51 @@ export default function RegisterScreen() {
       setErrors({});
 
       const normalizedPhone = `${country.dialCode}${phone.trim()}`;
-      await authService.register({
+      const response = await authService.register({
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),
         phone: normalizedPhone,
         password,
-        role: 'client',
         countryCode: country.code,
       });
+
+      const debugOtp = response.data.data.debugOtp;
+
+      await AsyncStorage.multiSet([
+        ['pendingAuthEmail', email.trim().toLowerCase()],
+        ['pendingAuthPassword', password],
+      ]);
 
       router.replace({
         pathname: '/(auth)/otp-verify',
         params: {
-          email: email.trim(),
-          phone: normalizedPhone,
+          type: 'email',
+          contact: email.trim().toLowerCase(),
+          nextType: 'phone',
+          nextContact: normalizedPhone,
+          nextRoute: '/(onboarding)/role-select',
+          debugOtp: debugOtp?.emailOtp,
+          nextDebugOtp: debugOtp?.phoneOtp,
         },
       });
-    } catch {
-      setErrors({ general: 'Registration failed. Please try again.' });
+    } catch (error) {
+      const apiMessage =
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        typeof (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message === 'string'
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : undefined;
+      const message = apiMessage ?? 'Registration failed. Please try again.';
+
+      const normalized = message.toLowerCase();
+      if (normalized.includes('phone') || normalized.includes('sms') || normalized.includes('twilio')) {
+        setErrors({ phone: message, general: message });
+      } else if (normalized.includes('email') || normalized.includes('sendgrid')) {
+        setErrors({ email: message, general: message });
+      } else {
+        setErrors({ general: message });
+      }
     } finally {
       setLoading(false);
     }
@@ -208,6 +236,8 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.formGroup}>
+            {errors.general ? <Text style={styles.errorText}>{errors.general}</Text> : null}
+
             <View>
               <Text style={styles.label}>Full Name</Text>
               <View style={getInputStyle('fullName')}>
@@ -370,7 +400,6 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
             {errors.agreedTerms ? <Text style={styles.errorText}>{errors.agreedTerms}</Text> : null}
-            {errors.general ? <Text style={styles.errorText}>{errors.general}</Text> : null}
 
             <TouchableOpacity
               style={[styles.createButton, { backgroundColor: allValid ? C.primary : C.textHint }]}

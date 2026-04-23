@@ -44,6 +44,14 @@ const resolveRoleFromStorage = async (): Promise<'client' | 'provider' | null> =
   return null;
 };
 
+type StoredUser = {
+  role?: string;
+  email?: string;
+  phone?: string;
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+};
+
 export default function SplashScreen() {
   const router = useRouter();
   const isDark = useColorScheme() === 'dark';
@@ -128,6 +136,33 @@ export default function SplashScreen() {
         if (!authToken) {
           router.replace('/(auth)/login');
           return;
+        }
+
+        const userRaw = await readFirstValue(USER_KEYS);
+        if (userRaw) {
+          try {
+            const parsed = JSON.parse(userRaw) as StoredUser;
+
+            if (parsed.emailVerified === false || parsed.phoneVerified === false) {
+              router.replace({
+                pathname: '/(auth)/verification-status',
+                params: {
+                  email: parsed.email ?? '',
+                  phone: parsed.phone ?? '',
+                  emailVerified: String(Boolean(parsed.emailVerified)),
+                  phoneVerified: String(Boolean(parsed.phoneVerified)),
+                },
+              });
+              return;
+            }
+
+            if (parsed.role === 'pending') {
+              router.replace('/(onboarding)/role-select');
+              return;
+            }
+          } catch {
+            // Fall through to role resolution below.
+          }
         }
 
         const role = await resolveRoleFromStorage();

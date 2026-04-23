@@ -2,7 +2,8 @@ import bcrypt from 'bcryptjs';
 
 import { AppError } from '../../common/errors/AppError.js';
 import { logAuthAudit } from '../../common/utils/audit.js';
-import UserModel, { type IUser, type UserRole } from './auth.model.js';
+import { sendEmailOtp, sendPhoneOtp } from '../../common/utils/otpDelivery.js';
+import UserModel, { type IUser } from './auth.model.js';
 import {
   generateAccessToken,
   generateOtp,
@@ -16,7 +17,7 @@ type RegisterInput = {
   email: string;
   phone: string;
   password: string;
-  role: UserRole;
+  role?: 'client' | 'provider';
   countryCode: string;
 };
 
@@ -27,9 +28,10 @@ type LoginInput = {
 
 type UpdateProfileInput = {
   fullName?: string;
+  role?: 'client' | 'provider';
 };
 
-const OTP_EXPIRY_MS = 10 * 60 * 1000;
+const OTP_EXPIRY_MS = 1 * 60 * 1000;
 const PASSWORD_RESET_EXPIRY_MS = 60 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 3;
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -71,7 +73,7 @@ export const authService = {
       email: input.email.toLowerCase(),
       phone: input.phone,
       passwordHash,
-      role: input.role,
+      role: input.role ?? 'pending',
       countryCode: input.countryCode,
       emailOtp: { code: emailOtp, expiresAt, attempts: 0 },
       phoneOtp: { code: phoneOtp, expiresAt, attempts: 0 },
@@ -83,6 +85,43 @@ export const authService = {
       email: user.email,
       metadata: { role: user.role },
     });
+
+    let emailSent = false;
+    let phoneSent = false;
+
+    try {
+      [emailSent, phoneSent] = await Promise.all([
+        sendEmailOtp(user.email, emailOtp),
+        sendPhoneOtp(user.phone, phoneOtp),
+      ]);
+    } catch (error) {
+      await UserModel.findByIdAndDelete(user.id);
+
+      if (error instanceof AppError) {
+        throw error;
+      }
+
+      throw new AppError('OTP delivery failed. Please try again.', 502, 'OTP_DELIVERY_FAILED');
+    }
+
+    if (!emailSent || !phoneSent) {
+      logAuthAudit(
+        {
+          event: 'auth.otp.delivery.not_configured',
+          userId: user.id,
+          email: user.email,
+          metadata: { emailSent, phoneSent },
+        },
+        'warn',
+      );
+
+      await UserModel.findByIdAndDelete(user.id);
+      throw new AppError(
+        'OTP delivery is not configured. Please set valid SendGrid and Twilio credentials.',
+        503,
+        'OTP_DELIVERY_UNAVAILABLE',
+      );
+    }
 
     return { user, emailOtp, phoneOtp };
   },
@@ -130,6 +169,24 @@ export const authService = {
     };
     await user.save();
 
+    const emailSent = await sendEmailOtp(user.email, emailOtp);
+    if (!emailSent) {
+      logAuthAudit(
+        {
+          event: 'auth.otp.delivery.not_configured',
+          userId: user.id,
+          email: user.email,
+          metadata: { emailSent, phoneSent: false },
+        },
+        'warn',
+      );
+      throw new AppError(
+        'Email OTP delivery is not configured. Please set valid SendGrid credentials.',
+        503,
+        'OTP_DELIVERY_UNAVAILABLE',
+      );
+    }
+
     return { emailOtp };
   },
 
@@ -175,6 +232,24 @@ export const authService = {
       attempts: 0,
     };
     await user.save();
+
+    const phoneSent = await sendPhoneOtp(user.phone, phoneOtp);
+    if (!phoneSent) {
+      logAuthAudit(
+        {
+          event: 'auth.otp.delivery.not_configured',
+          userId: user.id,
+          email: user.email,
+          metadata: { emailSent: false, phoneSent },
+        },
+        'warn',
+      );
+      throw new AppError(
+        'SMS OTP delivery is not configured. Please set valid Twilio credentials.',
+        503,
+        'OTP_DELIVERY_UNAVAILABLE',
+      );
+    }
 
     return { phoneOtp };
   },
@@ -339,6 +414,10 @@ export const authService = {
 
     if (input.fullName !== undefined) {
       user.fullName = input.fullName;
+    }
+
+    if (input.role !== undefined) {
+      user.role = input.role;
     }
 
     await user.save();

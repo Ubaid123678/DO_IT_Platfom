@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { authService } from '@/src/services/authService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 type UserState = {
@@ -130,6 +132,20 @@ export default function ProviderProfileScreen() {
     }
 
     return { bg: C.primaryLight, color: C.primary };
+  };
+
+  const handleLogout = async () => {
+    try {
+      const refreshToken = await AsyncStorage.getItem('refreshToken');
+      if (refreshToken) {
+        await authService.logout(refreshToken);
+      }
+    } catch {
+      // Local logout should still complete even if API call fails.
+    } finally {
+      await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'role', 'user']);
+      router.replace('/(auth)/login');
+    }
   };
 
   const MenuRow = ({
@@ -377,7 +393,7 @@ export default function ProviderProfileScreen() {
         </View>
 
         <View style={styles.dangerCard}>
-          <TouchableOpacity style={styles.dangerRow}>
+          <TouchableOpacity style={styles.dangerRow} onPress={() => void handleLogout()}>
             <View style={[styles.rowIconBox, { backgroundColor: isDark ? '#2E1010' : '#FDECEA' }]}>
               <Ionicons name="log-out-outline" size={20} color={C.error} />
             </View>
