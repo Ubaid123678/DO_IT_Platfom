@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 1.4
-Last updated: 2026-04-14 (Phase 1 integration and validation reset)
+Version: 1.5
+Last updated: 2026-04-23 (Phase 2 KYC workflow implemented and verified)
 Owner: Engineering
 
 ## 1. Purpose
@@ -13,10 +13,10 @@ Update this file at the end of each completed phase.
 ## 2. Overall Progress
 
 - Total phases planned: 13
-- Completed phases: 1
+- Completed phases: 2
 - In progress phases: 1
-- Current phase: Phase 1 - Identity, Auth, and Account Foundation (backend + frontend integration and testing)
-- Next phase: Phase 2 - KYC and Provider Activation
+- Current phase: Phase 2 - KYC and Provider Activation
+- Next phase: Phase 3 - Jobs Core (Create, Browse, Manage)
 
 ## 2.1 Execution Mode Update (2026-04-10)
 
@@ -38,6 +38,14 @@ Update this file at the end of each completed phase.
 - Phase 0 remains fully completed and verified.
 - Phase 1 backend implementation exists, but full backend-to-frontend auth verification is now the active work item.
 - Phase 2 work starts only after register/login/auth flows are confirmed working end-to-end.
+
+## 2.4 Phase 1 Completion Confirmation (2026-04-23)
+
+- Phase 1 backend-to-frontend integration has been completed and re-verified.
+- Register/login/OTP/password reset/session behavior is now connected and validated across backend + mobile app.
+- OTP provider integration now uses SendGrid + Twilio configuration with environment-driven debug mode control.
+- Auth flow enforces verification-first routing and pending-role selection before dashboard entry.
+- Phase 2 is now the active implementation phase.
 
 ## 3. Phase Completion Log
 
@@ -116,8 +124,9 @@ Utility:
 
 ## Phase 1 - Identity, Auth, and Account Foundation
 
-Status: In Progress (Re-opened for integration verification)
+Status: Completed
 Original implementation date: 2026-04-09
+Completion date: 2026-04-23
 
 ### Completed scope
 
@@ -185,6 +194,76 @@ Web frontend:
 - Confirm auth session behavior (`me`, refresh, logout) from app-side service integration.
 - Mark Phase 1 as completed again only after successful integration and runtime verification.
 
+### Final verification closure (2026-04-23)
+
+- Register, login, email OTP, phone OTP, resend OTP, forgot-password, reset-password flows validated against live backend APIs.
+- Auth resume behavior after app restart validated for partially verified and pending-role users.
+- OTP delivery integration switched to provider-backed mode with explicit configuration checks.
+- Provider error handling improved to surface actionable user-facing errors during OTP delivery failures.
+- Validation evidence:
+  - Backend build: Passed (`cd backend && npm run build`)
+  - Backend tests: Passed (`cd backend && npm test -- --run`)
+  - Mobile TypeScript check: Passed (`cd mobile && npx tsc --noEmit`)
+
+## Phase 2 - KYC and Provider Activation
+
+Status: In Progress
+Start date: 2026-04-23
+
+### Progress update (2026-04-23)
+
+Backend implemented:
+- Added dedicated KYC domain module with persisted `kyc_documents` model, review lifecycle, and strict Joi validation.
+- Added provider KYC endpoints:
+  - `GET /api/v1/kyc/provider/status`
+  - `POST /api/v1/kyc/provider/upload-url`
+  - `POST /api/v1/kyc/provider/submit`
+  - `POST /api/v1/kyc/provider/resubmit`
+  - `GET /api/v1/kyc/provider/restricted-access`
+- Added admin KYC review endpoints:
+  - `GET /api/v1/kyc/admin/submissions`
+  - `PATCH /api/v1/kyc/admin/:userId/approve`
+  - `PATCH /api/v1/kyc/admin/:userId/reject`
+- Added storage signed upload URL abstraction in backend services with `mock`, `s3`, and `r2` provider support.
+- Added authorization middleware for role checks and provider KYC approval gate middleware.
+- Registered KYC router into API v1 routes.
+
+Mobile implemented:
+- Added `mobile/src/services/kycService.ts` for provider KYC API integration.
+- Wired `mobile/app/(provider)/kyc.tsx` to live KYC status, signed upload URL generation, submit/resubmit flows, and rejection reason handling.
+- Added provider-side gating for restricted tabs in `mobile/app/(provider)/_layout.tsx` based on live/cached KYC state.
+- Updated provider home flow in `mobile/app/(provider)/home.tsx` to consume live KYC status and guard restricted quick actions.
+
+Automated validation added:
+- Added backend KYC service and HTTP integration tests:
+  - `backend/src/modules/kyc/kyc.service.test.ts`
+  - `backend/src/modules/kyc/kyc.integration.test.ts`
+
+Verification evidence:
+- Backend build: Passed (`cd backend && npm run build`)
+- Backend tests: Passed (`cd backend && npm test -- --run`)
+- Mobile TypeScript check: Passed (`cd mobile && npx tsc --noEmit`)
+
+### Active scope
+
+Backend:
+- Define `kyc_documents` model, storage metadata, and status state machine (`pending`, `approved`, `rejected`).
+- Implement signed upload URL endpoints for KYC files (S3/R2 adapter boundary).
+- Implement provider KYC submission endpoint and status query endpoint.
+- Implement admin KYC review endpoints (approve/reject with mandatory reason on rejection).
+- Enforce provider trust gating: block restricted provider actions until KYC is approved.
+
+Mobile frontend:
+- Wire [app/(provider)/kyc.tsx](app/(provider)/kyc.tsx) to live Phase 2 APIs.
+- Add document upload flow with clear pending/approved/rejected state UX.
+- Show rejection reason and re-submit path when KYC is rejected.
+- Enforce provider-side route guards for KYC-restricted actions.
+
+Verification target:
+- Unapproved provider cannot access restricted provider operations.
+- Approved provider can access provider job and proposal flows.
+- Admin review changes provider KYC status reliably and is reflected in app state.
+
 ## 4. Current Repositories and Source Layout
 
 Current workspace uses a single root git repository:
@@ -194,15 +273,13 @@ No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
 
-Active implementation focus (reset to Phase 1):
-- Validate and stabilize Phase 1 auth as the first active backend-to-frontend integration slice:
-  - Register flow
-  - Login flow
-  - OTP verification flows
-  - Forgot/reset password flows
-  - Session flows (`me`, refresh, logout)
-- Run and document integration test evidence for auth flow success criteria.
-- Move to Phase 2 only after Phase 1 integration and runtime checks are verified.
+Active implementation focus (Phase 2):
+- Build and integrate KYC and provider activation as the next backend-first vertical slice:
+  - KYC submit/upload/status endpoints
+  - Admin KYC review endpoints (approve/reject + reason)
+  - Provider action gating on KYC approval status
+  - Live mobile KYC screen integration and state handling
+- Add integration tests for KYC submission, status transitions, and authorization gates.
 - Keep website and admin frontend deferred until app completion milestone in the master plan.
 
 ## 6. Update Template For Future Phase Completions
@@ -240,9 +317,9 @@ Project summary:
 
 Current status:
 - Phase 0 is completed and verified.
-- Phase 1 backend auth implementation exists and is reopened for full backend-to-frontend integration validation.
+- Phase 1 is completed and integration-validated.
+- Phase 2 (KYC and Provider Activation) is now active.
 - Mobile frontend screen inventory is implemented and compile-validated.
-- Auth endpoint and mobile auth flow verification is the current priority before moving forward.
 - Website and admin portal implementation remain deferred until app completion.
 
 Core docs:
@@ -252,16 +329,16 @@ Core docs:
 - docs/IMPLEMENTATION_STATUS.md
 
 Instruction for this chat:
-- Continue implementation from Phase 1 as backend-first execution.
+- Continue implementation from Phase 2 as backend-first execution.
 - Keep backend shared for mobile and website.
 - Keep website/admin web delivery paused until app completion.
 - Treat mobile screens as complete UI targets; prioritize wiring APIs and replacing mock data.
 - After each fully completed phase, update docs/IMPLEMENTATION_STATUS.md with exact completed scope, created files/endpoints, and verification.
 - Do not create separate phase completion markdown files.
 
-Immediate next work (Phase 1 integration + testing):
-- Verify register/login flows from mobile against live backend.
-- Validate OTP and password reset flows against live backend contracts.
-- Confirm `me`, refresh-token, and logout auth session behavior.
-- Fix any contract mismatches found during app-side integration tests.
-- Move to Phase 2 only after this verification set passes.
+Immediate next work (Phase 2 implementation):
+- Implement KYC submission and status endpoints with strict validation.
+- Add signed upload URL generation and document metadata persistence.
+- Implement admin KYC review endpoints (approve/reject and reason capture).
+- Enforce provider action restrictions until KYC is approved.
+- Integrate provider KYC screen with live APIs and status UX states.

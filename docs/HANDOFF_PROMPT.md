@@ -1,12 +1,12 @@
-# Do It Backend Integration Handoff Prompt (Phase 1 Restart)
+# Do It Backend Integration Handoff Prompt (Phase 2 Kickoff)
 
-Use this prompt in a new chat to continue implementation with backend-first execution starting from Phase 1 integration.
+Use this prompt in a new chat to continue implementation with backend-first execution starting from Phase 2 (KYC and Provider Activation).
 
 ---
 
 I am continuing the Do It platform implementation.
-The mobile frontend is available, and we are restarting active backend execution from Phase 1.
-Phase 1 backend exists, but now we must connect and verify auth flows end-to-end before Phase 2.
+The mobile frontend is available, and active backend execution now starts from Phase 2.
+Phase 1 is completed and validated end-to-end; the next delivery slice is KYC and provider activation.
 
 Read these files first:
 - docs/DO_IT_MASTER_DOCUMENTATION.md
@@ -23,12 +23,13 @@ Current truth:
 - Mobile route inventory is fully implemented (51 app route files present).
 - Route-level screen scaffolds are removed.
 - Mobile TypeScript check passes (`cd mobile && npx tsc --noEmit`).
-- Backend auth foundation is implemented and tested.
+- Backend auth foundation is implemented, integrated, and verified with mobile.
 - Phase 0 is fully completed.
-- Phase 1 is reopened for backend-to-frontend integration and runtime verification.
+- Phase 1 is completed.
+- Phase 2 (KYC and Provider Activation) is now active.
 
 Primary objective for this chat:
-- Complete Phase 1 auth integration and testing from backend through frontend, then move to Phase 2.
+- Complete Phase 2 KYC and provider activation from backend through frontend.
 
 Backend implementation rules:
 1. Keep Express + TypeScript modular structure under backend/src/modules.
@@ -46,27 +47,28 @@ Frontend integration rules while wiring APIs:
 5. Keep route file ownership in mobile/app/*.tsx only (no src/screens reintroduction).
 
 Recommended implementation order:
-1. Phase 1: Identity, auth, and account flow integration verification
-2. Phase 2: KYC and provider activation
-3. Phase 3: Jobs core
-4. Phase 4: Proposals and matching
-5. Phase 5: Wallet and escrow
+1. Phase 2: KYC and provider activation
+2. Phase 3: Jobs core
+3. Phase 4: Proposals and matching
+4. Phase 5: Wallet and escrow
+5. Phase 6: Payouts and FX
 
-Definition of done for Phase 1 restart:
+Definition of done for Phase 2:
 1. Endpoints implemented with validation and authorization.
 2. Backend build passes (`cd backend && npm run build`).
 3. Backend tests pass (`cd backend && npm test -- --run`).
-4. Mobile service wiring compiles (`cd mobile && npx tsc --noEmit`) and register/login flows run successfully against backend.
-5. Forgot/reset password and OTP verify flows are tested against live backend contracts.
-6. Session flows (`me`, refresh-token, logout) are verified.
-7. docs/IMPLEMENTATION_STATUS.md updated only when the full Phase 1 verification set is complete.
+4. Mobile service wiring compiles (`cd mobile && npx tsc --noEmit`) and KYC flows run successfully against backend.
+5. Provider restrictions are enforced until KYC is approved.
+6. Admin KYC review actions (approve/reject with reason) are operational and audited.
+7. docs/IMPLEMENTATION_STATUS.md updated only when the full Phase 2 verification set is complete.
 
 Immediate next work:
-1. Connect and verify register and login flows from mobile to backend.
-2. Validate OTP and password reset flow behavior using live APIs.
-3. Run backend and mobile checks, then document verification results.
-4. Move to Phase 2 only after Phase 1 integration/testing is fully successful.
+1. Implement KYC document submission and status endpoints.
+2. Add signed upload URL generation and secure storage metadata handling.
+3. Implement admin KYC review endpoints (approve/reject + reason).
+4. Enforce KYC approval gating on provider-restricted actions.
+5. Wire [app/(provider)/kyc.tsx](app/(provider)/kyc.tsx) to live APIs and validate state transitions.
 
 ---
 
-Start from Phase 1 auth integration verification and keep frontend as the integration target.
+Start from Phase 2 KYC implementation and keep frontend as the integration target.
