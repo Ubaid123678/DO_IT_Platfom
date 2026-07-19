@@ -44,6 +44,8 @@ const hasTwilioConfig = (): boolean => {
   );
 };
 
+const shouldBypassOtpProviders = (): boolean => config.otp_debug_mode;
+
 const toTwilioAppError = (error: AxiosError<TwilioErrorPayload>): AppError => {
   const twilioCode =
     error.response?.data?.code ??
@@ -108,6 +110,10 @@ const toSendGridAppError = (error: AxiosError<SendGridErrorPayload>): AppError =
 };
 
 export const sendEmailOtp = async (email: string, otp: string): Promise<boolean> => {
+  if (shouldBypassOtpProviders()) {
+    return true;
+  }
+
   if (!hasSendGridConfig()) {
     return false;
   }
@@ -146,6 +152,10 @@ export const sendEmailOtp = async (email: string, otp: string): Promise<boolean>
 };
 
 export const sendPhoneOtp = async (phone: string, otp: string): Promise<boolean> => {
+  if (shouldBypassOtpProviders()) {
+    return true;
+  }
+
   if (!hasTwilioConfig()) {
     return false;
   }

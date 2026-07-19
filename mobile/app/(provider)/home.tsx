@@ -489,10 +489,11 @@ const makeStyles = (C: AppColors) =>
       marginBottom: 20,
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 10,
+      justifyContent: 'space-between',
+      rowGap: 12,
     },
     statCard: {
-      width: '48.5%',
+      width: '48%',
       backgroundColor: C.card,
       borderRadius: 12,
       borderWidth: 1,
