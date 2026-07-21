@@ -256,7 +256,7 @@ export default function ProviderEarningsScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.withdrawButton} onPress={() => router.push('/(client)/wallet-withdraw')}>
+        <TouchableOpacity style={styles.withdrawButton} onPress={() => router.push('/(provider)/withdraw')}>
           <Text style={styles.withdrawButtonText}>Withdraw Funds</Text>
         </TouchableOpacity>
 

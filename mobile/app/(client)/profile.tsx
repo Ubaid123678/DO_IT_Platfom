@@ -229,7 +229,7 @@ export default function ClientProfileScreen() {
               icon="shield-checkmark-outline"
               tone="teal"
               rightPillText={user.identityVerified ? 'Verified' : 'Pending'}
-              onPress={() => router.push('/(provider)/kyc')}
+              onPress={() => router.push('/(client)/verification')}
             />
             <MenuRow
               label="Payment Methods"

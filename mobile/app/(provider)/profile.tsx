@@ -362,7 +362,7 @@ export default function ProviderProfileScreen() {
             icon="card-outline"
             tone="amber"
             rightText="Bank"
-            onPress={() => router.push('/(provider)/earnings')}
+            onPress={() => router.push('/(provider)/withdraw')}
           />
           <MenuRow
             label="Verification"
