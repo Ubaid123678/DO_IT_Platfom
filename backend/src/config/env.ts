@@ -19,6 +19,10 @@ interface Config {
   twilio_account_sid: string;
   twilio_auth_token: string;
   twilio_phone_number: string;
+  storage_provider: string;
+  r2_account_id: string;
+  r2_public_url: string;
+  kyc_upload_url_ttl_minutes: number;
   aws_access_key_id: string;
   aws_secret_access_key: string;
   aws_region: string;
@@ -49,6 +53,10 @@ const config: Config = {
   twilio_account_sid: process.env.TWILIO_ACCOUNT_SID || '',
   twilio_auth_token: process.env.TWILIO_AUTH_TOKEN || '',
   twilio_phone_number: process.env.TWILIO_PHONE_NUMBER || '',
+  storage_provider: process.env.STORAGE_PROVIDER || 'mock',
+  r2_account_id: process.env.R2_ACCOUNT_ID || '',
+  r2_public_url: process.env.R2_PUBLIC_URL || '',
+  kyc_upload_url_ttl_minutes: parseInt(process.env.KYC_UPLOAD_URL_TTL_MINUTES || '15', 10),
   aws_access_key_id: process.env.AWS_ACCESS_KEY_ID || '',
   aws_secret_access_key: process.env.AWS_SECRET_ACCESS_KEY || '',
   aws_region: process.env.AWS_REGION || 'us-east-1',
