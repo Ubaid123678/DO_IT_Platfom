@@ -14,13 +14,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import JobStatusBadge from '@/src/components/job/JobStatusBadge';
+import { kycService } from '@/src/services/kycService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 type UserState = {
   name: string;
 };
 
-type KycStatus = 'approved' | 'pending' | 'not_started';
+type KycStatus = 'approved' | 'pending' | 'not_started' | 'missing' | 'rejected';
 
 type NearbyJob = {
   id: string;
@@ -110,9 +111,8 @@ export default function ProviderHomeScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const bootstrap = async () => {
       setUser({ name: 'Ubaid' });
-      setKycStatus('pending');
       setNearbyJobs(defaultNearbyJobs);
       setEarnings({
         total: 3450,
@@ -125,7 +125,18 @@ export default function ProviderHomeScreen() {
         completed: 38,
         rating: 4.8,
       });
-      setLoading(false);
+      try {
+        const status = await kycService.getProviderStatus();
+        setKycStatus(status.status);
+      } catch {
+        setKycStatus('pending');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      void bootstrap();
     }, 350);
 
     return () => clearTimeout(timer);

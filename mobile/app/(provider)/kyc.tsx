@@ -1,206 +1,181 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  kycService,
+  type KycDocument,
+  type KycDocumentType,
+  type KycStatus,
+  type KycUploadUrlResponse,
+} from '@/src/services/kycService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
-type KycStatus = 'not_started' | 'uploading' | 'pending' | 'approved' | 'rejected';
-type UploadTarget = 'front' | 'back' | 'selfie';
+type FormState = {
+  documentType: KycDocumentType;
+  fileName: string;
+  mimeType: string;
+  fileSizeBytes: string;
+  countryCode: string;
+  notes: string;
+};
 
-const steps = ['Documents', 'Selfie', 'Review'];
+const docTypes: Array<{ key: KycDocumentType; label: string }> = [
+  { key: 'id_card', label: 'ID Card' },
+  { key: 'passport', label: 'Passport' },
+  { key: 'driver_license', label: 'Driver License' },
+  { key: 'business_license', label: 'Business License' },
+  { key: 'proof_of_address', label: 'Proof of Address' },
+  { key: 'other', label: 'Other' },
+];
 
-const confettiPieces = [
-  { top: 8, left: 12, tone: 'primary' },
-  { top: 18, left: 28, tone: 'amber' },
-  { top: 4, left: 44, tone: 'primary' },
-  { top: 22, left: 60, tone: 'amber' },
-  { top: 10, left: 78, tone: 'primary' },
-  { top: 30, left: 86, tone: 'amber' },
-  { top: 58, left: 82, tone: 'primary' },
-  { top: 74, left: 68, tone: 'amber' },
-  { top: 82, left: 52, tone: 'primary' },
-  { top: 74, left: 34, tone: 'amber' },
-  { top: 60, left: 16, tone: 'primary' },
-  { top: 40, left: 6, tone: 'amber' },
-] as const;
+const statusMeta: Record<
+  KycStatus,
+  { title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap }
+> = {
+  missing: {
+    title: 'KYC not started',
+    subtitle: 'Submit your identity documents to unlock provider actions.',
+    icon: 'document-text-outline',
+  },
+  pending: {
+    title: 'Under review',
+    subtitle: 'Your documents were submitted and are waiting for admin review.',
+    icon: 'time-outline',
+  },
+  approved: {
+    title: 'KYC approved',
+    subtitle: 'Your provider account is fully activated.',
+    icon: 'shield-checkmark-outline',
+  },
+  rejected: {
+    title: 'KYC rejected',
+    subtitle: 'Fix the issues and resubmit your documents.',
+    icon: 'close-circle-outline',
+  },
+};
 
-const normalizeStatus = (value?: string): KycStatus => {
-  if (
-    value === 'not_started' ||
-    value === 'uploading' ||
-    value === 'pending' ||
-    value === 'approved' ||
-    value === 'rejected'
-  ) {
-    return value;
-  }
+const defaultForm: FormState = {
+  documentType: 'id_card',
+  fileName: 'provider-id-card.jpg',
+  mimeType: 'image/jpeg',
+  fileSizeBytes: '512000',
+  countryCode: 'PK',
+  notes: '',
+};
 
-  return 'not_started';
+const parseSize = (value: string): number => {
+  const parsed = Number.parseInt(value.trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 };
 
 export default function ProviderKycScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ kycStatus?: string | string[] }>();
   const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-  const C = isDark ? Colors.dark : Colors.light;
-  const styles = makeStyles(C, isDark);
+  const C = scheme === 'dark' ? Colors.dark : Colors.light;
+  const styles = makeStyles(C);
 
-  const paramStatus = Array.isArray(params.kycStatus) ? params.kycStatus[0] : params.kycStatus;
-
-  const [kycStatus, setKycStatus] = useState<KycStatus>(() => normalizeStatus(paramStatus));
-  const [frontDoc, setFrontDoc] = useState<string | null>(null);
-  const [backDoc, setBackDoc] = useState<string | null>(null);
-  const [selfie, setSelfie] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [status, setStatus] = useState<KycStatus>('missing');
+  const [latestDocument, setLatestDocument] = useState<KycDocument | null>(null);
+  const [uploadUrl, setUploadUrl] = useState<KycUploadUrlResponse | null>(null);
+  const [form, setForm] = useState<FormState>(defaultForm);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const [activeUpload, setActiveUpload] = useState<UploadTarget | null>(null);
-  const [flowStep, setFlowStep] = useState<1 | 2>(1);
+  const rejectionReason = latestDocument?.rejectionReason ?? '';
 
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const uploadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const canSubmit = useMemo(() => {
+    return (
+      form.fileName.trim().length > 0 &&
+      form.mimeType.trim().length > 0 &&
+      parseSize(form.fileSizeBytes) > 0 &&
+      form.countryCode.trim().length >= 2
+    );
+  }, [form.countryCode, form.fileName, form.fileSizeBytes, form.mimeType]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 280);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    const resolved = normalizeStatus(paramStatus);
-    setKycStatus(resolved);
-  }, [paramStatus]);
-
-  useEffect(() => {
-    if (uploadTimerRef.current) {
-      clearInterval(uploadTimerRef.current);
-    }
-
-    return () => {
-      if (uploadTimerRef.current) {
-        clearInterval(uploadTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (kycStatus === 'approved') {
-      scaleAnim.setValue(0);
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 7,
-        tension: 70,
-      }).start();
-    }
-  }, [kycStatus, scaleAnim]);
-
-  const currentStep = useMemo(() => {
-    if (kycStatus === 'pending') {
-      return 3;
-    }
-    return flowStep;
-  }, [kycStatus, flowStep]);
-
-  const beginUpload = (target: UploadTarget) => {
-    if (uploadTimerRef.current) {
-      clearInterval(uploadTimerRef.current);
-    }
-
-    setActiveUpload(target);
-    setUploadProgress(0);
-    setKycStatus('uploading');
-
-    let progress = 0;
-    uploadTimerRef.current = setInterval(() => {
-      progress += 10;
-      setUploadProgress(progress);
-
-      if (progress >= 100) {
-        if (uploadTimerRef.current) {
-          clearInterval(uploadTimerRef.current);
-        }
-
-        const sampleImage =
-          target === 'selfie'
-            ? 'https://images.unsplash.com/photo-1525134479668-1bee5c7c6845?auto=format&fit=crop&w=500&q=60'
-            : 'https://images.unsplash.com/photo-1589330694653-ded6df03f754?auto=format&fit=crop&w=800&q=60';
-
-        if (target === 'front') {
-          setFrontDoc(sampleImage);
-        }
-        if (target === 'back') {
-          setBackDoc(sampleImage);
-        }
-        if (target === 'selfie') {
-          setSelfie(sampleImage);
-        }
-
-        setActiveUpload(null);
-        setUploadProgress(0);
-        setKycStatus('not_started');
-      }
-    }, 120);
+  const refreshStatus = async () => {
+    const result = await kycService.getProviderStatus();
+    setStatus(result.status);
+    setLatestDocument(result.latestDocument);
   };
 
-  const canContinue = flowStep === 1 ? Boolean(frontDoc && backDoc) : Boolean(selfie);
+  useEffect(() => {
+    const bootstrap = async () => {
+      try {
+        await Promise.all([refreshStatus(), new Promise((resolve) => setTimeout(resolve, 280))]);
+      } catch {
+        setError('Unable to load KYC status. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const renderUploadZone = (
-    label: string,
-    target: UploadTarget,
-    uri: string | null
-  ) => {
-    const isUploadingThis = kycStatus === 'uploading' && activeUpload === target;
+    void bootstrap();
+  }, []);
 
-    return (
-      <View style={styles.uploadZone}>
-        {uri && !isUploadingThis ? (
-          <>
-            <Image source={{ uri }} style={styles.uploadedImage} />
-            <View style={styles.doneIconWrap}>
-              <Ionicons name="checkmark-circle" size={24} color={C.success} />
-            </View>
-          </>
-        ) : isUploadingThis ? (
-          <View style={styles.progressWrap}>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${uploadProgress}%` }]} />
-            </View>
-            <Text style={styles.progressText}>{`${uploadProgress}%`}</Text>
-          </View>
-        ) : (
-          <>
-            <Ionicons name="cloud-upload-outline" size={32} color={C.primary} />
-            <Text style={styles.uploadLabel}>{label}</Text>
+  const handleGenerateUploadUrl = async () => {
+    try {
+      setGenerating(true);
+      setError('');
+      const result = await kycService.createUploadUrl({
+        documentType: form.documentType,
+        fileName: form.fileName.trim(),
+        mimeType: form.mimeType.trim(),
+        fileSizeBytes: parseSize(form.fileSizeBytes),
+        countryCode: form.countryCode.trim().toUpperCase(),
+      });
+      setUploadUrl(result);
+    } catch {
+      setError('Unable to generate a signed upload URL.');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
-            <View style={styles.uploadActionsRow}>
-              <TouchableOpacity style={styles.primaryUploadButton} onPress={() => beginUpload(target)}>
-                <Text style={styles.primaryUploadButtonText}>Take Photo</Text>
-              </TouchableOpacity>
+  const handleSubmit = async () => {
+    if (!uploadUrl) {
+      setError('Generate an upload URL first.');
+      return;
+    }
 
-              <TouchableOpacity style={styles.secondaryUploadButton} onPress={() => beginUpload(target)}>
-                <Text style={styles.secondaryUploadButtonText}>Upload File</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-      </View>
-    );
+    try {
+      setSubmitting(true);
+      setError('');
+
+      const payload = {
+        documentType: form.documentType,
+        fileName: form.fileName.trim(),
+        mimeType: form.mimeType.trim(),
+        fileSizeBytes: parseSize(form.fileSizeBytes),
+        storageKey: uploadUrl.storageKey,
+        storageUrl: uploadUrl.uploadUrl,
+        storageProvider: uploadUrl.storageProvider,
+        countryCode: form.countryCode.trim().toUpperCase(),
+        notes: form.notes.trim() || undefined,
+      };
+
+      const document = status === 'rejected' ? await kycService.resubmitKyc(payload) : await kycService.submitKyc(payload);
+      setStatus(document.status);
+      setLatestDocument(document);
+      setUploadUrl(null);
+    } catch {
+      setError('Unable to submit KYC documents.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -208,48 +183,6 @@ export default function ProviderKycScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loaderWrap}>
           <ActivityIndicator size="large" color={C.primary} />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (kycStatus === 'approved') {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={22} color={C.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Identity Verification</Text>
-        </View>
-
-        <View style={styles.approvedWrap}>
-          <View style={styles.confettiArea}>
-            {confettiPieces.map((piece, index) => (
-              <View
-                key={`${piece.top}-${piece.left}-${index}`}
-                style={[
-                  styles.confetti,
-                  {
-                    top: `${piece.top}%`,
-                    left: `${piece.left}%`,
-                    backgroundColor: piece.tone === 'primary' ? C.primary : C.amber,
-                  },
-                ]}
-              />
-            ))}
-
-            <Animated.View style={[styles.approvedIconWrap, { transform: [{ scale: scaleAnim }] }]}>
-              <Ionicons name="shield-checkmark" size={48} color="white" />
-            </Animated.View>
-          </View>
-
-          <Text style={styles.approvedTitle}>KYC Approved!</Text>
-          <Text style={styles.approvedSubtitle}>You now have full access to all features.</Text>
-
-          <TouchableOpacity style={styles.fullWidthPrimaryButton} onPress={() => router.push('/(provider)/home')}>
-            <Text style={styles.fullWidthPrimaryButtonText}>Go to Dashboard</Text>
-          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -265,161 +198,168 @@ export default function ProviderKycScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {(kycStatus === 'not_started' || kycStatus === 'uploading' || kycStatus === 'pending') && (
-          <View style={styles.stepperWrap}>
-            <View style={styles.stepperRow}>
-              {steps.map((_, index) => {
-                const step = index + 1;
-                const completed = step < currentStep;
-                const active = step === currentStep;
+        <View style={styles.statusCard}>
+          <View style={styles.statusIconWrap}>
+            <Ionicons name={statusMeta[status].icon} size={30} color={C.primary} />
+          </View>
+          <Text style={styles.statusTitle}>{statusMeta[status].title}</Text>
+          <Text style={styles.statusSubtitle}>{statusMeta[status].subtitle}</Text>
 
-                return (
-                  <React.Fragment key={step}>
-                    <View
-                      style={[
-                        styles.stepCircle,
-                        completed || active ? styles.stepCircleFilled : styles.stepCirclePending,
-                      ]}
+          {rejectionReason ? (
+            <View style={styles.noticeCard}>
+              <Text style={styles.noticeLabel}>Rejection reason</Text>
+              <Text style={styles.noticeText}>{rejectionReason}</Text>
+            </View>
+          ) : null}
+
+          {latestDocument ? (
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryTitle}>Latest submission</Text>
+              <Text style={styles.summaryText}>{latestDocument.originalFileName}</Text>
+              <Text style={styles.summaryMeta}>{`${latestDocument.documentType} • ${latestDocument.countryCode} • ${latestDocument.storageProvider}`}</Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity style={styles.refreshButton} onPress={() => void refreshStatus()}>
+            <Text style={styles.refreshButtonText}>Refresh status</Text>
+          </TouchableOpacity>
+        </View>
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        {status !== 'approved' ? (
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>{status === 'rejected' ? 'Resubmit KYC' : 'Submit KYC'}</Text>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Document type</Text>
+              <View style={styles.chipWrap}>
+                {docTypes.map((item) => {
+                  const active = form.documentType === item.key;
+                  return (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}
+                      onPress={() => setForm((prev) => ({ ...prev, documentType: item.key }))}
                     >
-                      {completed ? (
-                        <Ionicons name="checkmark" size={14} color="white" />
-                      ) : (
-                        <Text
-                          style={[
-                            styles.stepText,
-                            completed || active ? styles.stepTextFilled : styles.stepTextPending,
-                          ]}
-                        >
-                          {step}
-                        </Text>
-                      )}
-                    </View>
-
-                    {index < steps.length - 1 ? (
-                      <View
-                        style={[
-                          styles.stepLine,
-                          step < currentStep ? styles.stepLineCompleted : styles.stepLinePending,
-                        ]}
-                      />
-                    ) : null}
-                  </React.Fragment>
-                );
-              })}
+                      <Text style={active ? styles.chipTextActive : styles.chipTextIdle}>{item.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
 
-            <View style={styles.stepLabelsRow}>
-              {steps.map((label) => (
-                <Text key={label} style={styles.stepLabelText}>
-                  {label}
-                </Text>
-              ))}
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>File name</Text>
+              <TextInput
+                style={styles.input}
+                value={form.fileName}
+                onChangeText={(value) => setForm((prev) => ({ ...prev, fileName: value }))}
+                placeholder="provider-id-card.jpg"
+                placeholderTextColor={C.textHint}
+              />
             </View>
-          </View>
-        )}
 
-        {(kycStatus === 'not_started' || kycStatus === 'uploading') && (
-          <View style={styles.docCard}>
-            <Ionicons name="id-card-outline" size={48} color={C.primary} />
-            <Text style={styles.docTitle}>Upload ID Document</Text>
-            <Text style={styles.docSubtitle}>Government-issued photo ID</Text>
+            <View style={styles.row}>
+              <View style={[styles.fieldBlock, styles.rowField]}>
+                <Text style={styles.fieldLabel}>MIME type</Text>
+                <TextInput
+                  style={styles.input}
+                  value={form.mimeType}
+                  onChangeText={(value) => setForm((prev) => ({ ...prev, mimeType: value }))}
+                  placeholder="image/jpeg"
+                  placeholderTextColor={C.textHint}
+                />
+              </View>
 
-            <View style={styles.requirementsWrap}>
-              {[
-                'Original, valid government-issued ID',
-                'Clear photo with all corners visible',
-                'No glare, blur, or obstructions',
-              ].map((item) => (
-                <View key={item} style={styles.requirementRow}>
-                  <Ionicons name="checkmark-circle" size={16} color={C.primary} />
-                  <Text style={styles.requirementText}>{item}</Text>
+              <View style={[styles.fieldBlock, styles.rowField]}>
+                <Text style={styles.fieldLabel}>File size</Text>
+                <TextInput
+                  style={styles.input}
+                  value={form.fileSizeBytes}
+                  onChangeText={(value) => setForm((prev) => ({ ...prev, fileSizeBytes: value }))}
+                  placeholder="512000"
+                  placeholderTextColor={C.textHint}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Country code</Text>
+              <TextInput
+                style={styles.input}
+                value={form.countryCode}
+                onChangeText={(value) => setForm((prev) => ({ ...prev, countryCode: value.toUpperCase() }))}
+                placeholder="PK"
+                placeholderTextColor={C.textHint}
+                autoCapitalize="characters"
+              />
+            </View>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Notes</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={form.notes}
+                onChangeText={(value) => setForm((prev) => ({ ...prev, notes: value }))}
+                placeholder="Add anything the reviewer should know"
+                placeholderTextColor={C.textHint}
+                multiline
+              />
+            </View>
+
+            {uploadUrl ? (
+              <View style={styles.uploadCard}>
+                <Ionicons name="cloud-upload-outline" size={20} color={C.primary} />
+                <View style={styles.uploadCopy}>
+                  <Text style={styles.uploadTitle}>Signed upload URL ready</Text>
+                  <Text style={styles.uploadSubtitle} numberOfLines={1}>
+                    {uploadUrl.uploadUrl}
+                  </Text>
                 </View>
-              ))}
+              </View>
+            ) : null}
+
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => void handleGenerateUploadUrl()}
+                disabled={generating}
+              >
+                {generating ? (
+                  <ActivityIndicator color={C.primary} />
+                ) : (
+                  <Text style={styles.secondaryButtonText}>Generate upload URL</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.primaryButton, !canSubmit || submitting ? styles.disabledButton : null]}
+                onPress={() => void handleSubmit()}
+                disabled={!canSubmit || submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>
+                    {status === 'rejected' ? 'Resubmit' : 'Submit'}
+                  </Text>
+                )}
+              </TouchableOpacity>
             </View>
-
-            <View style={styles.uploadZonesWrap}>
-              {flowStep === 1 ? (
-                <>
-                  {renderUploadZone('Front Side', 'front', frontDoc)}
-                  {renderUploadZone('Back Side', 'back', backDoc)}
-                </>
-              ) : (
-                renderUploadZone('Selfie Verification', 'selfie', selfie)
-              )}
-            </View>
-
-            <TouchableOpacity
-              style={[styles.fullWidthPrimaryButton, !canContinue ? styles.disabledButton : null]}
-              disabled={!canContinue}
-              onPress={() => {
-                if (flowStep === 1) {
-                  setFlowStep(2);
-                  return;
-                }
-
-                setKycStatus('pending');
-              }}
-            >
-              <Text style={styles.fullWidthPrimaryButtonText}>
-                {flowStep === 1 ? 'Continue to Selfie' : 'Submit for Review'}
-              </Text>
-            </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
-        {kycStatus === 'pending' && (
-          <>
-            <View style={styles.pendingBanner}>
-              <Ionicons name="time" size={24} color={C.amber} />
-
-              <View style={styles.pendingTextWrap}>
-                <Text style={styles.pendingTitle}>Under Review</Text>
-                <Text style={styles.pendingSubtitle}>We'll review within 24-48 hours</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity style={styles.outlineButton} onPress={() => router.push('/(provider)/home')}>
-              <Text style={styles.outlineButtonText}>Go to Dashboard</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {kycStatus === 'rejected' && (
-          <>
-            <View
-              style={[
-                styles.rejectedBanner,
-                { backgroundColor: isDark ? '#2E1010' : '#FDECEA', borderColor: C.error },
-              ]}
-            >
-              <Ionicons name="close-circle" size={24} color={C.error} />
-
-              <View style={styles.pendingTextWrap}>
-                <Text style={styles.rejectedTitle}>Verification Failed</Text>
-                <Text style={styles.pendingSubtitle}>Photo was blurry. Please retake all images clearly.</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.fullWidthPrimaryButton}
-              onPress={() => {
-                setFrontDoc(null);
-                setBackDoc(null);
-                setSelfie(null);
-                setFlowStep(1);
-                setKycStatus('not_started');
-              }}
-            >
-              <Text style={styles.fullWidthPrimaryButtonText}>Resubmit Documents</Text>
-            </TouchableOpacity>
-          </>
-        )}
+        <TouchableOpacity style={styles.homeButton} onPress={() => router.push('/(provider)/home')}>
+          <Text style={styles.homeButtonText}>Back to Provider Home</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const makeStyles = (C: AppColors, isDark: boolean) =>
+const makeStyles = (C: AppColors) =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -451,305 +391,243 @@ const makeStyles = (C: AppColors, isDark: boolean) =>
     },
     content: {
       paddingHorizontal: 20,
-      paddingBottom: 32,
+      paddingBottom: 30,
     },
-    stepperWrap: {
-      marginVertical: 20,
-    },
-    stepperRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    stepCircle: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    stepCircleFilled: {
-      backgroundColor: C.primary,
-    },
-    stepCirclePending: {
-      borderWidth: 2,
-      borderColor: C.cardBorder,
-      backgroundColor: C.background,
-    },
-    stepText: {
-      fontSize: 13,
-      fontWeight: '700',
-    },
-    stepTextFilled: {
-      color: 'white',
-    },
-    stepTextPending: {
-      color: C.textHint,
-    },
-    stepLine: {
-      flex: 1,
-      height: 2,
-      marginHorizontal: 8,
-      borderRadius: 2,
-      maxWidth: 86,
-    },
-    stepLineCompleted: {
-      backgroundColor: C.primary,
-    },
-    stepLinePending: {
-      backgroundColor: C.cardBorder,
-    },
-    stepLabelsRow: {
-      marginTop: 8,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      paddingHorizontal: 6,
-    },
-    stepLabelText: {
-      width: '33.33%',
-      textAlign: 'center',
-      fontSize: 11,
-      color: C.textHint,
-      fontWeight: '500',
-    },
-    docCard: {
+    statusCard: {
+      marginTop: 18,
       backgroundColor: C.card,
-      borderRadius: 16,
       borderWidth: 1,
       borderColor: C.cardBorder,
-      padding: 20,
+      borderRadius: 18,
+      padding: 18,
       alignItems: 'center',
     },
-    docTitle: {
-      marginTop: 12,
-      fontSize: 18,
+    statusIconWrap: {
+      width: 62,
+      height: 62,
+      borderRadius: 31,
+      backgroundColor: C.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 12,
+    },
+    statusTitle: {
+      fontSize: 20,
       fontWeight: '700',
       color: C.textPrimary,
       textAlign: 'center',
     },
-    docSubtitle: {
-      marginTop: 4,
+    statusSubtitle: {
+      marginTop: 6,
       fontSize: 13,
-      color: C.textSecondary,
-      textAlign: 'center',
-    },
-    requirementsWrap: {
-      marginTop: 12,
-      width: '100%',
-      gap: 8,
-    },
-    requirementRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    requirementText: {
-      fontSize: 13,
-      color: C.textSecondary,
-      flex: 1,
-    },
-    uploadZonesWrap: {
-      marginTop: 20,
-      width: '100%',
-      gap: 12,
-    },
-    uploadZone: {
-      height: 110,
-      borderRadius: 12,
-      borderStyle: 'dashed',
-      borderWidth: 2,
-      borderColor: C.primary,
-      backgroundColor: isDark ? '#0F3330' : C.primaryLight,
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
-      position: 'relative',
-      paddingHorizontal: 10,
-    },
-    uploadedImage: {
-      width: '100%',
-      height: '100%',
-      borderRadius: 12,
-    },
-    doneIconWrap: {
-      position: 'absolute',
-      right: 8,
-      top: 8,
-      backgroundColor: C.card,
-      borderRadius: 12,
-    },
-    uploadLabel: {
-      marginTop: 4,
-      fontSize: 13,
-      color: C.primary,
-      fontWeight: '500',
-    },
-    uploadActionsRow: {
-      marginTop: 10,
-      flexDirection: 'row',
-      gap: 10,
-    },
-    primaryUploadButton: {
-      height: 36,
-      borderRadius: 8,
-      paddingHorizontal: 16,
-      backgroundColor: C.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    primaryUploadButtonText: {
-      color: 'white',
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    secondaryUploadButton: {
-      height: 36,
-      borderRadius: 8,
-      paddingHorizontal: 16,
-      borderWidth: 1,
-      borderColor: C.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    secondaryUploadButtonText: {
-      color: C.primary,
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    progressWrap: {
-      width: '100%',
-      paddingHorizontal: 8,
-      alignItems: 'center',
-    },
-    progressTrack: {
-      width: '100%',
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: C.cardBorder,
-      overflow: 'hidden',
-    },
-    progressFill: {
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: C.primary,
-    },
-    progressText: {
-      marginTop: 8,
-      fontSize: 12,
-      fontWeight: '600',
-      color: C.primary,
-    },
-    fullWidthPrimaryButton: {
-      marginTop: 24,
-      width: '100%',
-      height: 52,
-      borderRadius: 12,
-      backgroundColor: C.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    disabledButton: {
-      opacity: 0.5,
-    },
-    fullWidthPrimaryButtonText: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: 'white',
-    },
-    pendingBanner: {
-      marginTop: 20,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: C.amber,
-      backgroundColor: C.amberLight,
-      padding: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    pendingTextWrap: {
-      flex: 1,
-    },
-    pendingTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: C.textPrimary,
-    },
-    pendingSubtitle: {
-      marginTop: 2,
-      fontSize: 13,
-      color: C.textSecondary,
-      lineHeight: 18,
-    },
-    outlineButton: {
-      marginTop: 20,
-      width: '100%',
-      height: 52,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: C.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    outlineButtonText: {
-      color: C.primary,
-      fontSize: 15,
-      fontWeight: '600',
-    },
-    approvedWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-      paddingBottom: 24,
-    },
-    confettiArea: {
-      width: 220,
-      height: 220,
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-    },
-    approvedIconWrap: {
-      width: 96,
-      height: 96,
-      borderRadius: 48,
-      backgroundColor: '#27AE60',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    confetti: {
-      position: 'absolute',
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-    },
-    approvedTitle: {
-      marginTop: 24,
-      fontSize: 26,
-      fontWeight: '700',
-      color: C.textPrimary,
-      textAlign: 'center',
-    },
-    approvedSubtitle: {
-      marginTop: 8,
-      fontSize: 14,
       color: C.textSecondary,
       textAlign: 'center',
       lineHeight: 20,
     },
-    rejectedBanner: {
-      marginTop: 20,
+    noticeCard: {
+      marginTop: 14,
+      width: '100%',
+      borderRadius: 14,
+      padding: 14,
+      backgroundColor: C.amberLight,
+    },
+    noticeLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: C.amber,
+      marginBottom: 4,
+    },
+    noticeText: {
+      fontSize: 13,
+      color: C.textPrimary,
+      lineHeight: 18,
+    },
+    summaryCard: {
+      marginTop: 14,
+      width: '100%',
+      borderRadius: 14,
+      padding: 14,
+      backgroundColor: C.background,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+    },
+    summaryTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: C.textPrimary,
+    },
+    summaryText: {
+      marginTop: 4,
+      fontSize: 12,
+      color: C.textSecondary,
+    },
+    summaryMeta: {
+      marginTop: 4,
+      fontSize: 11,
+      color: C.textHint,
+    },
+    refreshButton: {
+      marginTop: 16,
+      height: 44,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: C.primaryLight,
+      paddingHorizontal: 14,
+    },
+    refreshButtonText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: C.primary,
+    },
+    formCard: {
+      marginTop: 16,
+      backgroundColor: C.card,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      borderRadius: 18,
+      padding: 18,
+    },
+    formTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: C.textPrimary,
+      marginBottom: 14,
+    },
+    fieldBlock: {
+      marginBottom: 14,
+    },
+    fieldLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: C.textPrimary,
+      marginBottom: 8,
+    },
+    chipWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    chip: {
+      height: 34,
+      borderRadius: 17,
+      paddingHorizontal: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+    },
+    chipIdle: {
+      backgroundColor: C.background,
+      borderColor: C.cardBorder,
+    },
+    chipActive: {
+      backgroundColor: C.primaryLight,
+      borderColor: C.primary,
+    },
+    chipTextIdle: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: C.textPrimary,
+    },
+    chipTextActive: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: C.primary,
+    },
+    input: {
+      minHeight: 46,
       borderRadius: 12,
       borderWidth: 1,
-      padding: 16,
+      borderColor: C.cardBorder,
+      paddingHorizontal: 14,
+      color: C.textPrimary,
+      backgroundColor: C.background,
+    },
+    textArea: {
+      minHeight: 88,
+      textAlignVertical: 'top',
+      paddingTop: 12,
+    },
+    row: {
       flexDirection: 'row',
-      alignItems: 'center',
       gap: 12,
     },
-    rejectedTitle: {
-      fontSize: 16,
+    rowField: {
+      flex: 1,
+    },
+    uploadCard: {
+      marginTop: 4,
+      borderRadius: 14,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: C.primaryLight,
+    },
+    uploadCopy: {
+      flex: 1,
+    },
+    uploadTitle: {
+      fontSize: 12,
       fontWeight: '700',
+      color: C.textPrimary,
+    },
+    uploadSubtitle: {
+      marginTop: 2,
+      fontSize: 11,
+      color: C.textSecondary,
+    },
+    actionRow: {
+      marginTop: 4,
+      flexDirection: 'row',
+      gap: 12,
+    },
+    secondaryButton: {
+      flex: 1,
+      height: 48,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: C.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    secondaryButtonText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: C.primary,
+    },
+    primaryButton: {
+      flex: 1,
+      height: 48,
+      borderRadius: 12,
+      backgroundColor: C.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    primaryButtonText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: 'white',
+    },
+    disabledButton: {
+      opacity: 0.6,
+    },
+    errorText: {
+      marginTop: 14,
+      fontSize: 13,
       color: C.error,
+    },
+    homeButton: {
+      marginTop: 16,
+      height: 48,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: C.primaryLight,
+    },
+    homeButtonText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: C.primary,
     },
   });

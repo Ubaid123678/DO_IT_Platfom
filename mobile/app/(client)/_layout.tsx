@@ -86,6 +86,7 @@ export default function ClientLayout() {
       <Tabs.Screen name="wallet" options={{ href: null }} />
       <Tabs.Screen name="wallet-topup" options={{ href: null }} />
       <Tabs.Screen name="wallet-withdraw" options={{ href: null }} />
+      <Tabs.Screen name="verification" options={{ href: null }} />
     </Tabs>
   );
 }
