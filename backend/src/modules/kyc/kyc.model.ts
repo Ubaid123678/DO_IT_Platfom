@@ -1,32 +1,31 @@
-import mongoose, { Schema, type Document, type Model, type Types } from 'mongoose';
+import mongoose, { Schema, type Document, type Model } from 'mongoose';
 
 import type { UserRole } from '../auth/auth.model.js';
-import type { StorageProvider } from '../../common/utils/storage.js';
 
 export type KycStatus = 'pending' | 'approved' | 'rejected';
 
-export type KycDocumentType =
-  | 'id_card'
-  | 'passport'
-  | 'driver_license'
-  | 'business_license'
-  | 'proof_of_address'
-  | 'other';
+export type KycDocumentType = 'pass' | 'driving_license' | 'passport';
+
+export type LivenessStep = 'face_clear' | 'move_left' | 'move_right' | 'smile';
 
 export interface IKycDocument extends Document {
-  userId: Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
   userRole: UserRole;
   status: KycStatus;
   documentType: KycDocumentType;
-  storageProvider: StorageProvider;
-  storageKey: string;
-  storageUrl: string;
-  originalFileName: string;
-  mimeType: string;
-  fileSizeBytes: number;
+  documentImages: {
+    front: string;
+    back?: string;
+  };
+  livenessImages: {
+    face_clear: string;
+    move_left: string;
+    move_right: string;
+    smile: string;
+  };
   countryCode: string;
   submittedAt: Date;
-  reviewedBy?: Types.ObjectId;
+  reviewedBy?: mongoose.Types.ObjectId;
   reviewedAt?: Date;
   rejectionReason?: string;
   notes?: string;
@@ -52,19 +51,17 @@ const kycDocumentSchema = new Schema<IKycDocument>(
     },
     documentType: {
       type: String,
-      enum: ['id_card', 'passport', 'driver_license', 'business_license', 'proof_of_address', 'other'],
+      enum: ['pass', 'driving_license', 'passport'],
       required: true,
     },
-    storageProvider: {
-      type: String,
-      enum: ['mock', 's3', 'r2'],
+    documentImages: {
+      type: Schema.Types.Mixed,
       required: true,
     },
-    storageKey: { type: String, required: true, unique: true, index: true },
-    storageUrl: { type: String, required: true },
-    originalFileName: { type: String, required: true },
-    mimeType: { type: String, required: true },
-    fileSizeBytes: { type: Number, required: true },
+    livenessImages: {
+      type: Schema.Types.Mixed,
+      required: true,
+    },
     countryCode: { type: String, required: true, uppercase: true, trim: true },
     submittedAt: { type: Date, required: true, default: () => new Date() },
     reviewedBy: { type: Schema.Types.ObjectId, ref: 'User', required: false },

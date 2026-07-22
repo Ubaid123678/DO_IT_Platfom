@@ -69,6 +69,7 @@ export default function LoginScreen() {
             phone: payload.user.phone,
             emailVerified: String(payload.user.emailVerified),
             phoneVerified: String(payload.user.phoneVerified),
+            role: payload.user.role,
           },
         });
         return;

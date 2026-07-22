@@ -6,19 +6,15 @@ import { generateAccessToken } from '../auth/auth.utils.js';
 const mockedKycService = {
   getProviderStatus: vi.fn(),
   getRestrictedAccess: vi.fn(),
-  createUploadUrl: vi.fn(),
   submitKyc: vi.fn(),
   resubmitKyc: vi.fn(),
   listSubmissions: vi.fn(),
   reviewSubmission: vi.fn(),
   assertProviderApproved: vi.fn(),
+  getSubmissionDetail: vi.fn(),
 };
 
-vi.mock('./kyc.service.js', () => {
-  return {
-    kycService: mockedKycService,
-  };
-});
+vi.mock('./kyc.service.js', () => ({ kycService: mockedKycService }));
 
 let app: import('express').Express;
 
@@ -33,9 +29,7 @@ beforeAll(async () => {
   app = appModule.default;
 });
 
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+beforeEach(() => { vi.clearAllMocks(); });
 
 describe('KYC API HTTP Integration', () => {
   it('returns provider status payload for authenticated providers', async () => {
@@ -46,12 +40,7 @@ describe('KYC API HTTP Integration', () => {
     });
 
     mockedKycService.getProviderStatus.mockResolvedValue({
-      user: {
-        id: 'provider_1',
-        role: 'provider',
-        fullName: 'Provider One',
-        email: 'provider@example.com',
-      },
+      user: { id: 'provider_1', role: 'provider', fullName: 'Provider One', email: 'provider@example.com' },
       status: 'pending',
       canAccessRestrictedActions: false,
       latestDocument: null,
@@ -64,7 +53,7 @@ describe('KYC API HTTP Integration', () => {
     expect(mockedKycService.getProviderStatus).toHaveBeenCalledWith('provider_1');
   });
 
-  it('rejects invalid upload url payloads before service call', async () => {
+  it('rejects kyc submit with missing required fields', async () => {
     const token = generateAccessToken({
       sub: 'provider_2',
       role: 'provider',
@@ -72,15 +61,13 @@ describe('KYC API HTTP Integration', () => {
     });
 
     const response = await request(app)
-      .post('/api/v1/kyc/provider/upload-url')
+      .post('/api/v1/kyc/provider/submit')
       .set('Authorization', `Bearer ${token}`)
-      .send({
-        fileName: 'kyc.png',
-      });
+      .send({ documentType: 'passport' });
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe('VALIDATION_ERROR');
-    expect(mockedKycService.createUploadUrl).not.toHaveBeenCalled();
+    expect(mockedKycService.submitKyc).not.toHaveBeenCalled();
   });
 
   it('allows admins to approve provider submissions', async () => {
@@ -91,16 +78,8 @@ describe('KYC API HTTP Integration', () => {
     });
 
     mockedKycService.reviewSubmission.mockResolvedValue({
-      document: {
-        id: 'kyc_1',
-        status: 'approved',
-      },
-      user: {
-        id: 'provider_1',
-        role: 'provider',
-        fullName: 'Provider One',
-        email: 'provider@example.com',
-      },
+      document: { id: 'kyc_1', status: 'approved' },
+      user: { id: 'provider_1', role: 'provider', fullName: 'Provider One', email: 'provider@example.com' },
     });
 
     const response = await request(app)

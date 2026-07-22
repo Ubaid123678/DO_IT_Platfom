@@ -4,42 +4,23 @@ const {
   mockedFindById,
   mockedFindOne,
   mockedCreate,
-  mockedBuildKycStorageKey,
-  mockedBuildSignedUploadUrl,
-  mockedResolveStorageProvider,
+  mockedImageFind,
+  mockedImageDeleteMany,
 } = vi.hoisted(() => ({
   mockedFindById: vi.fn(),
   mockedFindOne: vi.fn(),
   mockedCreate: vi.fn(),
-  mockedBuildKycStorageKey: vi.fn(),
-  mockedBuildSignedUploadUrl: vi.fn(),
-  mockedResolveStorageProvider: vi.fn(),
+  mockedImageFind: vi.fn(),
+  mockedImageDeleteMany: vi.fn(),
 }));
 
-vi.mock('../auth/auth.model.js', () => {
-  return {
-    default: {
-      findById: mockedFindById,
-    },
-  };
-});
+vi.mock('../auth/auth.model.js', () => ({ default: { findById: mockedFindById } }));
 
-vi.mock('./kyc.model.js', () => {
-  return {
-    default: {
-      findOne: mockedFindOne,
-      create: mockedCreate,
-    },
-  };
-});
+vi.mock('./kyc.model.js', () => ({ default: { findOne: mockedFindOne, create: mockedCreate } }));
 
-vi.mock('../../common/utils/storage.js', () => {
-  return {
-    buildKycStorageKey: mockedBuildKycStorageKey,
-    buildSignedUploadUrl: mockedBuildSignedUploadUrl,
-    resolveStorageProvider: mockedResolveStorageProvider,
-  };
-});
+vi.mock('./kyc-image.model.js', () => ({
+  default: { find: mockedImageFind, deleteMany: mockedImageDeleteMany },
+}));
 
 import { kycService } from './kyc.service.js';
 
@@ -49,8 +30,6 @@ const providerUser = {
   role: 'provider',
   fullName: 'Provider User',
   email: 'provider@example.com',
-  phone: '+923001111111',
-  countryCode: 'PK',
   save: vi.fn(),
 };
 
@@ -71,49 +50,26 @@ const adminUser = {
   role: 'admin',
   fullName: 'Admin User',
   email: 'admin@example.com',
-  phone: '+923001111113',
-  countryCode: 'PK',
   save: vi.fn(),
 };
 
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+beforeEach(() => { vi.clearAllMocks(); });
 
 describe('kycService', () => {
-  it('generates upload urls for provider users', async () => {
-    mockedFindById.mockResolvedValue(providerUser);
-    mockedResolveStorageProvider.mockReturnValue('mock');
-    mockedBuildKycStorageKey.mockReturnValue('kyc/user_provider_1/123-id-card.png');
-    mockedBuildSignedUploadUrl.mockReturnValue({
-      uploadUrl: 'https://upload.test/kyc/user_provider_1/123-id-card.png',
-      expiresAt: new Date('2026-01-01T00:00:00.000Z'),
-      storageProvider: 'mock',
-    });
-
-    const result = await kycService.createUploadUrl('user_provider_1', {
-      documentType: 'id_card',
-      fileName: 'id-card.png',
-      mimeType: 'image/png',
-      fileSizeBytes: 1024,
-      countryCode: 'PK',
-    });
-
-    expect(result.storageKey).toBe('kyc/user_provider_1/123-id-card.png');
-    expect(result.uploadUrl).toContain('upload.test');
-    expect(mockedBuildSignedUploadUrl).toHaveBeenCalledWith(
-      'kyc/user_provider_1/123-id-card.png',
-      'image/png',
-      1024,
-      'mock',
-    );
-  });
-
-  it('stores pending kyc submissions and promotes pending accounts to provider', async () => {
+  it('stores pending kyc submissions with images and promotes pending accounts to provider', async () => {
     mockedFindById.mockResolvedValue(pendingUser);
-    mockedFindOne.mockReturnValue({
-      sort: vi.fn().mockResolvedValue(null),
-    });
+    mockedFindOne.mockReturnValue({ sort: vi.fn().mockResolvedValue(null) });
+
+    const mockImages = [
+      { _id: 'img_front', imageType: 'document_front', data: 'data:image/jpeg;base64,/9j/front' },
+      { _id: 'img_back', imageType: 'document_back', data: 'data:image/jpeg;base64,/9j/back' },
+      { _id: 'img_face', imageType: 'face_clear', data: 'data:image/jpeg;base64,/9j/face' },
+      { _id: 'img_left', imageType: 'move_left', data: 'data:image/jpeg;base64,/9j/left' },
+      { _id: 'img_right', imageType: 'move_right', data: 'data:image/jpeg;base64,/9j/right' },
+      { _id: 'img_smile', imageType: 'smile', data: 'data:image/jpeg;base64,/9j/smile' },
+    ];
+    mockedImageFind.mockResolvedValue(mockImages);
+    mockedImageDeleteMany.mockResolvedValue({ deletedCount: 6 });
 
     const createdDocument = {
       toJSON: () => ({
@@ -122,12 +78,6 @@ describe('kycService', () => {
         userRole: 'provider',
         status: 'pending',
         documentType: 'passport',
-        storageProvider: 'mock',
-        storageKey: 'kyc/user_pending_1/submit-passport.png',
-        storageUrl: 'https://upload.test/kyc/user_pending_1/submit-passport.png',
-        originalFileName: 'passport.png',
-        mimeType: 'image/png',
-        fileSizeBytes: 2048,
         countryCode: 'PK',
         submittedAt: new Date('2026-01-02T00:00:00.000Z'),
         reviewedBy: null,
@@ -138,17 +88,12 @@ describe('kycService', () => {
         updatedAt: new Date('2026-01-02T00:00:00.000Z'),
       }),
     };
-
     mockedCreate.mockResolvedValue(createdDocument);
 
     const result = await kycService.submitKyc('user_pending_1', {
       documentType: 'passport',
-      fileName: 'passport.png',
-      mimeType: 'image/png',
-      fileSizeBytes: 2048,
-      storageKey: 'kyc/user_pending_1/submit-passport.png',
-      storageUrl: 'https://upload.test/kyc/user_pending_1/submit-passport.png',
-      storageProvider: 'mock',
+      documentImageIds: { front: 'img_front', back: 'img_back' },
+      livenessImageIds: { face_clear: 'img_face', move_left: 'img_left', move_right: 'img_right', smile: 'img_smile' },
       countryCode: 'PK',
     });
 
@@ -160,14 +105,8 @@ describe('kycService', () => {
 
   it('approves pending submissions and updates provider access', async () => {
     mockedFindById.mockImplementation(async (id: string) => {
-      if (id === 'user_admin_1') {
-        return adminUser;
-      }
-
-      if (id === 'user_pending_1') {
-        return pendingUser;
-      }
-
+      if (id === 'user_admin_1') return adminUser;
+      if (id === 'user_pending_1') return pendingUser;
       return null;
     });
 
@@ -182,13 +121,7 @@ describe('kycService', () => {
         userId: 'user_pending_1',
         userRole: 'pending',
         status: 'approved',
-        documentType: 'id_card',
-        storageProvider: 'mock',
-        storageKey: 'kyc/user_pending_1/approved-id-card.png',
-        storageUrl: 'https://upload.test/kyc/user_pending_1/approved-id-card.png',
-        originalFileName: 'id-card.png',
-        mimeType: 'image/png',
-        fileSizeBytes: 1024,
+        documentType: 'passport',
         countryCode: 'PK',
         submittedAt: new Date('2026-01-03T00:00:00.000Z'),
         reviewedBy: 'user_admin_1',
@@ -200,15 +133,12 @@ describe('kycService', () => {
       }),
     };
 
-    mockedFindOne.mockReturnValue({
-      sort: vi.fn().mockResolvedValue(pendingDocument),
-    });
+    mockedFindOne.mockReturnValue({ sort: vi.fn().mockResolvedValue(pendingDocument) });
 
     const result = await kycService.reviewSubmission('user_admin_1', 'user_pending_1', 'approve');
 
     expect(result.document.status).toBe('approved');
     expect(pendingDocument.save).toHaveBeenCalledTimes(1);
-    expect(adminUser.role).toBe('admin');
     expect(pendingUser.role).toBe('provider');
   });
 });

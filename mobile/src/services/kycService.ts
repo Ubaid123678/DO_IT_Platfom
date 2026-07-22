@@ -3,21 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from './api';
 
 export type KycStatus = 'missing' | 'pending' | 'approved' | 'rejected';
-export type KycDocumentType = 'id_card' | 'passport' | 'driver_license' | 'business_license' | 'proof_of_address' | 'other';
-export type StorageProvider = 'mock' | 's3' | 'r2';
+export type KycDocumentType = 'pass' | 'driving_license' | 'passport';
 
 export type KycDocument = {
   id: string;
   userId: string;
-  userRole: 'pending' | 'client' | 'provider' | 'admin';
+  userRole: string;
   status: KycStatus;
   documentType: KycDocumentType;
-  storageProvider: StorageProvider;
-  storageKey: string;
-  storageUrl: string;
-  originalFileName: string;
-  mimeType: string;
-  fileSizeBytes: number;
   countryCode: string;
   submittedAt: string;
   reviewedBy: string | null;
@@ -28,6 +21,33 @@ export type KycDocument = {
   updatedAt: string;
 };
 
+export type KycImageType = 'document_front' | 'document_back' | 'face_clear' | 'move_left' | 'move_right' | 'smile';
+
+export type KycUploadImagePayload = {
+  imageType: KycImageType;
+  data: string;
+};
+
+export type KycUploadImageResponse = {
+  imageId: string;
+};
+
+export type KycSubmissionPayload = {
+  documentType: KycDocumentType;
+  documentImageIds: {
+    front: string;
+    back?: string;
+  };
+  livenessImageIds: {
+    face_clear: string;
+    move_left: string;
+    move_right: string;
+    smile: string;
+  };
+  countryCode: string;
+  notes?: string;
+};
+
 type ApiEnvelope<T> = {
   success: boolean;
   data: T;
@@ -36,7 +56,7 @@ type ApiEnvelope<T> = {
 export type KycStatusResponse = {
   user: {
     id: string;
-    role: 'pending' | 'client' | 'provider' | 'admin';
+    role: string;
     fullName: string;
     email: string;
   };
@@ -52,85 +72,48 @@ export type KycRestrictedAccessResponse = {
   latestDocument: KycDocument | null;
 };
 
-export type KycUploadUrlPayload = {
-  documentType: KycDocumentType;
-  fileName: string;
-  mimeType: string;
-  fileSizeBytes: number;
-  storageProvider?: StorageProvider;
-  countryCode: string;
-};
-
-export type KycSubmissionPayload = KycUploadUrlPayload & {
-  storageKey: string;
-  storageUrl: string;
-  notes?: string;
-};
-
-export type KycUploadUrlResponse = {
-  storageProvider: StorageProvider;
-  storageKey: string;
-  uploadUrl: string;
-  expiresAt: string;
-  documentType: KycDocumentType;
-  fileName: string;
-  mimeType: string;
-  fileSizeBytes: number;
-  countryCode: string;
-};
-
 const authHeaders = async (): Promise<Record<string, string>> => {
   const accessToken = await AsyncStorage.getItem('accessToken');
-
-  if (!accessToken) {
-    throw new Error('Access token is missing. Please sign in again.');
-  }
-
-  return {
-    Authorization: `Bearer ${accessToken}`,
-  };
+  if (!accessToken) throw new Error('Access token is missing. Please sign in again.');
+  return { Authorization: `Bearer ${accessToken}` };
 };
-
-const unwrap = <T>(response: { data: ApiEnvelope<T> }): T => response.data.data;
 
 export const kycService = {
   getProviderStatus: async (): Promise<KycStatusResponse> => {
     const response = await api.get<ApiEnvelope<KycStatusResponse>>('/kyc/provider/status', {
       headers: await authHeaders(),
     });
-
-    return unwrap(response);
+    return response.data.data;
   },
 
   getRestrictedAccess: async (): Promise<KycRestrictedAccessResponse> => {
     const response = await api.get<ApiEnvelope<KycRestrictedAccessResponse>>('/kyc/provider/restricted-access', {
       headers: await authHeaders(),
     });
-
-    return unwrap(response);
+    return response.data.data;
   },
 
-  createUploadUrl: async (payload: KycUploadUrlPayload): Promise<KycUploadUrlResponse> => {
-    const response = await api.post<ApiEnvelope<KycUploadUrlResponse>>('/kyc/provider/upload-url', payload, {
+  uploadImage: async (payload: KycUploadImagePayload): Promise<KycUploadImageResponse> => {
+    const response = await api.post<ApiEnvelope<KycUploadImageResponse>>('/kyc/provider/upload-image', payload, {
       headers: await authHeaders(),
+      timeout: 60000,
     });
-
-    return unwrap(response);
+    return response.data.data;
   },
 
   submitKyc: async (payload: KycSubmissionPayload): Promise<KycDocument> => {
     const response = await api.post<ApiEnvelope<{ document: KycDocument }>>('/kyc/provider/submit', payload, {
       headers: await authHeaders(),
+      timeout: 60000,
     });
-
     return response.data.data.document;
   },
 
   resubmitKyc: async (payload: KycSubmissionPayload): Promise<KycDocument> => {
     const response = await api.post<ApiEnvelope<{ document: KycDocument }>>('/kyc/provider/resubmit', payload, {
       headers: await authHeaders(),
+      timeout: 60000,
     });
-
     return response.data.data.document;
   },
 };

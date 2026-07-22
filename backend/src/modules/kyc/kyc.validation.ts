@@ -1,34 +1,41 @@
 import Joi from 'joi';
 
-const fileName = Joi.string().trim().min(1).max(255).required();
+const documentType = Joi.string().valid('pass', 'driving_license', 'passport').required();
+const countryCode = Joi.string().trim().uppercase().min(2).max(3).required();
+const objectId = Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required();
 
-const documentType = Joi.string()
-  .valid('id_card', 'passport', 'driver_license', 'business_license', 'proof_of_address', 'other')
+const base64Image = Joi.string()
+  .min(50)
+  .pattern(/^data:image\/[a-z]+;base64,/)
+  .required()
+  .messages({
+    'string.pattern.base': 'Image must be a valid base64 data URL (data:image/...;base64,...)',
+    'any.required': 'Image is required',
+  });
+
+const kycImageType = Joi.string()
+  .valid('document_front', 'document_back', 'face_clear', 'move_left', 'move_right', 'smile')
   .required();
 
-const storageProvider = Joi.string().valid('mock', 's3', 'r2').optional();
-
-const countryCode = Joi.string().trim().uppercase().min(2).max(3).required();
-
 export const kycValidators = {
-  uploadUrl: Joi.object({
-    documentType,
-    fileName,
-    mimeType: Joi.string().trim().min(3).max(120).required(),
-    fileSizeBytes: Joi.number().integer().positive().max(25 * 1024 * 1024).required(),
-    storageProvider,
-    countryCode,
+  uploadImage: Joi.object({
+    imageType: kycImageType,
+    data: base64Image,
   }),
   submit: Joi.object({
     documentType,
-    fileName,
-    mimeType: Joi.string().trim().min(3).max(120).required(),
-    fileSizeBytes: Joi.number().integer().positive().max(25 * 1024 * 1024).required(),
-    storageKey: Joi.string().trim().min(5).max(512).required(),
-    storageUrl: Joi.string().trim().uri({ scheme: ['http', 'https'] }).required(),
-    storageProvider,
+    documentImageIds: Joi.object({
+      front: objectId,
+      back: Joi.string().pattern(/^[a-fA-F0-9]{24}$/).optional().allow(''),
+    }).required(),
+    livenessImageIds: Joi.object({
+      face_clear: objectId,
+      move_left: objectId,
+      move_right: objectId,
+      smile: objectId,
+    }).required(),
     countryCode,
-    notes: Joi.string().trim().max(500).optional(),
+    notes: Joi.string().trim().max(500).optional().allow(''),
   }),
   review: Joi.object({
     reason: Joi.string().trim().min(3).max(500).when('action', {
@@ -42,7 +49,3 @@ export const kycValidators = {
     status: Joi.string().valid('missing', 'pending', 'approved', 'rejected').optional(),
   }),
 };
-
-export const providerRestrictionValidator = Joi.object({
-  userId: Joi.string().trim().min(1).required(),
-});

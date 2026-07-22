@@ -1,9 +1,11 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { authService } from '@/src/services/authService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const toBool = (value: string | undefined): boolean => value === 'true';
@@ -19,12 +21,15 @@ export default function VerificationStatusScreen() {
     phone?: string;
     emailVerified?: string;
     phoneVerified?: string;
+    role?: string;
   }>();
 
   const email = params.email ?? '';
   const phone = params.phone ?? '';
   const emailVerified = toBool(params.emailVerified);
   const phoneVerified = toBool(params.phoneVerified);
+  const userRole = params.role ?? 'pending';
+  const hasRole = userRole !== 'pending';
 
   const statusText = useMemo(() => {
     if (!emailVerified && !phoneVerified) {
@@ -48,14 +53,31 @@ export default function VerificationStatusScreen() {
       return;
     }
 
-    router.push({
-      pathname: '/(auth)/otp-verify',
-      params: {
-        type: 'email',
-        contact: email,
-        ...(phoneVerified ? { nextRoute: '/(onboarding)/role-select' } : { nextType: 'phone', nextContact: phone, nextRoute: '/(onboarding)/role-select' }),
-      },
-    });
+    const commonParams = {
+      type: 'email' as const,
+      contact: email,
+      role: userRole,
+    };
+
+    if (phoneVerified) {
+      router.push({
+        pathname: '/(auth)/otp-verify',
+        params: {
+          ...commonParams,
+          nextRoute: '/(onboarding)/role-select',
+        },
+      });
+    } else {
+      router.push({
+        pathname: '/(auth)/otp-verify',
+        params: {
+          ...commonParams,
+          nextType: 'phone',
+          nextContact: phone,
+          nextRoute: '/(onboarding)/role-select',
+        },
+      });
+    }
   };
 
   const goToPhoneVerification = () => {
@@ -69,6 +91,7 @@ export default function VerificationStatusScreen() {
       params: {
         type: 'phone',
         contact: phone,
+        role: userRole,
         nextRoute: '/(onboarding)/role-select',
       },
     });
@@ -76,6 +99,28 @@ export default function VerificationStatusScreen() {
 
   const continueToRole = () => {
     router.replace('/(onboarding)/role-select');
+  };
+
+  const continueToDashboard = async () => {
+    try {
+      const [[, pendingEmail], [, pendingPassword]] = await AsyncStorage.multiGet(['pendingAuthEmail', 'pendingAuthPassword']);
+      if (!pendingEmail || !pendingPassword) {
+        router.replace('/(auth)/login');
+        return;
+      }
+      const response = await authService.login({ email: pendingEmail, password: pendingPassword });
+      const payload = response.data.data;
+      await AsyncStorage.multiSet([
+        ['accessToken', payload.accessToken],
+        ['refreshToken', payload.refreshToken],
+        ['role', payload.user.role],
+        ['user', JSON.stringify(payload.user)],
+      ]);
+      await AsyncStorage.multiRemove(['pendingAuthEmail', 'pendingAuthPassword']);
+      router.replace(payload.user.role === 'provider' ? '/(provider)/home' : '/(client)/home');
+    } catch {
+      router.replace('/(auth)/login');
+    }
   };
 
   return (
@@ -122,9 +167,15 @@ export default function VerificationStatusScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {emailVerified && phoneVerified ? (
+        {emailVerified && phoneVerified && !hasRole ? (
           <TouchableOpacity style={styles.primaryButton} onPress={continueToRole}>
             <Text style={styles.primaryButtonText}>Continue to Role Selection</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {emailVerified && phoneVerified && hasRole ? (
+          <TouchableOpacity style={styles.primaryButton} onPress={continueToDashboard}>
+            <Text style={styles.primaryButtonText}>Continue to Dashboard</Text>
           </TouchableOpacity>
         ) : null}
 

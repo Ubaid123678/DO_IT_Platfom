@@ -26,8 +26,8 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Body Parser Middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Health Check Endpoint
 app.get('/health', (_req: Request, res: Response) => {
@@ -81,6 +81,17 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     return;
   }
 
+  if (err && typeof err === 'object' && 'type' in err && (err as { type: string }).type === 'request.aborted') {
+    res.status(499).json({
+      success: false,
+      error: {
+        code: 'REQUEST_ABORTED',
+        message: 'The connection was lost while receiving the request body. Please try again.',
+      },
+    });
+    return;
+  }
+
   console.error('Unhandled error:', err);
   res.status(500).json({
     success: false,
@@ -112,6 +123,10 @@ const bootstrap = async (): Promise<void> => {
 ╚════════════════════════════════════════════════════════════╝
   `);
   });
+
+  server.requestTimeout = 600_000;
+  server.headersTimeout = 610_000;
+  server.timeout = 600_000;
 
   server.on('error', (error: NodeJS.ErrnoException) => {
     if (error.code === 'EADDRINUSE') {

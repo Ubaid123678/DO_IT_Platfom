@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -66,6 +67,7 @@ export default function OtpVerifyScreen() {
     nextRoute?: string;
     debugOtp?: string;
     nextDebugOtp?: string;
+    role?: string;
   }>();
 
   const flowType: OtpFlowType =
@@ -79,6 +81,7 @@ export default function OtpVerifyScreen() {
   const nextType = params.nextType === 'email' || params.nextType === 'phone' ? params.nextType : undefined;
   const nextContact = params.nextContact;
   const nextDebugOtp = params.nextDebugOtp;
+  const userRole = params.role ?? '';
   const contact = useMemo(() => maskContact(rawContact, flowType), [flowType, rawContact]);
   const resolvedNextRoute = (params.nextRoute || '/(auth)/login') as Href;
 
@@ -117,12 +120,34 @@ export default function OtpVerifyScreen() {
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      router.replace(resolvedNextRoute);
-    }, 1500);
+    const redirectAfterVerification = async () => {
+      if (userRole && userRole !== 'pending') {
+        try {
+          const [[, pendingEmail], [, pendingPassword]] = await AsyncStorage.multiGet(['pendingAuthEmail', 'pendingAuthPassword']);
+          if (pendingEmail && pendingPassword) {
+            const response = await authService.login({ email: pendingEmail, password: pendingPassword });
+            const payload = response.data.data;
+            await AsyncStorage.multiSet([
+              ['accessToken', payload.accessToken],
+              ['refreshToken', payload.refreshToken],
+              ['role', payload.user.role],
+              ['user', JSON.stringify(payload.user)],
+            ]);
+            await AsyncStorage.multiRemove(['pendingAuthEmail', 'pendingAuthPassword']);
+            router.replace(payload.user.role === 'provider' ? '/(provider)/home' : '/(client)/home');
+            return;
+          }
+        } catch {
+          // fall through to default route
+        }
+      }
 
+      router.replace(resolvedNextRoute);
+    };
+
+    const timeoutId = setTimeout(redirectAfterVerification, 1500);
     return () => clearTimeout(timeoutId);
-  }, [resolvedNextRoute, router, success]);
+  }, [resolvedNextRoute, router, success, userRole]);
 
   const handleOtpChange = (index: number, value: string) => {
     const cleanValue = value.replace(/[^0-9]/g, '').slice(-1);
