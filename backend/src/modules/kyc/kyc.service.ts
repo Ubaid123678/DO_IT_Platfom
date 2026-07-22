@@ -1,3 +1,6 @@
+import fs from 'fs/promises';
+import path from 'path';
+
 import { AppError } from '../../common/errors/AppError.js';
 import UserModel, { type IUser } from '../auth/auth.model.js';
 import KycImageModel from './kyc-image.model.js';
@@ -22,9 +25,7 @@ const assertProviderEligible = (user: IUser): void => {
 };
 
 const assertAdmin = (user: IUser): void => {
-  if (user.role !== 'admin') {
-    throw new AppError('Admin access required', 403, 'FORBIDDEN');
-  }
+  if (user.role !== 'admin') throw new AppError('Admin access required', 403, 'FORBIDDEN');
 };
 
 const getUserOrThrow = async (userId: string): Promise<IUser> => {
@@ -75,6 +76,14 @@ const ensureLatestStatusAllowsSubmission = async (userId: string, mode: 'submit'
   }
 };
 
+const deleteFileIfExists = async (filePath: string): Promise<void> => {
+  try {
+    await fs.unlink(filePath);
+  } catch {
+    // ignore if file already removed
+  }
+};
+
 const resolveAndCleanupImages = async (userId: string, imageIds: Record<string, string>) => {
   const ids = Object.values(imageIds).filter(Boolean);
   const images = await KycImageModel.find({ _id: { $in: ids }, userId });
@@ -83,27 +92,33 @@ const resolveAndCleanupImages = async (userId: string, imageIds: Record<string, 
     throw new AppError('One or more uploaded images not found', 400, 'KYC_IMAGES_NOT_FOUND');
   }
 
-  const imageMap: Record<string, { imageType: string; data: string }> = {};
+  const imageMap: Record<string, { imageType: string; url: string }> = {};
   for (const img of images) {
-    imageMap[img._id.toString()] = { imageType: img.imageType, data: img.data };
+    imageMap[img._id.toString()] = { imageType: img.imageType, url: img.url };
   }
 
   const documentImages: { front: string; back?: string } = { front: '' };
   const docFront = imageMap[imageIds.front];
-  if (docFront) documentImages.front = docFront.data;
+  if (docFront) documentImages.front = docFront.url;
   if (imageIds.back) {
     const docBack = imageMap[imageIds.back];
-    if (docBack) documentImages.back = docBack.data;
+    if (docBack) documentImages.back = docBack.url;
   }
 
   const livenessImages: { face_clear: string; move_left: string; move_right: string; smile: string } = {
-    face_clear: imageMap[imageIds.face_clear]?.data || '',
-    move_left: imageMap[imageIds.move_left]?.data || '',
-    move_right: imageMap[imageIds.move_right]?.data || '',
-    smile: imageMap[imageIds.smile]?.data || '',
+    face_clear: imageMap[imageIds.face_clear]?.url || '',
+    move_left: imageMap[imageIds.move_left]?.url || '',
+    move_right: imageMap[imageIds.move_right]?.url || '',
+    smile: imageMap[imageIds.smile]?.url || '',
   };
 
   await KycImageModel.deleteMany({ _id: { $in: ids } });
+
+  for (const img of images) {
+    if (img.url?.startsWith('/uploads/')) {
+      await deleteFileIfExists(path.join(process.cwd(), img.url));
+    }
+  }
 
   return { documentImages, livenessImages };
 };
@@ -130,9 +145,9 @@ export const kycService = {
     };
   },
 
-  uploadImage: async (userId: string, imageType: string, data: string) => {
+  uploadImage: async (userId: string, imageType: string, url: string) => {
     await getUserOrThrow(userId);
-    const image = await KycImageModel.create({ userId, imageType, data, createdAt: new Date() });
+    const image = await KycImageModel.create({ userId, imageType, url });
     return { imageId: image._id.toString() };
   },
 

@@ -4,15 +4,6 @@ const documentType = Joi.string().valid('pass', 'driving_license', 'passport').r
 const countryCode = Joi.string().trim().uppercase().min(2).max(3).required();
 const objectId = Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required();
 
-const base64Image = Joi.string()
-  .min(50)
-  .pattern(/^data:image\/[a-z]+;base64,/)
-  .required()
-  .messages({
-    'string.pattern.base': 'Image must be a valid base64 data URL (data:image/...;base64,...)',
-    'any.required': 'Image is required',
-  });
-
 const kycImageType = Joi.string()
   .valid('document_front', 'document_back', 'face_clear', 'move_left', 'move_right', 'smile')
   .required();
@@ -20,7 +11,6 @@ const kycImageType = Joi.string()
 export const kycValidators = {
   uploadImage: Joi.object({
     imageType: kycImageType,
-    data: base64Image,
   }),
   submit: Joi.object({
     documentType,

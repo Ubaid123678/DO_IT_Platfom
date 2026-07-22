@@ -3,7 +3,7 @@ import mongoose, { Schema, type Document, type Model, type Types } from 'mongoos
 export interface IKycImage extends Document {
   userId: Types.ObjectId;
   imageType: string;
-  data: string;
+  url: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -16,7 +16,7 @@ const kycImageSchema = new Schema<IKycImage>(
       enum: ['document_front', 'document_back', 'face_clear', 'move_left', 'move_right', 'smile'],
       required: true,
     },
-    data: { type: String, required: true },
+    url: { type: String, required: true },
   },
   { timestamps: true },
 );

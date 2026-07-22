@@ -53,6 +53,9 @@ app.get('/api/v1/health', (_req: Request, res: Response) => {
   });
 });
 
+// Static file serving
+app.use('/uploads', express.static('uploads'));
+
 // API routes
 app.use('/api/v1', apiRouter);
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { requireRoles } from '../../middleware/authorization.middleware.js';
+import { handleMulter } from '../../common/utils/upload.js';
 import { kycController } from './kyc.controller.js';
 
 const kycRouter = Router();
@@ -13,7 +14,13 @@ kycRouter.get(
   requireRoles('pending', 'provider', 'admin'),
   kycController.getRestrictedAccess,
 );
-kycRouter.post('/provider/upload-image', authenticate, requireRoles('pending', 'provider', 'admin'), kycController.uploadImage);
+kycRouter.post(
+  '/provider/upload-image',
+  authenticate,
+  requireRoles('pending', 'provider', 'admin'),
+  handleMulter,
+  kycController.uploadImage,
+);
 kycRouter.post('/provider/submit', authenticate, requireRoles('pending', 'provider', 'admin'), kycController.submitKyc);
 kycRouter.post('/provider/resubmit', authenticate, requireRoles('pending', 'provider', 'admin'), kycController.resubmitKyc);
 

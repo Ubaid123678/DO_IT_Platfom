@@ -52,7 +52,7 @@ const DOC_OPTIONS: Array<{
 
 const PREVIEW_SIZE = (Dimensions.get('window').width - 80) / 2;
 
-type CapturedImage = { uri: string; base64: string };
+type CapturedImage = { uri: string };
 
 const takePicture = async (): Promise<CapturedImage | null> => {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -61,12 +61,9 @@ const takePicture = async (): Promise<CapturedImage | null> => {
     mediaTypes: ['images'],
     allowsEditing: false,
     quality: 0.4,
-    base64: true,
   });
   if (result.canceled || !result.assets?.[0]) return null;
-  const asset = result.assets[0];
-  if (!asset.base64) return null;
-  return { uri: asset.uri, base64: `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}` };
+  return { uri: result.assets[0].uri };
 };
 
 function canProceed(
@@ -135,10 +132,8 @@ export default function ProviderKycScreen() {
   const uploadDocImage = useCallback(async (side: 'front' | 'back', image: CapturedImage) => {
     setDocUploading((prev) => ({ ...prev, [side]: true }));
     try {
-      const result = await kycService.uploadImage({
-        imageType: side === 'front' ? 'document_front' : 'document_back',
-        data: image.base64,
-      });
+      const imageType = side === 'front' ? 'document_front' : 'document_back' as const;
+      const result = await kycService.uploadImage(imageType, image.uri);
       setDocImageIds((prev) => ({ ...prev, [side]: result.imageId }));
       return result.imageId;
     } catch (err: unknown) {
@@ -171,7 +166,7 @@ export default function ProviderKycScreen() {
     const imageType = LIVENESS_STEPS[currentLivenessStep].imageType;
     try {
       setUploading(true);
-      const result = await kycService.uploadImage({ imageType, data: picture.base64 });
+      const result = await kycService.uploadImage(imageType, picture.uri);
       setLivenessImageIds((prev) => ({ ...prev, [stepKey]: result.imageId }));
       if (currentLivenessStep < LIVENESS_STEPS.length - 1) {
         setCurrentLivenessStep((prev) => prev + 1);

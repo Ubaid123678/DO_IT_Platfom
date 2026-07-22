@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 
 import { api } from './api';
 
@@ -22,11 +23,6 @@ export type KycDocument = {
 };
 
 export type KycImageType = 'document_front' | 'document_back' | 'face_clear' | 'move_left' | 'move_right' | 'smile';
-
-export type KycUploadImagePayload = {
-  imageType: KycImageType;
-  data: string;
-};
 
 export type KycUploadImageResponse = {
   imageId: string;
@@ -93,11 +89,25 @@ export const kycService = {
     return response.data.data;
   },
 
-  uploadImage: async (payload: KycUploadImagePayload): Promise<KycUploadImageResponse> => {
-    const response = await api.post<ApiEnvelope<KycUploadImageResponse>>('/kyc/provider/upload-image', payload, {
-      headers: await authHeaders(),
-      timeout: 60000,
-    });
+  uploadImage: async (imageType: KycImageType, fileUri: string): Promise<KycUploadImageResponse> => {
+    const formData = new FormData();
+    formData.append('image', {
+      uri: fileUri,
+      type: 'image/jpeg',
+      name: 'photo.jpg',
+    } as unknown as Blob);
+    formData.append('imageType', imageType);
+
+    const accessToken = await AsyncStorage.getItem('accessToken');
+    const baseUrl = api.defaults.baseURL;
+    const response = await axios.post<ApiEnvelope<KycUploadImageResponse>>(
+      `${baseUrl}/kyc/provider/upload-image`,
+      formData,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 60000,
+      },
+    );
     return response.data.data;
   },
 

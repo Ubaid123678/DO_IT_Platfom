@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('fs/promises', () => ({ unlink: vi.fn().mockResolvedValue(undefined) }));
+
 const {
   mockedFindById,
   mockedFindOne,
@@ -61,12 +63,12 @@ describe('kycService', () => {
     mockedFindOne.mockReturnValue({ sort: vi.fn().mockResolvedValue(null) });
 
     const mockImages = [
-      { _id: 'img_front', imageType: 'document_front', data: 'data:image/jpeg;base64,/9j/front' },
-      { _id: 'img_back', imageType: 'document_back', data: 'data:image/jpeg;base64,/9j/back' },
-      { _id: 'img_face', imageType: 'face_clear', data: 'data:image/jpeg;base64,/9j/face' },
-      { _id: 'img_left', imageType: 'move_left', data: 'data:image/jpeg;base64,/9j/left' },
-      { _id: 'img_right', imageType: 'move_right', data: 'data:image/jpeg;base64,/9j/right' },
-      { _id: 'img_smile', imageType: 'smile', data: 'data:image/jpeg;base64,/9j/smile' },
+      { _id: 'img_front', imageType: 'document_front', url: '/uploads/kyc/front.jpg' },
+      { _id: 'img_back', imageType: 'document_back', url: '/uploads/kyc/back.jpg' },
+      { _id: 'img_face', imageType: 'face_clear', url: '/uploads/kyc/face.jpg' },
+      { _id: 'img_left', imageType: 'move_left', url: '/uploads/kyc/left.jpg' },
+      { _id: 'img_right', imageType: 'move_right', url: '/uploads/kyc/right.jpg' },
+      { _id: 'img_smile', imageType: 'smile', url: '/uploads/kyc/smile.jpg' },
     ];
     mockedImageFind.mockResolvedValue(mockImages);
     mockedImageDeleteMany.mockResolvedValue({ deletedCount: 6 });
