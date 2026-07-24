@@ -14,14 +14,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import JobStatusBadge from '@/src/components/job/JobStatusBadge';
-import { kycService } from '@/src/services/kycService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 type UserState = {
   name: string;
 };
-
-type KycStatus = 'approved' | 'pending' | 'not_started' | 'missing' | 'rejected';
 
 type NearbyJob = {
   id: string;
@@ -94,7 +91,6 @@ export default function ProviderHomeScreen() {
   const styles = makeStyles(C);
 
   const [user, setUser] = useState<UserState>({ name: 'Ubaid' });
-  const [kycStatus, setKycStatus] = useState<KycStatus>('pending');
   const [isOnline, setIsOnline] = useState(true);
   const [nearbyJobs, setNearbyJobs] = useState<NearbyJob[]>([]);
   const [earnings, setEarnings] = useState<EarningsState>({
@@ -125,14 +121,7 @@ export default function ProviderHomeScreen() {
         completed: 38,
         rating: 4.8,
       });
-      try {
-        const status = await kycService.getProviderStatus();
-        setKycStatus(status.status);
-      } catch {
-        setKycStatus('pending');
-      } finally {
-        setLoading(false);
-      }
+      setLoading(false);
     };
 
     const timer = setTimeout(() => {
@@ -193,21 +182,6 @@ export default function ProviderHomeScreen() {
             <View style={styles.unreadDot} />
           </TouchableOpacity>
         </View>
-
-        {kycStatus !== 'approved' ? (
-          <View style={styles.kycBanner}>
-            <Ionicons name="warning" size={22} color={C.amber} />
-
-            <View style={styles.kycTextWrap}>
-              <Text style={styles.kycTitle}>Complete KYC Verification</Text>
-              <Text style={styles.kycSubtitle}>Verify your identity to unlock all features</Text>
-            </View>
-
-            <TouchableOpacity style={styles.verifyButton} onPress={() => router.push('/(provider)/kyc')}>
-              <Text style={styles.verifyButtonText}>Verify</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
 
         <View style={styles.earningsCard}>
           <Text style={styles.earningsLabel}>Total Earnings</Text>
@@ -412,43 +386,6 @@ const makeStyles = (C: AppColors) =>
       position: 'absolute',
       top: 8,
       right: 8,
-    },
-    kycBanner: {
-      marginBottom: 16,
-      backgroundColor: C.amberLight,
-      borderWidth: 1,
-      borderColor: C.amber,
-      borderRadius: 12,
-      padding: 12,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-    kycTextWrap: {
-      flex: 1,
-    },
-    kycTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: C.textPrimary,
-    },
-    kycSubtitle: {
-      fontSize: 12,
-      color: C.textSecondary,
-      marginTop: 1,
-    },
-    verifyButton: {
-      backgroundColor: C.amber,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      height: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    verifyButtonText: {
-      color: 'white',
-      fontSize: 12,
-      fontWeight: '700',
     },
     earningsCard: {
       backgroundColor: C.primary,

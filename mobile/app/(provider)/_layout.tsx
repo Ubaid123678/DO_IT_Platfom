@@ -1,12 +1,43 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, useColorScheme, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import KycFlow from '@/src/components/KycFlow';
+import { kycService } from '@/src/services/kycService';
 import { Colors } from '@/src/theme/colors';
 
 export default function ProviderLayout() {
   const scheme = useColorScheme();
   const C = scheme === 'dark' ? Colors.dark : Colors.light;
+
+  const [kycGate, setKycGate] = useState<'loading' | 'approved' | 'blocked'>('loading');
+
+  const checkKyc = useCallback(async () => {
+    try {
+      const status = await kycService.getProviderStatus();
+      setKycGate(status.status === 'approved' ? 'approved' : 'blocked');
+    } catch {
+      setKycGate('blocked');
+    }
+  }, []);
+
+  useEffect(() => { void checkKyc(); }, [checkKyc]);
+
+  if (kycGate === 'loading') {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={C.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (kycGate !== 'approved') {
+    return <KycFlow onApproved={() => setKycGate('approved')} />;
+  }
 
   return (
     <Tabs
