@@ -32,13 +32,21 @@ export const kycController = {
 
   uploadImage: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = getAuthenticatedUserId(req);
-    if (!req.file) throw new AppError('Image file is required', 400, 'VALIDATION_ERROR');
-    if (!req.file.mimetype.startsWith('image/')) throw new AppError('Only image files are allowed', 400, 'VALIDATION_ERROR');
+    const { imageType, data } = validate(kycValidators.uploadImage, req.body);
 
-    const { imageType } = validate(kycValidators.uploadImage, req.body);
-    const fileUrl = `/uploads/kyc/${req.file.filename}`;
-    const result = await kycService.uploadImage(userId, imageType, fileUrl);
-    res.status(201).json({ success: true, data: result, meta: { message: 'Image uploaded successfully.' } });
+    if (req.file) {
+      if (!req.file.mimetype.startsWith('image/')) throw new AppError('Only image files are allowed', 400, 'VALIDATION_ERROR');
+      const fileUrl = `/uploads/kyc/${req.file.filename}`;
+      const result = await kycService.uploadImage(userId, imageType, fileUrl);
+      return res.status(201).json({ success: true, data: result, meta: { message: 'Image uploaded successfully.' } });
+    }
+
+    if (data) {
+      const result = await kycService.uploadImage(userId, imageType, data);
+      return res.status(201).json({ success: true, data: result, meta: { message: 'Image uploaded successfully.' } });
+    }
+
+    throw new AppError('Image file or base64 data is required', 400, 'VALIDATION_ERROR');
   }),
 
   submitKyc: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

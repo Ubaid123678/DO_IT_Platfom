@@ -1,4 +1,4 @@
-import * as ImagePicker from 'expo-image-picker';
+﻿import * as ImagePicker from 'expo-image-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -24,6 +24,7 @@ import {
   type KycImageType,
   type KycStatus,
 } from '@/src/services/kycService';
+import { api } from '@/src/services/api';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const LIVENESS_STEPS: Array<{
@@ -121,10 +122,15 @@ export default function ProviderKycScreen() {
 
   const bootstrap = useCallback(async () => {
     try {
+      console.log('[KYC] API base URL:', api.defaults.baseURL);
       const status = await kycService.getProviderStatus();
       setKycStatus(status.status);
       if (status.status === 'approved') setStep(5);
-    } catch { /* ignore */ } finally { setLoading(false); }
+    } catch (e) {
+      console.error('[KYC] bootstrap error:', e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { void bootstrap(); }, [bootstrap]);
@@ -138,10 +144,15 @@ export default function ProviderKycScreen() {
       return result.imageId;
     } catch (err: unknown) {
       setDocImages((prev) => ({ ...prev, [side]: null }));
-      const message =
-        err && typeof err === 'object' && 'response' in err
-          ? `Upload failed (${(err as { response: { status: number } }).response?.status || 'network error'})`
-          : 'Failed to upload image. Please try again.';
+      console.error('uploadDocImage error:', err);
+      const axiosErr = err as Record<string, unknown>;
+      let message = 'Failed to upload image. Please try again.';
+      if (axiosErr?.response && typeof axiosErr.response === 'object') {
+        const status = (axiosErr.response as Record<string, unknown>).status ?? 'network error';
+        message = `Upload failed (${status})`;
+      } else if (axiosErr?.message && typeof axiosErr.message === 'string') {
+        message = `Upload error: ${axiosErr.message}`;
+      }
       throw new Error(message);
     } finally {
       setDocUploading((prev) => ({ ...prev, [side]: false }));
@@ -171,7 +182,8 @@ export default function ProviderKycScreen() {
       if (currentLivenessStep < LIVENESS_STEPS.length - 1) {
         setCurrentLivenessStep((prev) => prev + 1);
       }
-    } catch {
+    } catch (err) {
+      console.error('captureAndUploadLiveness error:', err);
       setError('Failed to upload liveness image. Please try again.');
     } finally {
       setUploading(false);
@@ -546,3 +558,5 @@ const makeStyles = (C: AppColors, isDark: boolean) =>
     homeButton: { marginTop: 32, height: 52, borderRadius: 12, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', width: '100%' },
     homeButtonText: { color: 'white', fontSize: 16, fontWeight: '700' },
   });
+
+

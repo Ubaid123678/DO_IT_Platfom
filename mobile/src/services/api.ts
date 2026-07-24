@@ -40,7 +40,18 @@ const resolveApiBaseUrl = (): string => {
 export const api = axios.create({
   baseURL: resolveApiBaseUrl(),
   timeout: 10000,
-  headers: { 'Content-Type': 'application/json' },
+});
+
+const isFormData = (data: unknown): boolean =>
+  typeof FormData !== 'undefined' &&
+  (data instanceof FormData ||
+    (data !== null && typeof data === 'object' && (data as Record<string, unknown>).constructor?.name === 'FormData'));
+
+api.interceptors.request.use((config) => {
+  if (!isFormData(config.data)) {
+    config.headers['Content-Type'] = 'application/json';
+  }
+  return config;
 });
 
 let isRefreshing = false;

@@ -8,9 +8,14 @@ const kycImageType = Joi.string()
   .valid('document_front', 'document_back', 'face_clear', 'move_left', 'move_right', 'smile')
   .required();
 
+const base64Image = Joi.string()
+  .min(50)
+  .pattern(/^data:image\/[a-z]+;base64,/);
+
 export const kycValidators = {
   uploadImage: Joi.object({
     imageType: kycImageType,
+    data: base64Image.optional(),
   }),
   submit: Joi.object({
     documentType,

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import { api } from './api';
 
@@ -90,23 +90,13 @@ export const kycService = {
   },
 
   uploadImage: async (imageType: KycImageType, fileUri: string): Promise<KycUploadImageResponse> => {
-    const formData = new FormData();
-    formData.append('image', {
-      uri: fileUri,
-      type: 'image/jpeg',
-      name: 'photo.jpg',
-    } as unknown as Blob);
-    formData.append('imageType', imageType);
+    const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
+    const dataUrl = `data:image/jpeg;base64,${base64}`;
 
-    const accessToken = await AsyncStorage.getItem('accessToken');
-    const baseUrl = api.defaults.baseURL;
-    const response = await axios.post<ApiEnvelope<KycUploadImageResponse>>(
-      `${baseUrl}/kyc/provider/upload-image`,
-      formData,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 60000,
-      },
+    const response = await api.post<ApiEnvelope<KycUploadImageResponse>>(
+      '/kyc/provider/upload-image',
+      { imageType, data: dataUrl },
+      { headers: await authHeaders(), timeout: 60000 },
     );
     return response.data.data;
   },
