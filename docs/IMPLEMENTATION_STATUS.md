@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
 Version: 2.0
-Last updated: 2026-07-24 (Phase 2 KYC completed, Phase 3 active)
+Last updated: 2026-07-27 (Phase 2 KYC completed, Phase 3 active)
 Owner: Engineering
 
 ## 1. Purpose
@@ -12,11 +12,11 @@ Update this file at the end of each completed phase.
 
 ## 2. Overall Progress
 
-- Total phases planned: 13
+- Total phases planned: 14
 - Completed phases: 3 (Phase 0, Phase 1, Phase 2)
 - In progress phases: 0
-- Current phase: Phase 3 - Jobs Core (Create, Browse, Manage)
-- Next phase: Phase 4 - Proposals and Matching Engine
+- Current phase: Phase 3 - Provider Onboarding & Verification System
+- Next phase: Phase 4 - Jobs Core (Create, Browse, Manage)
 
 ## 2.1 Execution Mode
 
@@ -26,7 +26,7 @@ Update this file at the end of each completed phase.
 
 ## 2.2 Phase 2 Completion Summary
 
-Phase 2 (KYC and Provider Activation) is fully implemented and verified:
+Phase 2 (KYC and Identity Verification) is fully implemented and verified:
 
 - Backend: KYC module with document upload (base64 + multipart), submission, resubmission, admin review (approve/reject with reason), provider role promotion, and restricted-action gating.
 - Mobile: Extracted `KycFlow` component with 5-step wizard + status screens. Layout-level KYC gate prevents access to tabs until approved. `useFocusEffect` for auto-refresh on navigation focus.
@@ -141,7 +141,7 @@ Mobile frontend:
 
 ---
 
-## Phase 2 - KYC and Provider Activation
+## Phase 2 - KYC and Identity Verification
 
 Status: Completed
 Start date: 2026-04-23
@@ -266,13 +266,17 @@ No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
 
-Active implementation focus (Phase 3):
-- Build and integrate Jobs Core (Create, Browse, Manage)
-- Client post job flow (physical/digital) with API endpoints
-- Provider browse feed with filters
-- Client job list and detail endpoints
-- Geo indexing and query support
-- Status transition validations for open/cancel rules
+Active implementation focus (Phase 3 - Provider Onboarding & Verification System):
+- Build skill_categories and skill_items collections with CRUD endpoints
+- Implement provider category/skill selection API
+- Build physical verification track: certificate/license upload, prior work photos
+- Build digital verification track: certificate upload, portfolio links
+- Implement verification_records and admin_reviews models with status state machine
+- Build admin verification review queue (approve/reject/request-info)
+- Implement Provider.overall_status aggregator (derived from KYC + verification records)
+- Build resume upload and parsing pipeline
+- Implement verification status tracking and resubmission flow
+- Build auto-verification workers for credential URLs and skill tests (MVP)
 - Keep website and admin frontend deferred until app completion milestone
 
 ## 6. Update Template For Future Phase Completions
@@ -310,7 +314,7 @@ Project summary:
 
 Current status:
 - Phase 0, Phase 1, and Phase 2 are all completed and verified.
-- Phase 3 (Jobs Core) is the active implementation phase.
+- Phase 3 (Provider Onboarding & Verification System) is the active implementation phase.
 - Mobile frontend screens are implemented; priority is wiring backend APIs.
 - Website and admin portal implementation remain deferred until app completion.
 
@@ -331,9 +335,13 @@ Instruction for this chat:
 - Do not create separate phase completion markdown files.
 
 Immediate next work (Phase 3 implementation):
-- Build Job model with status state machine (open, assigned, in_progress, completed, cancelled, disputed)
-- Implement client job creation endpoints for physical and digital job types
-- Implement provider job browse feed with category/location/price filters
-- Add geo indexing and distance-based query support
-- Implement job status transition validations
-- Integrate mobile job screens with live APIs
+- Build skill_categories and skill_items collections with CRUD API endpoints
+- Implement provider category/skill selection API
+- Build verification_records collection with status state machine (draft/pending_review/scheduled/auto_approved/approved/rejected/expired)
+- Implement physical verification track: certificate/license upload, prior work photos
+- Implement digital verification track: certificate upload, portfolio links
+- Build admin verification review queue with approve/reject/request-info actions and immutable audit trail
+- Implement Provider.overall_status aggregator (incomplete/pending/partially_verified/verified/rejected)
+- Build resume upload and parsing pipeline
+- Implement auto-verification workers for credential URLs, OAuth signals, and skill tests
+- Wire mobile onboarding screens (category selection, evidence submission, status hub) to live APIs

@@ -1,7 +1,7 @@
 # Web / Admin Portal — Remaining Work
 
-Last updated: 2026-07-24
-Status: Deferred until mobile app completion (see Phase 11 in docs/IMPLEMENTATION_PHASES.md)
+Last updated: 2026-07-27
+Status: Deferred until mobile app completion (see Phase 12 in docs/IMPLEMENTATION_PHASES.md)
 
 ---
 
@@ -37,6 +37,10 @@ All admin endpoints exist on the backend (`/api/v1/admin/*`, `/api/v1/kyc/admin/
 | Dashboard | `/admin` | — | Not started (stats/overview) |
 | Submissions (KYC) | `/admin/kyc` | Done | Not started |
 | KYC detail + approve/reject | `/admin/kyc/[userId]` | Done | Not started |
+| Skill Verification queue | `/admin/verification-records` | Phase 3 | Not started |
+| Verification detail + approve/reject/request-info | `/admin/verification-records/[id]` | Phase 3 | Not started |
+| Verification audit trail | `/admin/verification-records/[id]/audit-trail` | Phase 3 | Not started |
+| In-person test result entry | `/admin/in-person-tests/[id]/result` | Phase 3 | Not started |
 | User management | `/admin/users` | Partially done | Not started |
 | Job management | `/admin/jobs` | Not started | Not started |
 | Dispute management | `/admin/disputes` | Not started | Not started |
@@ -50,10 +54,21 @@ All admin endpoints exist on the backend (`/api/v1/admin/*`, `/api/v1/kyc/admin/
 
 These endpoints exist and are ready for web/admin UI consumption:
 
+KYC:
 - `GET /api/v1/kyc/admin/submissions` — List KYC submissions (optional status filter)
 - `GET /api/v1/kyc/admin/submissions/:userId` — KYC submission detail with images
 - `PATCH /api/v1/kyc/admin/:userId/approve` — Approve KYC
 - `PATCH /api/v1/kyc/admin/:userId/reject` — Reject KYC (reason required)
+
+Skill Verification (Phase 3 - Provider Onboarding & Verification):
+- `GET /api/v1/admin/verification-records` — List verification records (status, category, SLA filters)
+- `POST /api/v1/admin/verification-records/:id/approve` — Approve verification
+- `POST /api/v1/admin/verification-records/:id/reject` — Reject verification (reason required)
+- `POST /api/v1/admin/verification-records/:id/request-info` — Request more info from provider
+- `GET /api/v1/admin/verification-records/:id/audit-trail` — Full admin action history
+- `POST /api/v1/admin/in-person-tests/:id/result` — Record in-person test pass/fail
+
+Shared:
 - `GET /api/v1/auth/me` — Current admin user info
 - `POST /api/v1/auth/login` — Admin login (same auth)
 
@@ -83,14 +98,15 @@ The web frontend will consume the same backend as mobile:
 
 ---
 
-## Order of Implementation (Phase 11)
+## Order of Implementation (Phase 12)
 
 1. **Admin login** — reuse auth API, admin-only gate
 2. **KYC review dashboard** — submissions list + detail + approve/reject actions
-3. **User management** — list/search users, view details
-4. **Public website pages** — home, how it works, categories, trust & safety
-5. **Job management** — list/edit/remove jobs
-6. **Dispute management** — review disputes, issue verdicts
-7. **Fraud management** — review fraud flags
-8. **Responsive QA** — mobile web, tablet, laptop, desktop
-9. **SEO + Performance** — meta tags, structured data, Lighthouse score
+3. **Skill Verification review dashboard** — verification records list + detail + approve/reject/request-info
+4. **User management** — list/search users, view details
+5. **Public website pages** — home, how it works, categories, trust & safety
+6. **Job management** — list/edit/remove jobs
+7. **Dispute management** — review disputes, issue verdicts
+8. **Fraud management** — review fraud flags
+9. **Responsive QA** — mobile web, tablet, laptop, desktop
+10. **SEO + Performance** — meta tags, structured data, Lighthouse score

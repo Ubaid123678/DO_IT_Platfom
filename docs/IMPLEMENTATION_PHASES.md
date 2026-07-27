@@ -146,18 +146,17 @@ Verification:
 
 ---
 
-## Phase 2 - KYC and Provider Activation
+## Phase 2 - KYC and Identity Verification
 
 Duration: 1 sprint
 
 Goals:
-- Enforce provider trust gating through KYC
+- Enforce provider identity trust gating through KYC
 
 Deliverables:
 - KYC document upload pipeline (S3/R2 signed URLs)
 - KYC status tracking in app
 - Admin KYC review endpoints (approve/reject + reason)
-- Provider profile setup (skills, categories, radius, availability)
 
 Exit Criteria:
 - Non-approved providers blocked from restricted actions
@@ -219,7 +218,42 @@ Production notes (see `PRODUCTION_MIGRATION.md`):
 
 ---
 
-## Phase 3 - Jobs Core (Create, Browse, Manage)
+## Phase 3 - Provider Onboarding & Verification System
+
+Duration: 1-2 sprints
+
+Goals:
+- Build provider skill verification pipeline for physical and digital tracks
+- Enable category and skill selection as part of provider onboarding
+
+Deliverables:
+- Category & skill management (CRUD for skill_categories, skill_items collections)
+- Provider category/skill selection endpoints
+- Physical verification: certificate/license upload, prior work photos
+- Digital verification: certificate upload, portfolio links
+- Admin verification review queue (approve/reject/request-info with audit trail)
+- Provider status aggregator (overall_status: incomplete/pending/partially_verified/verified/rejected)
+- Verification status tracking and resubmission flow
+- Resume upload & parsing pipeline with structured editor
+- In-person test scheduling (skeleton)
+- OAuth platform integration (GitHub MVP)
+- In-app skill test engine (MCQ MVP)
+- Auto-verification workers for credential URLs, OAuth signals, skill tests
+
+New collections:
+- `verification_records` — per-skill-item evidence submissions with polymorphic evidence payload
+- `admin_reviews` — immutable audit trail for every admin action on a verification record
+- `resume_parse_results` — raw parser output kept separate from canonical provider fields
+
+Exit Criteria:
+- Provider can complete full onboarding: signup → KYC → category selection → skill verification → dashboard
+- Admin can review and approve/reject verification records via API
+- Provider dashboard reflects locked/partial/full access based on verification status
+- Auto-verification workers trigger on eligible submissions (credential URLs, platform OAuth, skill tests)
+
+---
+
+## Phase 4 - Jobs Core (Create, Browse, Manage)
 
 Duration: 1 sprint
 
@@ -237,7 +271,7 @@ Exit Criteria:
 - Jobs can be created, discovered, and managed reliably
 - Location and category filtering validated
 
-## Phase 4 - Proposals and Matching Engine
+## Phase 5 - Proposals and Matching Engine
 
 Duration: 1 sprint
 
@@ -255,7 +289,7 @@ Exit Criteria:
 - One accepted provider per job rule enforced
 - Matching and proposal workflow stable under load tests
 
-## Phase 5 - Wallet, Escrow, and Ledger (Critical)
+## Phase 6 - Wallet, Escrow, and Ledger (Critical)
 
 Duration: 2 sprints
 
@@ -274,7 +308,7 @@ Exit Criteria:
 - Money movement paths fully tested (happy + failure paths)
 - Idempotency and reconciliation checks passing
 
-## Phase 6 - Payouts, FX, and Multi-Currency
+## Phase 7 - Payouts, FX, and Multi-Currency
 
 Duration: 1 sprint
 
@@ -292,7 +326,7 @@ Exit Criteria:
 - End-to-end payout path validated in staging
 - FX display and stored USD consistency checks pass
 
-## Phase 7 - Disputes, Reviews, and Resolution
+## Phase 8 - Disputes, Reviews, and Resolution
 
 Duration: 1 sprint
 
@@ -310,7 +344,7 @@ Exit Criteria:
 - Full disputed-job state machine operational
 - Auditability confirmed for every dispute outcome
 
-## Phase 8 - Messaging, Notifications, and Realtime
+## Phase 9 - Messaging, Notifications, and Realtime
 
 Duration: 1 sprint
 
@@ -328,7 +362,7 @@ Exit Criteria:
 - Real-time chat and notifications functional on both roles
 - Notification delivery and retry paths monitored
 
-## Phase 9 - Fraud Detection and Security Hardening
+## Phase 10 - Fraud Detection and Security Hardening
 
 Duration: 1 sprint
 
@@ -345,7 +379,7 @@ Exit Criteria:
 - Fraud alerts visible and actionable
 - Security checklist completed with no unresolved high-risk gaps
 
-## Phase 10 - Frontend Completion and Responsive QA
+## Phase 11 - Frontend Completion and Responsive QA
 
 Duration: 1-2 sprints
 
@@ -362,7 +396,7 @@ Exit Criteria:
 - Full screen inventory complete and connected to live APIs
 - QA sign-off for responsiveness and interaction quality
 
-## Phase 11 - Website and Admin Portal Finalization (Deferred Until App Complete)
+## Phase 12 - Website and Admin Portal Finalization (Deferred Until App Complete)
 
 Duration: 1-2 sprints
 
@@ -380,7 +414,7 @@ Exit Criteria:
 - Website pages and private admin portal are production-ready and content complete
 - Responsive and accessibility QA sign-off achieved
 
-## Phase 12 - Performance, Reliability, and Pre-Launch Stabilization
+## Phase 13 - Performance, Reliability, and Pre-Launch Stabilization
 
 Duration: 1 sprint
 
@@ -399,7 +433,7 @@ Exit Criteria:
 - Website/admin performance baseline met in staging
 - Stability metrics pass release threshold
 
-## Phase 13 - Production Launch and Post-Launch Operations
+## Phase 14 - Production Launch and Post-Launch Operations
 
 Duration: 1 sprint + monitoring window
 
@@ -436,18 +470,18 @@ Exit Criteria:
 
 ## Recommended Team Sequencing
 
-- Backend team starts Phases 0-3 quickly with mobile consuming mocks where needed
-- Website/admin implementation starts after app core completion (Phase 11)
+- Backend team starts Phases 0-4 quickly with mobile consuming mocks where needed
+- Website/admin implementation starts after app core completion (Phase 12)
 - Payments/disputes/fraud are treated as critical-path features
 - Mobile frontend progresses continuously by module while backend contracts stabilize
 - Final pre-launch requires full-stack hardening together including deferred website/admin stage
 
 ## Milestone View (High Level)
 
-- Milestone M1: Auth + KYC + Job Core (Phases 0-3)
-- Milestone M2: Matching + Escrow + Payout (Phases 4-6)
-- Milestone M3: Disputes + Realtime + Fraud (Phases 7-9)
-- Milestone M4: Mobile completion + Website/Admin finalization + Stabilization + Launch (Phases 10-13)
+- Milestone M1: Auth + KYC + Provider Onboarding (Phases 0-3)
+- Milestone M2: Jobs Core + Matching + Escrow + Payout (Phases 4-7)
+- Milestone M3: Disputes + Realtime + Fraud (Phases 8-10)
+- Milestone M4: Mobile completion + Website/Admin finalization + Stabilization + Launch (Phases 11-14)
 
 ## Dependency and Risk Notes
 

@@ -25,8 +25,8 @@ Do It is a React Native (Expo/TypeScript) global service marketplace connecting 
 flowchart TB
     subgraph Clients["Client Layer"]
         MobileApp["Mobile App (React Native / Expo)\nClient + Provider UI"]
-        WebApp["Website (Next.js)\nDEFERRED - Phase 11"]
-        AdminApp["Admin Portal (Next.js)\nDEFERRED - Phase 11"]
+        WebApp["Website (Next.js)\nDEFERRED - Phase 12"]
+        AdminApp["Admin Portal (Next.js)\nDEFERRED - Phase 12"]
     end
 
     subgraph Gateway["API Gateway / Application Server"]
@@ -43,6 +43,7 @@ flowchart TB
         FraudSvc["Fraud Service"]
         MsgSvc["Messaging Service"]
         KycSvc["KYC Service"]
+        VerifSvc["Verification Service"]
     end
 
     subgraph Data["Data & Infra"]
@@ -65,15 +66,16 @@ flowchart TB
     WebApp -. "same API, later" .-> API
     AdminApp -. "same API, later" .-> API
 
-    API --> AuthSvc & JobSvc & MatchSvc & WalletSvc & NotifSvc & DisputeSvc & FraudSvc & MsgSvc & KycSvc
+    API --> AuthSvc & JobSvc & MatchSvc & WalletSvc & NotifSvc & DisputeSvc & FraudSvc & MsgSvc & KycSvc & VerifSvc
 
-    AuthSvc & JobSvc & MatchSvc & WalletSvc & NotifSvc & DisputeSvc & FraudSvc & MsgSvc & KycSvc --> Mongo
-    AuthSvc & JobSvc & MatchSvc & WalletSvc --> Redis
+    AuthSvc & JobSvc & MatchSvc & WalletSvc & NotifSvc & DisputeSvc & FraudSvc & MsgSvc & KycSvc & VerifSvc --> Mongo
+    AuthSvc & JobSvc & MatchSvc & WalletSvc & VerifSvc --> Redis
     Redis --> Workers
     Workers --> Mongo
 
     AuthSvc --> Twilio & SendGrid
     KycSvc --> S3
+    VerifSvc --> S3
     WalletSvc --> Stripe & Wise
     NotifSvc --> FCM & SendGrid & Twilio
     MatchSvc --> MaxMind
@@ -131,6 +133,7 @@ sequenceDiagram
     participant API as Backend API
     participant SendGrid
     participant Twilio
+    participant Admin as Admin
 
     U->>App: Register (role: client/provider)
     App->>API: POST /api/v1/auth/register
@@ -143,8 +146,14 @@ sequenceDiagram
     App->>API: POST /api/v1/auth/verify-phone
     API-->>App: account verified (JWT issued)
     alt role == provider
-        App->>API: Start KYC flow (blocking)
-        Note over API: Provider cannot post proposals, accept jobs, or receive payouts until KYC = approved
+        App->>API: Start KYC flow
+        Note over API: Identity KYC (who you are) runs in parallel with skill verification
+        App->>API: POST /providers/categories
+        App->>API: POST /providers/verification-records
+        API->>Admin: Enter admin review queue
+        Admin->>API: approve/reject verification record
+        API-->>App: verification:updated (socket event)
+        Note over API: Provider can browse/apply in a category only when KYC approved AND that category's skill verified
     else role == client
         App->>App: Route to (client)/home
     end
@@ -155,6 +164,8 @@ Implementation notes:
 - The backend generates OTPs and stores them with expiry and attempt counters.
 - When debug mode is enabled, OTP delivery can be bypassed for development.
 - The mobile app can surface debug OTP values when configured for local development.
+- Identity KYC (who you are) and skill verification (what you can do) are separate pipelines that run in parallel — KYC does not block skill evidence submission.
+- Provider.overall_status is a derived field (incomplete/pending/partially_verified/verified/rejected) recomputed on every KYC or verification record status change.
 
 ### 4.2 Job Lifecycle
 
@@ -183,8 +194,8 @@ Hard rules:
 ```mermaid
 flowchart TD
     Start(["New job posted or\nprovider becomes available"]) --> Type{"Job type?"}
-    Type -- Physical --> Geo["Filter: geo radius (2dsphere query)\n+ category match\n+ KYC approved\n+ provider availability = true\n+ rating >= min threshold"]
-    Type -- Digital --> Skill["Filter: category/skill match\n+ KYC approved\n+ rating >= min threshold\n+ (no geo constraint)"]
+    Type -- Physical --> Geo["Filter: geo radius (2dsphere query)\n+ category match + category skill verified\n+ KYC approved\n+ provider availability = true\n+ rating >= min threshold"]
+    Type -- Digital --> Skill["Filter: category/skill match + category skill verified\n+ KYC approved\n+ rating >= min threshold\n+ (no geo constraint)"]
     Geo --> Rank["Rank candidates:\n1) distance (ascending)\n2) rating (descending)"]
     Skill --> Rank2["Rank candidates:\nrating (descending),\nrelevance/skill overlap"]
     Rank --> Notify["Notify top-N matching providers\n(push + in-app + socket event job:new_matching)"]
@@ -201,8 +212,10 @@ Ranking pseudocode:
 function rankProviders(job, candidates):
     if job.type == "physical":
         candidates = filter(candidates, c =>
+            c.overall_status == "verified" and
             c.kyc_status == "approved" and
             c.categories includes job.category_id and
+            c.category_verified[job.category_id] == true and
             c.available == true and
             geoDistance(c.location, job.location) <= c.service_radius and
             c.rating >= MIN_RATING)
@@ -210,8 +223,10 @@ function rankProviders(job, candidates):
 
     if job.type == "digital":
         candidates = filter(candidates, c =>
+            c.overall_status == "verified" and
             c.kyc_status == "approved" and
             c.categories includes job.category_id and
+            c.category_verified[job.category_id] == true and
             c.rating >= MIN_RATING)
         return sortBy(candidates, [ratingDesc, skillOverlapDesc])
 ```
@@ -356,10 +371,23 @@ stateDiagram-v2
 
 ### KYC module
 
-- Provider document submission.
+- Provider identity document submission.
 - Signed upload URL issuance.
 - Admin review and approval/rejection.
-- Provider trust gating.
+- Provider identity trust gating.
+
+### Verification module
+
+- Category and skill management (skill_categories, skill_items collections).
+- Provider category/skill selection.
+- Physical verification: certificate/license upload, prior work photos.
+- Digital verification: certificate upload, portfolio links, OAuth platform integration.
+- Skill test engine (MCQ MVP).
+- Verification records with status state machine (draft/pending_review/scheduled/auto_approved/approved/rejected/expired).
+- Admin review queue with immutable audit trail.
+- Auto-verification workers for credential URLs, OAuth signals, and skill tests.
+- Provider.overall_status aggregator (incomplete/pending/partially_verified/verified/rejected).
+- Resume upload and parsing pipeline.
 
 ### Jobs module
 
@@ -396,7 +424,7 @@ stateDiagram-v2
 
 ### Data model themes
 
-- Users, provider profiles, jobs, proposals, wallets, transactions, reviews, notifications, fraud flags, KYC documents, audit logs, messages.
+- Users, provider profiles, jobs, proposals, wallets, transactions, reviews, notifications, fraud flags, KYC documents, audit logs, messages, skill_categories, skill_items, verification_records, admin_reviews, resume_parse_results.
 - Financial and status history should be append-only wherever possible.
 - Avoid hard delete for sensitive records.
 
@@ -519,25 +547,26 @@ gantt
     section Foundations
     Phase 0 Program Setup             :p0, 0, 1
     Phase 1 Auth & Identity           :p1, after p0, 1
-    Phase 2 KYC & Provider Activation :p2, after p1, 1
+    Phase 2 KYC & Identity Verification:p2, after p1, 1
+    Provider Onboarding & Verification:p2b, after p2, 2
     section Core Marketplace
-    Phase 3 Jobs Core                 :p3, after p2, 1
-    Phase 4 Proposals & Matching      :p4, after p3, 1
+    Phase 4 Jobs Core                 :p4, after p2b, 1
+    Phase 5 Proposals & Matching      :p5, after p4, 1
     section Money
-    Phase 5 Wallet/Escrow/Ledger      :p5, after p4, 2
-    Phase 6 Payouts/FX/Multi-currency :p6, after p5, 1
+    Phase 6 Wallet/Escrow/Ledger      :p6, after p5, 2
+    Phase 7 Payouts/FX/Multi-currency :p7, after p6, 1
     section Trust
-    Phase 7 Disputes & Reviews        :p7, after p6, 1
-    Phase 8 Messaging & Realtime      :p8, after p7, 1
-    Phase 9 Fraud & Security          :p9, after p8, 1
+    Phase 8 Disputes & Reviews        :p8, after p7, 1
+    Phase 9 Messaging & Realtime      :p9, after p8, 1
+    Phase 10 Fraud & Security         :p10, after p9, 1
     section Completion
-    Phase 10 Mobile Frontend + QA     :p10, after p9, 2
-    Phase 11 Website + Admin (deferred):p11, after p10, 2
-    Phase 12 Perf & Stabilization     :p12, after p11, 1
-    Phase 13 Launch & Post-launch     :p13, after p12, 1
+    Phase 11 Mobile Frontend + QA     :p11, after p10, 2
+    Phase 12 Website + Admin (deferred):p12, after p11, 2
+    Phase 13 Perf & Stabilization     :p13, after p12, 1
+    Phase 14 Launch & Post-launch     :p14, after p13, 1
 ```
 
-Current repository truth from [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md): Phases 0, 1, and 2 are completed, and Phase 3 (Jobs Core) is the active implementation phase.
+Current repository truth from [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md): Phases 0, 1, and 2 are completed, and Phase 3 (Provider Onboarding & Verification System) is the active implementation phase.
 
 ## 11. Development Mode Behavior
 
@@ -551,7 +580,7 @@ If a new LLM is given this pack, it should understand:
 
 - The product is a marketplace with separate client and provider experiences.
 - The backend is the source of truth for business rules.
-- Provider access is gated by KYC approval.
+- Provider access is gated by KYC identity approval and per-category skill verification.
 - Jobs move through a controlled lifecycle with escrow and dispute handling.
 - Payments are ledger-based and idempotent.
 - Notifications and realtime updates are event-driven side effects.
@@ -565,5 +594,6 @@ If a new LLM is given this pack, it should understand:
 4. [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md)
 5. [detail_for_frontend.md](detail_for_frontend.md)
 6. [HANDOFF_PROMPT.md](HANDOFF_PROMPT.md)
+7. [DO_IT_PROVIDER_ONBOARDING_skill_VERIFICATION_MERMAID.md](DO_IT_PROVIDER_ONBOARDING_skill_VERIFICATION_MERMAID.md) (Phase 3 detailed design)
 
 That reading order gives a new model the current truth, the product design, the phased roadmap, and the mobile implementation conventions.
