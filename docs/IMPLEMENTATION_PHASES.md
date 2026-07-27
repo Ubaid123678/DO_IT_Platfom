@@ -1,8 +1,10 @@
 # Do It Platform - Implementation Phases
 
-Version: 1.1
-Last updated: 2026-04-10
+Version: 2.0
+Last updated: 2026-07-24
 Purpose: Delivery roadmap to build the complete mobile app and shared backend first, then finalize website and admin portal in the final stage.
+
+For a condensed system architecture overview before reading this roadmap, see [LLM_ARCHITECTURE_PACK.md](LLM_ARCHITECTURE_PACK.md).
 
 ## Delivery Model
 
@@ -33,6 +35,44 @@ Exit Criteria:
 - Fresh clone can run backend and app locally; website scaffold is optional in active delivery
 - CI passes on default branch
 
+### What was actually implemented (Phase 0)
+
+Backend:
+- Express + TypeScript scaffold with modular structure (`backend/src/modules/`)
+- Base middleware stack (helmet, cors, rate limiting)
+- Health endpoints: `GET /health`, `GET /api/v1/health`
+- Environment configuration via `backend/src/config/env.ts`
+- Environment templates: `backend/.env`, `backend/.env.example`
+
+Mobile:
+- Expo React Native app template initialized with TypeScript
+- Source-based frontend structure (`mobile/app/`, `mobile/src/`)
+- Theme token system at `mobile/src/theme/colors.ts`
+- Reusable UI primitives: `Button.tsx`, `Input.tsx`, `Loader.tsx`
+- Custom hooks: `useColorScheme`, `useClientOnlyValue` (+ web variants)
+
+Website:
+- Next.js template initialized with TypeScript + Tailwind + ESLint
+- Scaffold structure: `web/app/`, `web/public/`
+
+Documentation:
+- `docs/DO_IT_MASTER_DOCUMENTATION.md`
+- `docs/IMPLEMENTATION_PHASES.md`
+- `docs/SPRINT_TASK_BOARD.md`
+- `docs/IMPLEMENTATION_STATUS.md`
+
+Utility:
+- Root launcher: `start-dev.js`
+- Unified `.gitignore` covering all workspaces
+
+Verification:
+- Backend build: Passed
+- Backend run (localhost:8080): Passed
+- Website dev server (localhost:3000): Passed
+- Mobile web (localhost:8081): Passed
+
+---
+
 ## Phase 1 - Identity, Auth, and Account Foundation
 
 Duration: 1 sprint
@@ -53,6 +93,59 @@ Exit Criteria:
 - End-to-end onboarding works for both client and provider
 - Auth abuse protection baseline active (rate limits, lockouts, audit logs)
 
+### What was actually implemented (Phase 1)
+
+Backend (`backend/src/modules/auth/`):
+- Mongo user auth model with verification, reset, and role fields
+- Auth API endpoints:
+  - `POST /api/v1/auth/register`
+  - `POST /api/v1/auth/verify-email`
+  - `POST /api/v1/auth/verify-phone`
+  - `POST /api/v1/auth/login`
+  - `POST /api/v1/auth/refresh-token`
+  - `POST /api/v1/auth/logout`
+  - `POST /api/v1/auth/forgot-password`
+  - `POST /api/v1/auth/reset-password`
+  - `GET /api/v1/auth/me`
+  - `PATCH /api/v1/auth/me`
+  - `POST /api/v1/auth/resend-otp`
+- Joi validation for all endpoints
+- JWT token helpers (access + refresh token rotation)
+- OTP generation with email (SendGrid) and phone (Twilio) provider support
+- Debug mode bypass (`OTP_DEBUG_MODE=true` returns `debugOtp` in response)
+- Auth middleware for protected endpoints (JWT verification with refresh interceptor)
+- Auth lockout: failed login tracking + temporary account lock
+- Auth audit logging for key security actions
+- API router registration + database bootstrap wiring
+- Auth HTTP integration tests with Vitest + Supertest
+
+Mobile frontend (`mobile/app/`, `mobile/src/`):
+- Auth screens connected to live APIs:
+  - `app/auth/login.tsx`
+  - `app/auth/forgot-password.tsx`
+  - `app/auth/reset-password.tsx`
+  - `app/onboarding/register.tsx`
+  - `app/onboarding/otp.tsx`
+- Auth service at `src/services/authService.ts` with full endpoint methods and types
+- Token management: AsyncStorage-based access/refresh token storage
+- Axios interceptor for automatic 401 → token refresh → retry
+- Token expiry detection on app resume for proactive re-authentication
+- Email/phone OTP verification flow with resend support
+- Password reset flow (forgot → email OTP → reset)
+- Role selection (client/provider) at registration entry
+- Verified-first routing: pending-role selection blocks dashboard entry
+- Rate-limit error handling on OTP/resend endpoints
+
+Verification:
+- Backend build: Passed
+- Backend auth tests: 12 tests passing
+- Mobile TypeScript: Clean compilation
+- E2E flows validated: register → verify email → verify phone → login → refresh → logout
+- OTP debug mode delivery verified
+- Rate-limit error responses confirmed working
+
+---
+
 ## Phase 2 - KYC and Provider Activation
 
 Duration: 1 sprint
@@ -69,6 +162,62 @@ Deliverables:
 Exit Criteria:
 - Non-approved providers blocked from restricted actions
 - KYC review process operational for admin users
+
+### What was actually implemented (Phase 2)
+
+Backend (`backend/src/modules/kyc/`):
+- Mongoose models: `kyc_documents` (KycDocument) and `kyc_images` (KycImage with 24h TTL)
+- KYC endpoints:
+  - `GET /api/v1/kyc/provider/status` — current KYC state + latest document
+  - `GET /api/v1/kyc/provider/restricted-access` — access gate check
+  - `POST /api/v1/kyc/provider/upload-image` — accepts multipart (`req.file`) or base64 JSON (`req.body.data`)
+  - `POST /api/v1/kyc/provider/submit` — create new KYC submission
+  - `POST /api/v1/kyc/provider/resubmit` — resubmit after rejection
+  - `GET /api/v1/kyc/admin/submissions` — list all submissions (admin)
+  - `GET /api/v1/kyc/admin/submissions/:userId` — submission detail (admin)
+  - `PATCH /api/v1/kyc/admin/:userId/approve` — approve KYC
+  - `PATCH /api/v1/kyc/admin/:userId/reject` — reject with reason
+- Base64 image upload support: reads file as base64 data URL, stores as `KycImage` record
+- Multipart (multer) image upload fallback for `req.file`
+- KYC status state machine: `pending → approved | rejected`, resubmit allowed after rejection
+- Role promotion: user role auto-upgraded from `pending` to `provider` on KYC approval
+- Provider role gate middleware for KYC-restricted actions
+- Joi validation for all upload/submit/review endpoints
+- KYC service + HTTP integration tests (12 tests passing)
+
+Mobile frontend:
+- `src/services/kycService.ts` — full API service with types (`KycStatus`, `KycDocument`, `KycSubmissionPayload`)
+- `src/components/KycFlow.tsx` — extracted KYC flow component (reusable by layout and route)
+  - 5-step form wizard: Document Selection → Document Capture → Liveness Check → Review → Submit
+  - Status screens: Under Review (pending), Rejected (reason + retake), Approved
+  - Image upload via base64 + `api.post()` with 60s timeout
+  - All 4 liveness steps (face_clear, move_left, move_right, smile)
+  - Manual "Refresh Status" button on all non-approved screens
+  - `useFocusEffect` auto-refresh on screen focus
+- `app/(provider)/kyc.tsx` — thin route wrapper, redirects to home if already approved
+- `app/(provider)/_layout.tsx` — KYC gate: checks status on mount, renders `<KycFlow>` instead of `<Tabs>` until approved
+- `app/(provider)/home.tsx` — KYC verification banner removed (gated at layout level)
+- No "Back to Home" / "Home" navigation from KYC status screens (prevents bypassing gate)
+
+Image upload approach:
+- Base64 JSON via `api.post()` is the reliable path (Android multipart/FormData has issues)
+- Backend accepts both: `req.file` (multipart via multer) and `req.body.data` (base64 data URL)
+- Server config: 50mb body limit, 600s/610s timeouts, 60s client upload timeout
+
+Verification:
+- Backend build: Passed
+- Backend tests: 12 tests passing (service + integration)
+- Mobile TypeScript: Clean compilation
+- Token refresh interceptor: verified 401 → refresh → retry
+- Tested working on physical Android device (base64 upload path)
+
+Production notes (see `PRODUCTION_MIGRATION.md`):
+- Switch image upload from base64 to multipart → S3 for production
+- Disable `OTP_DEBUG_MODE`
+- Add mobile image compression via `expo-image-manipulator`
+- Enable SendGrid/Twilio production credentials
+
+---
 
 ## Phase 3 - Jobs Core (Create, Browse, Manage)
 

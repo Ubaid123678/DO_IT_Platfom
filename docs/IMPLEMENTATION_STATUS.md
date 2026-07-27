@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 1.5
-Last updated: 2026-04-23 (Phase 2 KYC workflow implemented and verified)
+Version: 2.0
+Last updated: 2026-07-24 (Phase 2 KYC completed, Phase 3 active)
 Owner: Engineering
 
 ## 1. Purpose
@@ -13,39 +13,24 @@ Update this file at the end of each completed phase.
 ## 2. Overall Progress
 
 - Total phases planned: 13
-- Completed phases: 2
-- In progress phases: 1
-- Current phase: Phase 2 - KYC and Provider Activation
-- Next phase: Phase 3 - Jobs Core (Create, Browse, Manage)
+- Completed phases: 3 (Phase 0, Phase 1, Phase 2)
+- In progress phases: 0
+- Current phase: Phase 3 - Jobs Core (Create, Browse, Manage)
+- Next phase: Phase 4 - Proposals and Matching Engine
 
-## 2.1 Execution Mode Update (2026-04-10)
+## 2.1 Execution Mode
 
 - Active delivery scope is mobile app + shared backend.
 - Website frontend and admin portal implementation are deferred until app completion.
 - Any existing web pages are scaffolding only and not part of current sprint commitments.
 
-## 2.2 Frontend Completion Milestone (2026-04-14)
+## 2.2 Phase 2 Completion Summary
 
-- Mobile route inventory is fully implemented across all planned app route files.
-- No route-level screen scaffolds remain in app screen paths.
-- Mobile TypeScript validation passes (`cd mobile && npx tsc --noEmit`).
-- Frontend design and navigation baseline is now considered feature-complete for backend wiring.
-- Remaining execution priority is backend module implementation and API integration into existing screens.
+Phase 2 (KYC and Provider Activation) is fully implemented and verified:
 
-## 2.3 Execution Reset Decision (2026-04-14)
-
-- Delivery sequence is reset to resume from Phase 1 integration validation.
-- Phase 0 remains fully completed and verified.
-- Phase 1 backend implementation exists, but full backend-to-frontend auth verification is now the active work item.
-- Phase 2 work starts only after register/login/auth flows are confirmed working end-to-end.
-
-## 2.4 Phase 1 Completion Confirmation (2026-04-23)
-
-- Phase 1 backend-to-frontend integration has been completed and re-verified.
-- Register/login/OTP/password reset/session behavior is now connected and validated across backend + mobile app.
-- OTP provider integration now uses SendGrid + Twilio configuration with environment-driven debug mode control.
-- Auth flow enforces verification-first routing and pending-role selection before dashboard entry.
-- Phase 2 is now the active implementation phase.
+- Backend: KYC module with document upload (base64 + multipart), submission, resubmission, admin review (approve/reject with reason), provider role promotion, and restricted-action gating.
+- Mobile: Extracted `KycFlow` component with 5-step wizard + status screens. Layout-level KYC gate prevents access to tabs until approved. `useFocusEffect` for auto-refresh on navigation focus.
+- All 12 backend tests pass; mobile TypeScript compiles cleanly.
 
 ## 3. Phase Completion Log
 
@@ -65,48 +50,32 @@ Completion date: 2026-04-08
 ### What was created
 
 Backend:
-- Express + TypeScript scaffold
+- Express + TypeScript scaffold with modular structure (`backend/src/modules/`)
 - Base middleware stack (helmet, cors, rate limiting)
-- Health endpoints:
-  - GET /health
-  - GET /api/v1/health
-- Environment files:
-  - backend/.env
-  - backend/.env.example
-- Core backend files:
-  - backend/package.json
-  - backend/tsconfig.json
-  - backend/src/index.ts
-  - backend/src/config/env.ts
+- Health endpoints: `GET /health`, `GET /api/v1/health`
+- Environment configuration via `backend/src/config/env.ts`
+- Environment templates: `backend/.env`, `backend/.env.example`
 
 Mobile:
-- Expo React Native app template initialized
-- TypeScript and routing scaffold available
-- Migration to src-based frontend structure completed
-- Key structure present:
-  - mobile/app
-  - mobile/src
-  - mobile/assets
-  - mobile/app.json
+- Expo React Native app template initialized with TypeScript
+- Source-based frontend structure (`mobile/app/`, `mobile/src/`)
+- Theme token system at `mobile/src/theme/colors.ts`
+- Reusable UI primitives: `Button.tsx`, `Input.tsx`, `Loader.tsx`
+- Custom hooks: `useColorScheme`, `useClientOnlyValue` (+ web variants)
 
 Website:
-- Next.js template initialized
-- TypeScript + Tailwind + ESLint scaffold available
-- Key structure present:
-  - web/app
-  - web/public
-  - web/package.json
-  - web/next.config.ts
+- Next.js template initialized with TypeScript + Tailwind + ESLint
+- Scaffold structure: `web/app/`, `web/public/`
 
 Documentation:
-- docs/DO_IT_MASTER_DOCUMENTATION.md
-- docs/IMPLEMENTATION_PHASES.md
-- docs/SPRINT_TASK_BOARD.md
-- docs/IMPLEMENTATION_STATUS.md (this file)
+- `docs/DO_IT_MASTER_DOCUMENTATION.md`
+- `docs/IMPLEMENTATION_PHASES.md`
+- `docs/SPRINT_TASK_BOARD.md`
+- `docs/IMPLEMENTATION_STATUS.md`
 
 Utility:
-- Root launcher created:
-  - start-dev.js
+- Root launcher: `start-dev.js`
+- Unified `.gitignore` covering all workspaces
 
 ### Verification results
 
@@ -118,9 +87,10 @@ Utility:
 ### Notes
 
 - backend npm audit showed vulnerabilities inherited from dependency graph.
-- Hardening and dependency updates are tracked in later security and stabilization phases.
-- Root .gitignore now excludes generated and sensitive paths globally, including node_modules, .next/.net, .expo, and .env files.
-- Mobile route layer now imports from src-based screens/hooks/theme; old template folders mobile/components and mobile/constants were removed.
+- Root .gitignore excludes generated and sensitive paths globally.
+- Mobile route layer imports from src-based structure; old template folders removed.
+
+---
 
 ## Phase 1 - Identity, Auth, and Account Foundation
 
@@ -131,138 +101,161 @@ Completion date: 2026-04-23
 ### Completed scope
 
 Backend:
-- Added Mongo user auth model with verification and reset fields
-- Implemented auth APIs:
-  - POST /api/v1/auth/register
-  - POST /api/v1/auth/verify-email
-  - POST /api/v1/auth/verify-phone
-  - POST /api/v1/auth/login
-  - POST /api/v1/auth/refresh-token
-  - POST /api/v1/auth/logout
-  - POST /api/v1/auth/forgot-password
-  - POST /api/v1/auth/reset-password
-  - GET /api/v1/auth/me
-  - PATCH /api/v1/auth/me
-- Added auth validation (Joi), JWT token helpers, OTP generation, and reset token flow
-- Added auth middleware for protected endpoints
-- Added auth lockout baseline (failed login tracking + temporary account lock)
-- Added auth audit logging utility events for key security actions
-- Added API router registration and database bootstrap wiring in backend server
-- Fixed Express error middleware signature to guarantee structured JSON error responses
-- Added backend auth HTTP integration tests with Vitest + Supertest
+- Mongo user auth model with verification, reset, and role fields
+- Auth APIs: register, login, logout, refresh-token, verify-email, verify-phone, resend-otp, forgot-password, reset-password, me, update-me
+- Joi validation for all endpoints
+- JWT token helpers (access + refresh token rotation)
+- OTP generation with email (SendGrid) and phone (Twilio) provider support
+- Debug mode bypass (`OTP_DEBUG_MODE=true` returns `debugOtp` in response)
+- Auth middleware for protected endpoints
+- Auth lockout: failed login tracking + temporary account lock
+- Auth audit logging for key security actions
+- API router registration + database bootstrap wiring
+- Auth HTTP integration tests with Vitest + Supertest
 
 Mobile frontend:
-- Implemented reusable auth UI primitives:
-  - src/components/common/Button.tsx
-  - src/components/common/Input.tsx
-  - src/components/common/Loader.tsx
-- Implemented auth and onboarding screens with API calls:
-  - src/screens/auth/LoginScreen.tsx
-  - src/screens/auth/ForgotPasswordScreen.tsx
-  - src/screens/auth/ResetPasswordScreen.tsx
-  - src/screens/onboarding/RegisterScreen.tsx
-  - src/screens/onboarding/OTPScreen.tsx
-- Added Expo Router paths for auth and onboarding:
-  - app/auth/login.tsx
-  - app/auth/forgot-password.tsx
-  - app/auth/reset-password.tsx
-  - app/onboarding/register.tsx
-  - app/onboarding/otp.tsx
-- Added missing src hooks required by routing/theme layer:
-  - src/hooks/useColorScheme.ts
-  - src/hooks/useColorScheme.web.ts
-  - src/hooks/useClientOnlyValue.ts
-  - src/hooks/useClientOnlyValue.web.ts
-- Extended mobile auth service with full Phase 1 endpoint methods and types
-
-Web frontend:
-- Website/auth prototype and route scaffolding were created.
-- Effective 2026-04-10, website and admin portal implementation are paused and moved to final-stage delivery.
+- Auth screens connected to live APIs:
+  - `app/auth/login.tsx`
+  - `app/auth/forgot-password.tsx`
+  - `app/auth/reset-password.tsx`
+  - `app/onboarding/register.tsx`
+  - `app/onboarding/otp.tsx`
+- Auth service at `src/services/authService.ts` with full endpoint methods and types
+- Token management: AsyncStorage-based access/refresh token storage
+- Axios interceptor for automatic 401 → token refresh → retry
+- Token expiry detection on app resume
+- Email/phone OTP verification flow with resend support
+- Password reset flow (forgot → email OTP → reset)
+- Role selection (client/provider) at registration entry
+- Verified-first routing: pending-role selection blocks dashboard entry
+- Rate-limit error handling on OTP/resend endpoints
 
 ### Verification completed
 
 - Backend TypeScript build passes (`npm run build`)
-- Backend auth tests pass (`npm test -- --run`)
+- Backend auth tests pass (`npm test -- --run`) — 12 tests
 - Mobile TypeScript check passes (`npx tsc --noEmit`)
-- Web prototype build passed before deferral (`npm run build`)
+- E2E flows validated: register → verify email → verify phone → login → refresh → logout
+- OTP debug mode delivery verified
+- Rate-limit error responses confirmed working
 
-### Re-opened verification scope (2026-04-14)
-
-- Connect Phase 1 auth backend endpoints to current mobile auth screens in active route structure.
-- Execute end-to-end register and login flow tests against the running backend.
-- Validate forgot-password, reset-password, and OTP verification flow behavior against live APIs.
-- Confirm auth session behavior (`me`, refresh, logout) from app-side service integration.
-- Mark Phase 1 as completed again only after successful integration and runtime verification.
-
-### Final verification closure (2026-04-23)
-
-- Register, login, email OTP, phone OTP, resend OTP, forgot-password, reset-password flows validated against live backend APIs.
-- Auth resume behavior after app restart validated for partially verified and pending-role users.
-- OTP delivery integration switched to provider-backed mode with explicit configuration checks.
-- Provider error handling improved to surface actionable user-facing errors during OTP delivery failures.
-- Validation evidence:
-  - Backend build: Passed (`cd backend && npm run build`)
-  - Backend tests: Passed (`cd backend && npm test -- --run`)
-  - Mobile TypeScript check: Passed (`cd mobile && npx tsc --noEmit`)
+---
 
 ## Phase 2 - KYC and Provider Activation
 
-Status: In Progress
+Status: Completed
 Start date: 2026-04-23
+Completion date: 2026-07-24
 
-### Progress update (2026-04-23)
+### Backend implemented
 
-Backend implemented:
-- Added dedicated KYC domain module with persisted `kyc_documents` model, review lifecycle, and strict Joi validation.
-- Added provider KYC endpoints:
-  - `GET /api/v1/kyc/provider/status`
-  - `POST /api/v1/kyc/provider/upload-url`
-  - `POST /api/v1/kyc/provider/submit`
-  - `POST /api/v1/kyc/provider/resubmit`
-  - `GET /api/v1/kyc/provider/restricted-access`
-- Added admin KYC review endpoints:
-  - `GET /api/v1/kyc/admin/submissions`
-  - `PATCH /api/v1/kyc/admin/:userId/approve`
-  - `PATCH /api/v1/kyc/admin/:userId/reject`
-- Added storage signed upload URL abstraction in backend services with `mock`, `s3`, and `r2` provider support.
-- Added authorization middleware for role checks and provider KYC approval gate middleware.
-- Registered KYC router into API v1 routes.
+Model layer:
+- `kyc.model.ts` — `IKycDocument` schema with status, documentType, documentImages, livenessImages, rejectionReason, reviewer references
+- `kyc-image.model.ts` — `KycImage` schema with userId, imageType, url; TTL index (24h auto-expire)
 
-Mobile implemented:
-- Added `mobile/src/services/kycService.ts` for provider KYC API integration.
-- Wired `mobile/app/(provider)/kyc.tsx` to live KYC status, signed upload URL generation, submit/resubmit flows, and rejection reason handling.
-- Added provider-side gating for restricted tabs in `mobile/app/(provider)/_layout.tsx` based on live/cached KYC state.
-- Updated provider home flow in `mobile/app/(provider)/home.tsx` to consume live KYC status and guard restricted quick actions.
+API endpoints (under `/api/v1/kyc/`):
+- Provider:
+  - `GET /provider/status` — current KYC state + latest document
+  - `GET /provider/restricted-access` — access gate check for restricted actions
+  - `POST /provider/upload-image` — accepts multipart (`req.file`) or base64 JSON (`req.body.data`)
+  - `POST /provider/submit` — create new KYC submission, promote user role to `provider`
+  - `POST /provider/resubmit` — resubmit after rejection (only allowed if latest status is `rejected`)
+- Admin:
+  - `GET /admin/submissions` — list all submissions (optional status filter)
+  - `GET /admin/submissions/:userId` — submission detail with image URLs
+  - `PATCH /admin/:userId/approve` — approve KYC, auto-promote role if needed
+  - `PATCH /admin/:userId/reject` — reject with mandatory reason
 
-Automated validation added:
-- Added backend KYC service and HTTP integration tests:
-  - `backend/src/modules/kyc/kyc.service.test.ts`
-  - `backend/src/modules/kyc/kyc.integration.test.ts`
+Image upload:
+- Both base64 JSON (`req.body.data`) and multipart (`req.file` via multer) accepted
+- Base64 stored as data URL in `KycImage` record; multipart saved to `/uploads/kyc/`
+- Server config: 50mb body limit, 600s/610s timeouts
+- Client upload timeout: 60s
 
-Verification evidence:
+Validation:
+- Joi schemas in `kyc.validation.ts` for upload, submit, review, status-query
+- Duplicate submission prevention: blocks submit if pending/approved doc exists
+- Resubmit only allowed after rejection
+
+State machine:
+- `missing` (no document) → `pending` (submitted) → `approved` | `rejected`
+- Rejected → resubmit → `pending` again
+- Role auto-promotion: `pending` → `provider` on approval
+
+Testing:
+- `kyc.service.test.ts` — unit tests for status, submit, resubmit, review, restricted access
+- `kyc.integration.test.ts` — HTTP route-level tests for upload, submit, review flows
+- 12 tests total, all passing
+
+### Mobile frontend implemented
+
+Service layer:
+- `src/services/kycService.ts` — full API service with all endpoint methods
+- Exported types: `KycStatus`, `KycDocumentType`, `KycImageType`, `KycDocument`, `KycSubmissionPayload`, `KycStatusResponse`, `KycUploadImageResponse`
+
+Component:
+- `src/components/KycFlow.tsx` — extracted, reusable KYC flow component:
+  - Props: `onApproved: () => void`
+  - 5-step form wizard: Document Selection (pass/driving_license/passport) → Document Capture (front + back) → Liveness Check (4 steps) → Review → Submit
+  - Image upload via base64 (`FileSystem.readAsStringAsync` + `api.post()`)
+  - Status screens: Under Review (pending), Rejected (reason + retake button), Submission Received (post-submit)
+  - Manual "Refresh Status" button on all non-approved screens
+  - Mini spinner during background refresh (no full-screen flash)
+  - No "Back to Home" navigation (prevents bypassing the KYC gate)
+  - Fade transitions between steps
+  - 60s upload timeout for each image
+  - Error handling with status-code-specific messages
+
+Route:
+- `app/(provider)/kyc.tsx` — thin wrapper:
+  - On focus: checks KYC status, redirects to home if already approved
+  - Otherwise renders `<KycFlow>` with `onApproved → router.replace('/(provider)/home')`
+
+Layout gate:
+- `app/(provider)/_layout.tsx` — KYC gate:
+  - On mount: calls `kycService.getProviderStatus()`
+  - If loading → full-screen spinner
+  - If NOT approved → renders `<KycFlow>` directly (NO tabs rendered at all)
+  - If approved → renders `<Tabs>` (home, browse, proposals, earnings, profile)
+  - When `KycFlow.onApproved` fires → switches to tabs
+
+Home screen cleanup:
+- `app/(provider)/home.tsx` — removed KYC verification banner and `kycStatus` state
+  - No longer needed since layout gates all access to tabs
+
+### Token refresh interceptor
+
+- `src/services/api.ts` — Axios instance:
+  - Catches 401 responses, calls `/auth/refresh-token`, retries original request
+  - Queue mechanism prevents concurrent refresh calls
+  - `isFormData` detection with constructor-name fallback (React Native FormData cross-realm fix)
+  - API URL resolution priority: Expo LAN IP (physical device) → `10.0.2.2` (Android emulator) → `localhost`
+
+### Verification results
+
 - Backend build: Passed (`cd backend && npm run build`)
-- Backend tests: Passed (`cd backend && npm test -- --run`)
+- Backend tests: Passed (`cd backend && npm test -- --run`) — 12 tests
 - Mobile TypeScript check: Passed (`cd mobile && npx tsc --noEmit`)
+- Tested on physical Android device — base64 upload path works end-to-end
+- KYC flow: missing → form wizard → submit → pending → admin approve/reject → reflected on device
 
-### Active scope
+### Phase 2 deliverables fulfilled
 
-Backend:
-- Define `kyc_documents` model, storage metadata, and status state machine (`pending`, `approved`, `rejected`).
-- Implement signed upload URL endpoints for KYC files (S3/R2 adapter boundary).
-- Implement provider KYC submission endpoint and status query endpoint.
-- Implement admin KYC review endpoints (approve/reject with mandatory reason on rejection).
-- Enforce provider trust gating: block restricted provider actions until KYC is approved.
+- KYC document upload pipeline (base64 + multipart, both accepted by backend)
+- KYC status tracking in app (pending/approved/rejected screens)
+- Admin KYC review endpoints (approve/reject + reason)
+- Provider trust gating: layout-level gate prevents tab access until approved
+- Resubmission after rejection with rejection reason displayed
 
-Mobile frontend:
-- Wire [app/(provider)/kyc.tsx](app/(provider)/kyc.tsx) to live Phase 2 APIs.
-- Add document upload flow with clear pending/approved/rejected state UX.
-- Show rejection reason and re-submit path when KYC is rejected.
-- Enforce provider-side route guards for KYC-restricted actions.
+### Production migration notes
 
-Verification target:
-- Unapproved provider cannot access restricted provider operations.
-- Approved provider can access provider job and proposal flows.
-- Admin review changes provider KYC status reliably and is reflected in app state.
+See `PRODUCTION_MIGRATION.md` for production deployment steps:
+- Disable `OTP_DEBUG_MODE`
+- Switch image storage from base64/local to S3
+- Add mobile image compression via `expo-image-manipulator`
+- Optionally re-enable multipart upload with base64 fallback
+
+---
 
 ## 4. Current Repositories and Source Layout
 
@@ -273,14 +266,14 @@ No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
 
-Active implementation focus (Phase 2):
-- Build and integrate KYC and provider activation as the next backend-first vertical slice:
-  - KYC submit/upload/status endpoints
-  - Admin KYC review endpoints (approve/reject + reason)
-  - Provider action gating on KYC approval status
-  - Live mobile KYC screen integration and state handling
-- Add integration tests for KYC submission, status transitions, and authorization gates.
-- Keep website and admin frontend deferred until app completion milestone in the master plan.
+Active implementation focus (Phase 3):
+- Build and integrate Jobs Core (Create, Browse, Manage)
+- Client post job flow (physical/digital) with API endpoints
+- Provider browse feed with filters
+- Client job list and detail endpoints
+- Geo indexing and query support
+- Status transition validations for open/cancel rules
+- Keep website and admin frontend deferred until app completion milestone
 
 ## 6. Update Template For Future Phase Completions
 
@@ -316,29 +309,31 @@ Project summary:
 - Shared database/services for app and website
 
 Current status:
-- Phase 0 is completed and verified.
-- Phase 1 is completed and integration-validated.
-- Phase 2 (KYC and Provider Activation) is now active.
-- Mobile frontend screen inventory is implemented and compile-validated.
+- Phase 0, Phase 1, and Phase 2 are all completed and verified.
+- Phase 3 (Jobs Core) is the active implementation phase.
+- Mobile frontend screens are implemented; priority is wiring backend APIs.
 - Website and admin portal implementation remain deferred until app completion.
 
 Core docs:
+- docs/LLM_ARCHITECTURE_PACK.md (condensed system architecture — read first)
 - docs/DO_IT_MASTER_DOCUMENTATION.md
 - docs/IMPLEMENTATION_PHASES.md
 - docs/SPRINT_TASK_BOARD.md
 - docs/IMPLEMENTATION_STATUS.md
+- web/ADMIN_REMAINING.md
 
 Instruction for this chat:
-- Continue implementation from Phase 2 as backend-first execution.
+- Continue implementation from Phase 3 as backend-first execution.
 - Keep backend shared for mobile and website.
 - Keep website/admin web delivery paused until app completion.
 - Treat mobile screens as complete UI targets; prioritize wiring APIs and replacing mock data.
 - After each fully completed phase, update docs/IMPLEMENTATION_STATUS.md with exact completed scope, created files/endpoints, and verification.
 - Do not create separate phase completion markdown files.
 
-Immediate next work (Phase 2 implementation):
-- Implement KYC submission and status endpoints with strict validation.
-- Add signed upload URL generation and document metadata persistence.
-- Implement admin KYC review endpoints (approve/reject and reason capture).
-- Enforce provider action restrictions until KYC is approved.
-- Integrate provider KYC screen with live APIs and status UX states.
+Immediate next work (Phase 3 implementation):
+- Build Job model with status state machine (open, assigned, in_progress, completed, cancelled, disputed)
+- Implement client job creation endpoints for physical and digital job types
+- Implement provider job browse feed with category/location/price filters
+- Add geo indexing and distance-based query support
+- Implement job status transition validations
+- Integrate mobile job screens with live APIs

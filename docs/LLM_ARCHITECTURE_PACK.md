@@ -5,6 +5,8 @@ It explains what the app is, how the major flows work, where the source of truth
 
 If another document conflicts with this one, use the more recent implementation status in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
+Last updated: 2026-07-24
+
 Sources consolidated:
 
 - [DO_IT_MASTER_DOCUMENTATION.md](DO_IT_MASTER_DOCUMENTATION.md)
@@ -535,7 +537,7 @@ gantt
     Phase 13 Launch & Post-launch     :p13, after p12, 1
 ```
 
-Current repository truth from [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md): Phase 0 and Phase 1 are completed, and Phase 2 is the active implementation phase.
+Current repository truth from [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md): Phases 0, 1, and 2 are completed, and Phase 3 (Jobs Core) is the active implementation phase.
 
 ## 11. Development Mode Behavior
 
@@ -557,10 +559,11 @@ If a new LLM is given this pack, it should understand:
 
 ## 13. Suggested Reading Order for Another LLM
 
-1. [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
-2. [DO_IT_MASTER_DOCUMENTATION.md](DO_IT_MASTER_DOCUMENTATION.md)
-3. [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md)
-4. [detail_for_frontend.md](detail_for_frontend.md)
-5. [HANDOFF_PROMPT.md](HANDOFF_PROMPT.md)
+1. [LLM_ARCHITECTURE_PACK.md](LLM_ARCHITECTURE_PACK.md) (this file — start here)
+2. [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) (current progress truth)
+3. [DO_IT_MASTER_DOCUMENTATION.md](DO_IT_MASTER_DOCUMENTATION.md)
+4. [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md)
+5. [detail_for_frontend.md](detail_for_frontend.md)
+6. [HANDOFF_PROMPT.md](HANDOFF_PROMPT.md)
 
 That reading order gives a new model the current truth, the product design, the phased roadmap, and the mobile implementation conventions.
