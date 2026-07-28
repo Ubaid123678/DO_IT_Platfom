@@ -92,6 +92,7 @@ export const verificationService = {
       job_type: c.job_type,
       icon_url: c.icon_url ?? null,
       risk_tier: c.risk_tier,
+      active: c.active,
     }));
   },
 
