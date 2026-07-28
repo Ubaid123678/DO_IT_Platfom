@@ -1,31 +1,48 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs } from 'expo-router';
+﻿import Ionicons from '@expo/vector-icons/Ionicons';
+import { Tabs, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import KycFlow from '@/src/components/KycFlow';
 import { kycService } from '@/src/services/kycService';
+import { verificationService } from '@/src/services/verificationService';
 import { Colors } from '@/src/theme/colors';
 
 export default function ProviderLayout() {
   const scheme = useColorScheme();
   const C = scheme === 'dark' ? Colors.dark : Colors.light;
+  const router = useRouter();
 
-  const [kycGate, setKycGate] = useState<'loading' | 'approved' | 'blocked'>('loading');
+  const [gate, setGate] = useState<'loading' | 'kyc' | 'verification' | 'approved'>('loading');
 
-  const checkKyc = useCallback(async () => {
+  const checkGate = useCallback(async () => {
     try {
-      const status = await kycService.getProviderStatus();
-      setKycGate(status.status === 'approved' ? 'approved' : 'blocked');
+      const kycStatus = await kycService.getProviderStatus();
+      if (kycStatus.status !== 'approved') {
+        setGate('kyc');
+        return;
+      }
+      const verifStatus = await verificationService.getVerificationStatus();
+      if (verifStatus.overall_status === 'verified' || verifStatus.overall_status === 'partially_verified') {
+        setGate('approved');
+      } else {
+        setGate('verification');
+      }
     } catch {
-      setKycGate('blocked');
+      setGate('approved');
     }
   }, []);
 
-  useEffect(() => { void checkKyc(); }, [checkKyc]);
+  useEffect(() => { void checkGate(); }, [checkGate]);
 
-  if (kycGate === 'loading') {
+  useEffect(() => {
+    if (gate === 'verification') {
+      router.replace('/(provider-verification)');
+    }
+  }, [gate, router]);
+
+  if (gate === 'loading') {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -35,8 +52,18 @@ export default function ProviderLayout() {
     );
   }
 
-  if (kycGate !== 'approved') {
-    return <KycFlow onApproved={() => setKycGate('approved')} />;
+  if (gate === 'kyc') {
+    return <KycFlow onApproved={() => { void checkGate(); }} />;
+  }
+
+  if (gate === 'verification') {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={C.primary} />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -82,11 +109,7 @@ export default function ProviderLayout() {
         options={{
           title: 'Proposals',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'document-text' : 'document-text-outline'}
-              color={color}
-              size={size}
-            />
+            <Ionicons name={focused ? 'document-text' : 'document-text-outline'} color={color} size={size} />
           ),
         }}
       />
