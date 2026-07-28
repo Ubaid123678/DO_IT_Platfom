@@ -25,8 +25,9 @@ export default function CategorySelectionStep() {
       try {
         const data = await verificationService.getCategories();
         setCategories(data.filter(c => c.active));
-      } catch {
-        setError('Failed to load categories. Pull to retry.');
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(`Failed to load categories: ${msg}`);
       } finally {
         setLoading(false);
       }
@@ -72,7 +73,7 @@ export default function CategorySelectionStep() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => router.replace('/(provider)/home')} style={styles.backBtn}>
           <Ionicons name="close" size={24} color={C.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Choose Categories</Text>
