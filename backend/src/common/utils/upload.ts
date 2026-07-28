@@ -14,8 +14,8 @@ if (!fs.existsSync(KYC_UPLOAD_DIR)) {
 const kycStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, KYC_UPLOAD_DIR),
   filename: (req, file, cb) => {
-    const userId = (req as Record<string, unknown>).auth
-      ? ((req as Record<string, unknown>).auth as Record<string, string>).userId ?? 'unknown'
+    const userId = (req as unknown as Record<string, unknown>).auth
+      ? ((req as unknown as Record<string, unknown>).auth as Record<string, string>).userId ?? 'unknown'
       : 'unknown';
     const ext = path.extname(file.originalname) || '.jpg';
     cb(null, `${userId}-${Date.now()}${ext}`);
@@ -55,8 +55,8 @@ if (!fs.existsSync(RESUME_UPLOAD_DIR)) {
 const resumeStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, RESUME_UPLOAD_DIR),
   filename: (req, file, cb) => {
-    const userId = (req as Record<string, unknown>).auth
-      ? ((req as Record<string, unknown>).auth as Record<string, string>).userId ?? 'unknown'
+    const userId = (req as unknown as Record<string, unknown>).auth
+      ? ((req as unknown as Record<string, unknown>).auth as Record<string, string>).userId ?? 'unknown'
       : 'unknown';
     const ext = path.extname(file.originalname) || '.pdf';
     cb(null, `${userId}-resume-${Date.now()}${ext}`);

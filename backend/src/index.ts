@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import { AppError } from './common/errors/AppError.js';
 import { connectDatabase } from './config/database.js';
 import apiRouter from './routes/index.js';
+import { initializeVerificationWorker } from './modules/verification/verification.worker.js';
 
 // Load environment variables
 dotenv.config();
@@ -110,6 +111,12 @@ const bootstrap = async (): Promise<void> => {
     await connectDatabase();
   } catch (error) {
     console.error('[database] Connection failed. Server will start, but DB features may fail.', error);
+  }
+
+  try {
+    await initializeVerificationWorker();
+  } catch (error) {
+    console.warn('[verification-worker] Worker initialization skipped:', error);
   }
 
   const server = app.listen(PORT, () => {

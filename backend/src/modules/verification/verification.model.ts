@@ -57,6 +57,19 @@ export interface IAdminReview extends Document {
   created_at: Date;
 }
 
+export interface IConnectedAccount extends Document {
+  provider_id: mongoose.Types.ObjectId;
+  platform: 'github' | 'upwork' | 'linkedin';
+  username: string;
+  access_token?: string;
+  token_expires_at?: Date;
+  platform_user_id?: string;
+  platform_data?: Record<string, unknown>;
+  verified: boolean;
+  verified_at?: Date;
+  connected_at: Date;
+}
+
 export interface IResumeParseResult extends Document {
   provider_id: mongoose.Types.ObjectId;
   source_file_url: string;
@@ -139,6 +152,24 @@ const adminReviewSchema = new Schema<IAdminReview>(
   { timestamps: { createdAt: 'created_at', updatedAt: false } },
 );
 
+const connectedAccountSchema = new Schema<IConnectedAccount>(
+  {
+    provider_id: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    platform: { type: String, enum: ['github', 'upwork', 'linkedin'], required: true, index: true },
+    username: { type: String, required: true, trim: true },
+    access_token: { type: String, required: false },
+    token_expires_at: { type: Date, required: false },
+    platform_user_id: { type: String, required: false },
+    platform_data: { type: Schema.Types.Mixed, required: false },
+    verified: { type: Boolean, default: false },
+    verified_at: { type: Date, required: false },
+    connected_at: { type: Date, default: Date.now },
+  },
+  { timestamps: { createdAt: 'connected_at', updatedAt: false } },
+);
+
+connectedAccountSchema.index({ provider_id: 1, platform: 1 }, { unique: true });
+
 const resumeParseResultSchema = new Schema<IResumeParseResult>(
   {
     provider_id: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -174,6 +205,9 @@ export const VerificationRecordModel: Model<IVerificationRecord> =
 
 export const AdminReviewModel: Model<IAdminReview> =
   mongoose.models.AdminReview || mongoose.model<IAdminReview>('AdminReview', adminReviewSchema);
+
+export const ConnectedAccountModel: Model<IConnectedAccount> =
+  mongoose.models.ConnectedAccount || mongoose.model<IConnectedAccount>('ConnectedAccount', connectedAccountSchema);
 
 export const ResumeParseResultModel: Model<IResumeParseResult> =
   mongoose.models.ResumeParseResult || mongoose.model<IResumeParseResult>('ResumeParseResult', resumeParseResultSchema);

@@ -38,12 +38,14 @@ export const kycController = {
       if (!req.file.mimetype.startsWith('image/')) throw new AppError('Only image files are allowed', 400, 'VALIDATION_ERROR');
       const fileUrl = `/uploads/kyc/${req.file.filename}`;
       const result = await kycService.uploadImage(userId, imageType, fileUrl);
-      return res.status(201).json({ success: true, data: result, meta: { message: 'Image uploaded successfully.' } });
+      res.status(201).json({ success: true, data: result, meta: { message: 'Image uploaded successfully.' } });
+      return;
     }
 
     if (data) {
       const result = await kycService.uploadImage(userId, imageType, data);
-      return res.status(201).json({ success: true, data: result, meta: { message: 'Image uploaded successfully.' } });
+      res.status(201).json({ success: true, data: result, meta: { message: 'Image uploaded successfully.' } });
+      return;
     }
 
     throw new AppError('Image file or base64 data is required', 400, 'VALIDATION_ERROR');

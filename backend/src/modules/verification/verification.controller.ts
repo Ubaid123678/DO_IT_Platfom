@@ -3,8 +3,10 @@ import type { Response } from 'express';
 import { AppError } from '../../common/errors/AppError.js';
 import { asyncHandler } from '../../common/utils/asyncHandler.js';
 import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js';
+import { verificationAutoService } from './verification-auto.service.js';
 import { verificationService } from './verification.service.js';
 import { verificationValidators } from './verification.validation.js';
+import { enqueueCredentialUrlVerification } from './verification.worker.js';
 
 const validate = <T>(schema: { validate: (value: unknown) => { error?: { message: string }; value: T } }, payload: unknown): T => {
   const result = schema.validate(payload);
@@ -96,8 +98,36 @@ export const verificationController = {
     res.status(201).json({ success: true, data: result, meta: { message: 'Resume uploaded successfully' } });
   }),
 
-  connectGithub: asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
-    res.status(501).json({ success: false, error: { code: 'NOT_IMPLEMENTED', message: 'OAuth integration not available yet' } });
+  connectGithub: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = getUserId(req);
+    const payload = validate(verificationValidators.connectOAuth, req.body);
+    const result = await verificationAutoService.connectOAuthPlatform(
+      userId,
+      'github',
+      payload.username,
+      payload.skill_keywords,
+    );
+    res.status(200).json({ success: true, data: result, meta: { message: 'GitHub account connected successfully' } });
+  }),
+
+  getConnectedAccounts: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = getUserId(req);
+    const accounts = await verificationAutoService.getConnectedAccounts(userId);
+    res.status(200).json({ success: true, data: { accounts }, meta: { message: 'Connected accounts fetched successfully' } });
+  }),
+
+  submitEvidenceWithAutoVerify: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = getUserId(req);
+    const payload = validate(verificationValidators.submitEvidence, req.body);
+    const record = await verificationService.submitEvidence(userId, payload) as { id: string };
+
+    const evidencePayload = payload.evidence_payload;
+    const urlToCheck = (evidencePayload?.url as string) || (evidencePayload?.credential_url as string);
+    if (urlToCheck) {
+      await enqueueCredentialUrlVerification(record.id, urlToCheck);
+    }
+
+    res.status(201).json({ success: true, data: { record }, meta: { message: 'Evidence submitted with auto-verification queued' } });
   }),
 
   getResumeParseResult: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

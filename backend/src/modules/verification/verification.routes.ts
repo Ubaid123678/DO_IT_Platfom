@@ -27,6 +27,9 @@ verificationRouter.post('/resume/upload', authenticate, requireRoles('provider',
 verificationRouter.get('/resume/parse-result/:resultId', authenticate, requireRoles('provider', 'admin'), verificationController.getResumeParseResult);
 
 verificationRouter.post('/oauth/github/connect', authenticate, requireRoles('provider', 'admin'), verificationController.connectGithub);
+verificationRouter.get('/oauth/accounts', authenticate, requireRoles('provider', 'admin'), verificationController.getConnectedAccounts);
+
+verificationRouter.post('/verification-records/auto-verify', authenticate, requireRoles('provider', 'admin'), verificationController.submitEvidenceWithAutoVerify);
 
 verificationRouter.get('/admin/records', authenticate, requireRoles('admin'), verificationController.listForAdmin);
 verificationRouter.get('/admin/records/:recordId', authenticate, requireRoles('admin'), verificationController.getAdminRecordDetail);

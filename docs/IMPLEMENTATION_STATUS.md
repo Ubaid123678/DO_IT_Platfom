@@ -13,9 +13,9 @@ Update this file at the end of each completed phase.
 ## 2. Overall Progress
 
 - Total phases planned: 14
-- Completed phases: 3 (Phase 0, Phase 1, Phase 2)
+- Completed phases: 4 (Phase 0, Phase 1, Phase 2, Phase 3)
 - In progress phases: 0
-- Current phase: Phase 3 - Provider Onboarding & Verification System
+- Current phase: Phase 4 - Jobs Core (Create, Browse, Manage)
 - Next phase: Phase 4 - Jobs Core (Create, Browse, Manage)
 
 ## 2.1 Execution Mode
@@ -255,6 +255,112 @@ See `PRODUCTION_MIGRATION.md` for production deployment steps:
 - Add mobile image compression via `expo-image-manipulator`
 - Optionally re-enable multipart upload with base64 fallback
 
+## Phase 3 - Provider Onboarding & Verification System
+
+Status: Completed
+Start date: 2026-07-24
+Completion date: 2026-07-28
+
+### Backend implemented
+
+Model layer (`backend/src/modules/verification/`):
+- `verification.model.ts` — 6 schemas: `SkillCategory`, `SkillItem`, `VerificationRecord`, `AdminReview`, `ConnectedAccount`, `ResumeParseResult` with proper indexes, enums, and `toJSON` transforms
+- Evidence types: `certificate`, `prior_work`, `portfolio`, `oauth` (skill_test and in_person_test removed)
+- Verification statuses: `draft → pending_review → approved|rejected|auto_approved`, resubmit loop
+- `ConnectedAccount` model for OAuth platform connections (github, upwork, linkedin) with GitHub auto-verification via public API
+
+Validation (`verification.validation.ts`):
+- Joi schemas: `selectCategories`, `submitEvidence`, `resubmitEvidence`, `updateProfile`, `connectOAuth`, `adminReview`, `adminListQuery`, `queryCategories`, `uploadResume`
+
+Service (`verification.service.ts`):
+- Category/skill item listing and selection (flat `{ categories[], skill_items[] }` from mobile)
+- Evidence submission with SLA calculation and `overall_status` recomputation
+- Record listing/detail/resubmission
+- Profile get/update (headline, bio, experience, languages, work_history, education)
+- Resume upload with parse result tracking
+- Verification status aggregation (per-category status derivation)
+- Admin queue listing/review/audit trail with immutable `AdminReview` records
+
+Auto-verification service (`verification-auto.service.ts`):
+- `verifyGitHubUsername` — fetches public GitHub profile + repos, analyzes repos for skill-relevant keywords, computes verification score (0-1), auto-approves at ≥0.7
+- `verifyCredentialUrl` — HEAD request to verify URL is valid (200-399)
+- `applyAutoVerification` — updates record status + `auto_check_result` based on score
+- `connectOAuthPlatform` — creates/updates connected accounts, runs GitHub verification inline
+- `getConnectedAccounts` — lists all connected platform accounts
+
+Bull worker (`verification.worker.ts`):
+- `verification` queue with 2 job types: `oauth-verify` and `credential-url-verify`
+- Graceful fallback: if Redis unavailable, runs inline verification synchronously
+- Initialized in server bootstrap (`initializeVerificationWorker`)
+
+Controller (`verification.controller.ts`) — 15 handlers:
+- `listCategories`, `listSkillItems`, `selectCategories`, `getSelectedCategories`
+- `submitEvidence`, `listMyRecords`, `getRecordDetail`, `resubmitEvidence`
+- `getVerificationStatus`, `getProfile`, `updateProfile`, `uploadResume`, `getResumeParseResult`
+- **NEW**: `connectGithub` (real GitHub verification), `getConnectedAccounts`, `submitEvidenceWithAutoVerify`
+
+Routes (`verification.routes.ts`) — 16 routes:
+- Public: `GET /categories`, `GET /categories/:categoryId/skill-items`
+- Provider: `POST /categories`, `GET /categories`, `GET /verification-status`, `GET/POST /verification-records`, `POST /verification-records/:id/resubmit`, `POST /verification-records/auto-verify`, `GET/PATCH /profile`, `POST /resume/upload`, `GET /resume/parse-result/:id`, `POST /oauth/github/connect`, `GET /oauth/accounts`
+- Admin: `GET /admin/records`, `GET /admin/records/:id`, `GET /admin/records/:id/audit-trail`, `POST /admin/records/:id/review`
+
+Seed data (`seed.ts`):
+- 40 categories (20 physical, 20 digital) with 185 skills
+- Run with `npm run seed`
+
+### Modified existing backend files
+- `auth.model.ts` — added provider fields: `categories_selected`, `skill_items_selected`, `overall_status`, headline, bio, languages, work_history, education, resume_file_url, public_profile
+- `upload.ts` — added `handleResumeUpload` middleware (PDF/DOC, 5MB limit); fixed pre-existing TS cast errors
+- `routes/index.ts` — mounted verificationRouter at `/api/v1/providers`
+- `index.ts` — initialized verification worker in bootstrap
+- `kyc.controller.ts` — fixed `return res.json(...)` → `res.json(...); return` for TS asyncHandler compat
+
+### Mobile frontend implemented
+
+All 11 step components + navigation infrastructure:
+1. `CategorySelectionStep` — pick 1-3 categories (no close/back button — user must complete wizard)
+2. `SkillSelectionStep` — multi-select skills per category
+3. `EvidenceTypeChoiceStep` — choose cert/prior_work/portfolio/OAuth (skill_test and in_person_test removed)
+4. `CertificateUploadStep` — camera/gallery + issuing body + credential ID
+5. `PriorWorkPhotosStep` — 3-10 photos with captions
+6. `PortfolioLinkStep` — URL + description
+7. `OauthIntegrationStep` — **UPDATED**: username input → calls `verificationService.connectGithub()` → shows verification score → continue
+8. `ResumeBioStep` — PDF upload + manual editor + skip
+9. `StatusHubScreen` — per-category status badges
+10. `RejectionDetailScreen` — rejection reason + resubmit CTA
+
+Infrastructure:
+- `VerificationWizardContext.tsx` — 14-action reducer, removed `skill-test` from WizardStep
+- `verificationService.ts` — **UPDATED**: `connectGithub(username, skillKeywords)` → `OAuthConnectResult`; `getConnectedAccounts()`; `submitEvidenceWithAutoVerify()`
+- `(provider)/_layout.tsx` — KYC gate → verification check → AsyncStorage
+- `(provider-verification)/_layout.tsx` — BackHandler for Android hardware back
+- `(provider-verification)/index.tsx` — step component router
+
+### Deleted
+- `mobile/src/components/verification/SkillTestStep.tsx`
+
+### Wiring fixes applied
+- Fixed URL double-prefix (`/api/v1` in both baseURL and paths)
+- Fixed backend route paths to match mobile URLs
+- Fixed request body shape for selectCategories (mobile sends flat arrays)
+- Fixed response extraction (`.data.categories`, `.data.records`, `.data.record`)
+- Fixed field names (`_id` → `id` across all mobile interfaces, `category_id`/`category_name` in status)
+- Added `active` field to `listCategories` backend response
+- Fixed duplicate route registration (moved selected-categories path)
+- Fixed BackHandler to prevent Android back from navigating to dead screen
+
+### Verification results
+- Backend build: Passed (`cd backend && npx tsc --noEmit`) — 0 errors
+- Backend tests: Passed (`cd backend && npm test -- --run`) — 12 tests
+- Mobile TypeScript: Passed (`cd mobile && npx tsc --noEmit`) — 0 errors
+
+### Notes
+- Pre-existing TS errors in `upload.ts` (type casts) and `kyc.controller.ts` (return type) were fixed
+- Auto-verification Bull worker requires Redis; falls back to inline verification when unavailable
+- GitHub OAuth uses username-based public API verification (full OAuth redirect flow TBD when deep link infrastructure is ready)
+- ConnectedAccount schema is extensible for Upwork/LinkedIn (mobile has "coming soon" UI)
+- `submitEvidenceWithAutoVerify` is a separate endpoint; existing `POST /verification-records` stays unchanged for non-URL evidence
+
 ---
 
 ## 4. Current Repositories and Source Layout
@@ -266,18 +372,7 @@ No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
 
-Active implementation focus (Phase 3 - Provider Onboarding & Verification System):
-- Build skill_categories and skill_items collections with CRUD endpoints
-- Implement provider category/skill selection API
-- Build physical verification track: certificate/license upload, prior work photos
-- Build digital verification track: certificate upload, portfolio links
-- Implement verification_records and admin_reviews models with status state machine
-- Build admin verification review queue (approve/reject/request-info)
-- Implement Provider.overall_status aggregator (derived from KYC + verification records)
-- Build resume upload and parsing pipeline
-- Implement verification status tracking and resubmission flow
-- Build auto-verification workers for credential URLs (MVP)
-- Keep website and admin frontend deferred until app completion milestone
+Phase 3 (Provider Onboarding & Verification System) is complete.
 
 ## 6. Update Template For Future Phase Completions
 
@@ -313,9 +408,9 @@ Project summary:
 - Shared database/services for app and website
 
 Current status:
-- Phase 0, Phase 1, and Phase 2 are all completed and verified.
-- Phase 3 (Provider Onboarding & Verification System) is the active implementation phase.
-- Mobile frontend screens are implemented; priority is wiring backend APIs.
+- Phases 0, 1, 2, and 3 are all completed and verified.
+- Phase 3 (Provider Onboarding & Verification System) is fully delivered: backend verification module with OAuth/auto-verification + 11 mobile screens + Bull workers.
+- Phase 4 (Jobs Core) is the next implementation focus.
 - Website and admin portal implementation remain deferred until app completion.
 
 Core docs:
@@ -334,14 +429,11 @@ Instruction for this chat:
 - After each fully completed phase, update docs/IMPLEMENTATION_STATUS.md with exact completed scope, created files/endpoints, and verification.
 - Do not create separate phase completion markdown files.
 
-Immediate next work (Phase 3 implementation):
-- Build skill_categories and skill_items collections with CRUD API endpoints
-- Implement provider category/skill selection API
-- Build verification_records collection with status state machine (draft/pending_review/scheduled/auto_approved/approved/rejected/expired)
-- Implement physical verification track: certificate/license upload, prior work photos
-- Implement digital verification track: certificate upload, portfolio links
-- Build admin verification review queue with approve/reject/request-info actions and immutable audit trail
-- Implement Provider.overall_status aggregator (incomplete/pending/partially_verified/verified/rejected)
-- Build resume upload and parsing pipeline
-- Implement auto-verification workers for credential URLs, OAuth signals
-- Wire mobile onboarding screens (category selection, evidence submission, status hub) to live APIs
+Immediate next work (Phase 4 - Jobs Core):
+- Design and implement job model (physical/digital, location, budget, category, status state machine)
+- Build client job creation flow (post job with details, budget, schedule)
+- Build provider browse feed with location/category filters and geo-query support
+- Implement job status transitions (open → in_progress → completed → cancelled)
+- Design client job list and detail endpoints
+- Build mobile screens: job creation form, browse feed, job detail, client job management
+- Wire mobile screens to live APIs as they are built

@@ -92,6 +92,12 @@ export const verificationValidators = {
     active_only: Joi.boolean().optional(),
   }),
 
+  connectOAuth: Joi.object({
+    username: Joi.string().trim().min(1).max(100).required(),
+    platform: Joi.string().valid('github', 'upwork', 'linkedin').default('github'),
+    skill_keywords: Joi.array().items(Joi.string().trim().max(50)).optional(),
+  }),
+
   updateProfile: Joi.object({
     headline: Joi.string().trim().max(200).optional(),
     bio: Joi.string().trim().max(500).optional(),

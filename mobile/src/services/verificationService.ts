@@ -43,6 +43,25 @@ export interface VerificationStatus {
   all_verified: boolean;
 }
 
+export interface ConnectedAccount {
+  id: string;
+  platform: 'github' | 'upwork' | 'linkedin';
+  username: string;
+  platform_user_id: string | null;
+  verified: boolean;
+  verified_at: string | null;
+  connected_at: string;
+}
+
+export interface OAuthConnectResult {
+  platform: string;
+  username: string;
+  verified: boolean;
+  verification_score: number;
+  platform_data: Record<string, unknown> | null;
+  repo_analysis?: { match_count: number; matched_repos: string[]; languages: string[] };
+}
+
 export interface ResumeBioData {
   headline: string;
   bio: string;
@@ -128,8 +147,24 @@ export const verificationService = {
     return res.data.data;
   },
 
-  connectGithub: async (): Promise<never> => {
-    throw new Error('OAuth integration not available yet');
+  connectGithub: async (username: string, skillKeywords?: string[]): Promise<OAuthConnectResult> => {
+    const res = await api.post('/providers/oauth/github/connect', { username, skill_keywords: skillKeywords });
+    return res.data.data;
+  },
+
+  getConnectedAccounts: async (): Promise<ConnectedAccount[]> => {
+    const res = await api.get('/providers/oauth/accounts');
+    return res.data.data.accounts;
+  },
+
+  submitEvidenceWithAutoVerify: async (evidence: {
+    category_id: string;
+    skill_item_id: string;
+    evidence_type: string;
+    evidence_payload: Record<string, unknown>;
+  }): Promise<VerificationRecord> => {
+    const res = await api.post('/providers/verification-records/auto-verify', evidence);
+    return res.data.data.record;
   },
 
   markVerificationComplete: async (): Promise<void> => {
