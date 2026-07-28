@@ -1,10 +1,10 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
-import { Colors } from '@/src/theme/colors';
+import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function OauthIntegrationStep() {
   const scheme = useColorScheme();
@@ -18,11 +18,11 @@ export default function OauthIntegrationStep() {
 
   const handleConnectGithub = () => {
     dispatch({ type: 'MARK_OAUTH_CONNECTED', skillItemId: currentSkillItem?._id || '' });
-    dispatch({ type: 'NEXT_CATEGORY' });
+    dispatch({ type: 'COMPLETE_CATEGORY_EVIDENCE' });
   };
 
   const handleSkip = () => {
-    dispatch({ type: 'NEXT_CATEGORY' });
+    dispatch({ type: 'COMPLETE_CATEGORY_EVIDENCE' });
   };
 
   const styles = makeStyles(C);
@@ -53,7 +53,7 @@ export default function OauthIntegrationStep() {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleSkip} style={styles.skipBtn}>
-          <Text style={styles.skipText}>Skip — I'll do this later</Text>
+          <Text style={styles.skipText}>Skip â€” I'll do this later</Text>
         </TouchableOpacity>
 
         <View style={styles.comingSoon}>
@@ -65,7 +65,7 @@ export default function OauthIntegrationStep() {
   );
 }
 
-const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
+const makeStyles = (C: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
@@ -80,3 +80,4 @@ const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
   comingSoon: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 24 },
   comingSoonText: { fontSize: 12, color: C.textHint },
 });
+

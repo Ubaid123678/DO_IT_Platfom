@@ -41,6 +41,7 @@ type WizardAction =
   | { type: 'ADD_PHOTO'; skillItemId: string; uri: string; caption: string }
   | { type: 'SET_PORTFOLIO'; skillItemId: string; url: string; description: string }
   | { type: 'NEXT_CATEGORY' }
+  | { type: 'COMPLETE_CATEGORY_EVIDENCE' }
   | { type: 'SET_RESUME_BIO_COMPLETE' }
   | { type: 'SET_CURRENT_CATEGORY_INDEX'; index: number }
   | { type: 'COMPLETE_WIZARD' }
@@ -94,6 +95,15 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return { ...state, portfolios: { ...state.portfolios, [action.skillItemId]: { url: action.url, description: action.description } } };
     case 'NEXT_CATEGORY':
       return { ...state, currentCategoryIndex: state.currentCategoryIndex + 1 };
+    case 'COMPLETE_CATEGORY_EVIDENCE': {
+      const nextIndex = state.currentCategoryIndex + 1;
+      const hasMoreCategories = nextIndex < state.selectedCategories.length;
+      return {
+        ...state,
+        currentCategoryIndex: nextIndex,
+        currentStep: hasMoreCategories ? 'evidence-type-choice' : 'resume-bio',
+      };
+    }
     case 'SET_RESUME_BIO_COMPLETE':
       return { ...state, resumeBioComplete: true };
     case 'SET_CURRENT_CATEGORY_INDEX':

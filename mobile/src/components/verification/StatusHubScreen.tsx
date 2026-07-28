@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
 import { VerificationRecord, verificationService } from '@/src/services/verificationService';
-import { Colors } from '@/src/theme/colors';
+import { Colors, type AppColors } from '@/src/theme/colors';
 
 const statusConfig: Record<string, { label: string; color: string; icon: string; bg: string }> = {
   draft: { label: 'Draft', color: '#AAAAAA', icon: 'ellipse-outline', bg: '#E8EDED' },
@@ -54,7 +54,7 @@ export default function StatusHubScreen() {
   };
 
   const handleResubmit = (record: VerificationRecord) => {
-    dispatch({ type: 'SET_REJECTION_RECORD', id: record._id });
+    dispatch({ type: 'SET_REJECTION_RECORD', id: record.id });
   };
 
   const styles = makeStyles(C);
@@ -112,7 +112,7 @@ export default function StatusHubScreen() {
       ) : (
         <FlatList
           data={records}
-          keyExtractor={item => item._id}
+          keyExtractor={item => item.id}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -124,7 +124,7 @@ export default function StatusHubScreen() {
           }
           renderItem={({ item }) => {
             const cfg = statusConfig[item.status] || statusConfig.pending_review;
-            const catName = state.selectedCategories.find(c => c.category_id === item.category_id)?.name || 'Unknown';
+            const catName = state.selectedCategories.find(c => c.category_id === item.category_id)?.name || item.category || 'Unknown';
             const skillName = state.selectedSkillItems
               .flatMap(s => s.skill_items)
               .find(s => s._id === item.skill_item_id)?.name || 'Unknown';
@@ -171,7 +171,7 @@ export default function StatusHubScreen() {
   );
 }
 
-const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
+const makeStyles = (C: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
@@ -195,3 +195,4 @@ const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
   dashboardBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, height: 52, borderRadius: 12, gap: 8 },
   dashboardBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
+

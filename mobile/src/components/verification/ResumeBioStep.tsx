@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
 import { verificationService } from '@/src/services/verificationService';
-import { Colors } from '@/src/theme/colors';
+import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function ResumeBioStep() {
   const scheme = useColorScheme();
@@ -59,7 +59,7 @@ export default function ResumeBioStep() {
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Complete your provider profile</Text>
-        <Text style={styles.subtitle}>Optional — you can do this anytime. It helps clients trust your expertise.</Text>
+        <Text style={styles.subtitle}>Optional â€” you can do this anytime. It helps clients trust your expertise.</Text>
 
         <TouchableOpacity style={styles.uploadCard} onPress={pickResume} activeOpacity={0.7}>
           <Ionicons name="document-text-outline" size={32} color={C.primary} />
@@ -140,7 +140,7 @@ export default function ResumeBioStep() {
   );
 }
 
-const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
+const makeStyles = (C: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
@@ -165,3 +165,4 @@ const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
   saveBtn: { flex: 2, alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, height: 52, borderRadius: 12 },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
+

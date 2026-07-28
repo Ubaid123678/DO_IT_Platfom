@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
 import { verificationService } from '@/src/services/verificationService';
-import { Colors } from '@/src/theme/colors';
+import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function CertificateUploadStep() {
   const scheme = useColorScheme();
@@ -77,7 +77,7 @@ export default function CertificateUploadStep() {
       });
       setUploaded(true);
       Alert.alert('Submitted', 'Your certificate has been submitted for review.', [
-        { text: 'OK', onPress: () => dispatch({ type: 'NEXT_CATEGORY' }) },
+        { text: 'OK', onPress: () => dispatch({ type: 'COMPLETE_CATEGORY_EVIDENCE' }) },
       ]);
     } catch {
       Alert.alert('Error', 'Failed to submit. Please try again.');
@@ -198,7 +198,7 @@ export default function CertificateUploadStep() {
   );
 }
 
-const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
+const makeStyles = (C: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
@@ -220,3 +220,4 @@ const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
   submitBtnDisabled: { backgroundColor: C.divider },
   submitText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
+

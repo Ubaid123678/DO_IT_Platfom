@@ -1,11 +1,11 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
 import { VerificationRecord, verificationService } from '@/src/services/verificationService';
-import { Colors } from '@/src/theme/colors';
+import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function RejectionDetailScreen() {
   const scheme = useColorScheme();
@@ -108,7 +108,7 @@ export default function RejectionDetailScreen() {
   );
 }
 
-const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
+const makeStyles = (C: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
@@ -129,3 +129,4 @@ const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
   resubmitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, height: 52, borderRadius: 12, gap: 8 },
   resubmitText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
+

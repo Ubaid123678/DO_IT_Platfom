@@ -1,11 +1,11 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
 import { SkillItem, verificationService } from '@/src/services/verificationService';
-import { Colors } from '@/src/theme/colors';
+import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function SkillSelectionStep() {
   const scheme = useColorScheme();
@@ -58,7 +58,7 @@ export default function SkillSelectionStep() {
     const items = state.selectedCategories.map(cat => ({
       category_id: cat.category_id,
       skill_items: (selectedMap[cat.category_id] || []).map(id => {
-        const found = skillItemsMap[cat.category_id]?.find(s => s._id === id);
+        const found = skillItemsMap[cat.category_id]?.find(s => s.id === id);
         return { _id: id, name: found?.name || '' };
       }),
     }));
@@ -124,12 +124,12 @@ export default function SkillSelectionStep() {
                 <Text style={styles.countText}>{selected.length}/{items.length}</Text>
               </View>
               {items.map(item => {
-                const isSelected = selected.includes(item._id);
+                const isSelected = selected.includes(item.id);
                 return (
                   <TouchableOpacity
-                    key={item._id}
+                    key={item.id}
                     style={[styles.skillCard, isSelected && styles.skillCardSelected]}
-                    onPress={() => toggle(cat.category_id, item._id)}
+                    onPress={() => toggle(cat.category_id, item.id)}
                     activeOpacity={0.7}
                   >
                     <View style={styles.checkbox}>
@@ -165,7 +165,7 @@ export default function SkillSelectionStep() {
   );
 }
 
-const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
+const makeStyles = (C: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
@@ -177,7 +177,7 @@ const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
   categoryTitle: { fontSize: 15, fontWeight: '700', color: C.textPrimary, flex: 1 },
   countText: { fontSize: 12, color: C.textHint, fontWeight: '500' },
   skillCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: C.cardBorder },
-  skillCardSelected: { borderColor: C.primary, backgroundColor: isDark => isDark ? '#1A3A35' : '#F0FCFA' },
+  skillCardSelected: { borderColor: C.primary, backgroundColor: C.primaryLight },
   checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: C.cardBorder, alignItems: 'center', justifyContent: 'center', marginRight: 12, backgroundColor: 'transparent' },
   skillName: { fontSize: 14, fontWeight: '500', color: C.textPrimary },
   certHint: { fontSize: 11, color: C.warning, marginTop: 2 },
@@ -186,3 +186,4 @@ const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
   nextBtnDisabled: { backgroundColor: C.divider },
   nextBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
+

@@ -23,14 +23,23 @@ export default function ProviderLayout() {
         setGate('kyc');
         return;
       }
+
+      const verifDone = await verificationService.isVerificationComplete();
+      if (verifDone) {
+        setGate('approved');
+        return;
+      }
+
       const verifStatus = await verificationService.getVerificationStatus();
       if (verifStatus.overall_status === 'verified' || verifStatus.overall_status === 'partially_verified') {
+        await verificationService.markVerificationComplete();
         setGate('approved');
       } else {
         setGate('verification');
       }
     } catch {
-      setGate('approved');
+      const verifDone = await verificationService.isVerificationComplete().catch(() => false);
+      setGate(verifDone ? 'approved' : 'verification');
     }
   }, []);
 
@@ -138,3 +147,4 @@ export default function ProviderLayout() {
     </Tabs>
   );
 }
+

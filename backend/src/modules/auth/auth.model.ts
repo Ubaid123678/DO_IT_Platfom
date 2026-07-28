@@ -24,6 +24,18 @@ export interface IUser extends Document {
   phoneOtp?: OtpState;
   passwordResetToken?: string;
   passwordResetExpiresAt?: Date;
+  categories_selected?: string[];
+  skill_items_selected?: string[];
+  overall_status?: string;
+  headline?: string;
+  bio?: string;
+  years_experience?: number;
+  languages?: string[];
+  work_history?: { title: string; company: string; start_date: string; end_date?: string; description?: string }[];
+  education?: { institution: string; degree: string; field?: string; start_year?: number; end_year?: number }[];
+  resume_file_url?: string;
+  resume_parsed_at?: Date;
+  public_profile?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -60,6 +72,18 @@ const userSchema = new Schema<IUser>(
     phoneOtp: { type: otpSchema, required: false },
     passwordResetToken: { type: String, required: false, index: true },
     passwordResetExpiresAt: { type: Date, required: false },
+    categories_selected: { type: [String], required: false },
+    skill_items_selected: { type: [String], required: false },
+    overall_status: { type: String, enum: ['incomplete', 'pending', 'partially_verified', 'verified', 'rejected'], default: 'incomplete' },
+    headline: { type: String, required: false, maxlength: 200 },
+    bio: { type: String, required: false, maxlength: 500 },
+    years_experience: { type: Number, required: false, min: 0, max: 100 },
+    languages: { type: [String], required: false },
+    work_history: { type: [Schema.Types.Mixed], required: false },
+    education: { type: [Schema.Types.Mixed], required: false },
+    resume_file_url: { type: String, required: false },
+    resume_parsed_at: { type: Date, required: false },
+    public_profile: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

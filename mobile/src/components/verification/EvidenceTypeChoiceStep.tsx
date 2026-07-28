@@ -1,10 +1,10 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
-import { Colors } from '@/src/theme/colors';
+import { Colors, type AppColors } from '@/src/theme/colors';
 
 const physicalEvidenceTypes = [
   { key: 'certificate', label: 'Certificate / License', icon: 'document-text-outline', desc: 'Upload a photo of your certificate or license' },
@@ -68,7 +68,7 @@ export default function EvidenceTypeChoiceStep() {
       </View>
 
       <Text style={styles.categoryLabel}>
-        {currentCat.job_type === 'physical' ? '🔧' : '💻'} {currentCat.name}
+        {currentCat.job_type === 'physical' ? 'ðŸ”§' : 'ðŸ’»'} {currentCat.name}
       </Text>
       <Text style={styles.subtitle}>Choose how to verify your skills for this category</Text>
 
@@ -102,7 +102,7 @@ export default function EvidenceTypeChoiceStep() {
   );
 }
 
-const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
+const makeStyles = (C: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
@@ -116,3 +116,4 @@ const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
   evidenceLabel: { fontSize: 15, fontWeight: '600', color: C.textPrimary, marginBottom: 2 },
   evidenceDesc: { fontSize: 12, color: C.textSecondary },
 });
+

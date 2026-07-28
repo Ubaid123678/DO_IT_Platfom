@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
 import { SkillCategory, verificationService } from '@/src/services/verificationService';
-import { Colors } from '@/src/theme/colors';
+import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function CategorySelectionStep() {
   const scheme = useColorScheme();
@@ -41,8 +41,8 @@ export default function CategorySelectionStep() {
   };
 
   const handleNext = () => {
-    const selected = categories.filter(c => selectedIds.includes(c._id));
-    dispatch({ type: 'SET_CATEGORIES', categories: selected.map(c => ({ category_id: c._id, name: c.name, job_type: c.job_type })) });
+    const selected = categories.filter(c => selectedIds.includes(c.id));
+    dispatch({ type: 'SET_CATEGORIES', categories: selected.map(c => ({ category_id: c.id, name: c.name, job_type: c.job_type })) });
     dispatch({ type: 'SET_STEP', step: 'skill-selection' });
   };
 
@@ -97,9 +97,9 @@ export default function CategorySelectionStep() {
                 <Text style={styles.sectionLabel}>Physical Services</Text>
                 {physicalCats.map(cat => (
                   <TouchableOpacity
-                    key={cat._id}
-                    style={[styles.categoryCard, selectedIds.includes(cat._id) && styles.categoryCardSelected]}
-                    onPress={() => toggle(cat._id)}
+                    key={cat.id}
+                    style={[styles.categoryCard, selectedIds.includes(cat.id) && styles.categoryCardSelected]}
+                    onPress={() => toggle(cat.id)}
                     activeOpacity={0.7}
                   >
                     <View style={styles.categoryIcon}>
@@ -111,7 +111,7 @@ export default function CategorySelectionStep() {
                         <Text style={styles.badgeText}>Physical</Text>
                       </View>
                     </View>
-                    {selectedIds.includes(cat._id) && (
+                    {selectedIds.includes(cat.id) && (
                       <Ionicons name="checkmark-circle" size={24} color={C.primary} />
                     )}
                   </TouchableOpacity>
@@ -124,9 +124,9 @@ export default function CategorySelectionStep() {
                 <Text style={[styles.sectionLabel, { marginTop: physicalCats.length > 0 ? 24 : 0 }]}>Digital Services</Text>
                 {digitalCats.map(cat => (
                   <TouchableOpacity
-                    key={cat._id}
-                    style={[styles.categoryCard, selectedIds.includes(cat._id) && styles.categoryCardSelected]}
-                    onPress={() => toggle(cat._id)}
+                    key={cat.id}
+                    style={[styles.categoryCard, selectedIds.includes(cat.id) && styles.categoryCardSelected]}
+                    onPress={() => toggle(cat.id)}
                     activeOpacity={0.7}
                   >
                     <View style={styles.categoryIcon}>
@@ -138,7 +138,7 @@ export default function CategorySelectionStep() {
                         <Text style={[styles.badgeText, { color: C.primary }]}>Digital</Text>
                       </View>
                     </View>
-                    {selectedIds.includes(cat._id) && (
+                    {selectedIds.includes(cat.id) && (
                       <Ionicons name="checkmark-circle" size={24} color={C.primary} />
                     )}
                   </TouchableOpacity>
@@ -168,7 +168,7 @@ export default function CategorySelectionStep() {
   );
 }
 
-const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
+const makeStyles = (C: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
@@ -178,7 +178,7 @@ const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
   subtitle: { fontSize: 14, color: C.textSecondary, paddingHorizontal: 20, marginBottom: 20 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: C.textHint, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
   categoryCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1.5, borderColor: C.cardBorder },
-  categoryCardSelected: { borderColor: C.primary, backgroundColor: isDark => isDark ? '#1A3A35' : '#F0FCFA' },
+  categoryCardSelected: { borderColor: C.primary, backgroundColor: C.primaryLight },
   categoryIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   categoryName: { fontSize: 15, fontWeight: '600', color: C.textPrimary, marginBottom: 4 },
   badge: { alignSelf: 'flex-start', backgroundColor: C.primaryLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
@@ -189,3 +189,4 @@ const makeStyles = (C: typeof Colors.light) => StyleSheet.create({
   nextBtnDisabled: { backgroundColor: C.divider },
   nextBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
+
