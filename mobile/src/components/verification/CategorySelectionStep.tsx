@@ -1,5 +1,4 @@
-﻿import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +11,6 @@ export default function CategorySelectionStep() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
-  const router = useRouter();
   const { dispatch } = useWizard();
 
   const [categories, setCategories] = useState<SkillCategory[]>([]);
@@ -73,9 +71,7 @@ export default function CategorySelectionStep() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/(provider)/home')} style={styles.backBtn}>
-          <Ionicons name="close" size={24} color={C.textPrimary} />
-        </TouchableOpacity>
+        <View style={{ width: 40 }} />
         <Text style={styles.headerTitle}>Choose Categories</Text>
         <View style={{ width: 40 }} />
       </View>
