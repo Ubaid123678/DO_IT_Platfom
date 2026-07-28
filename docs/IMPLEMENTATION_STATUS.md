@@ -276,7 +276,7 @@ Active implementation focus (Phase 3 - Provider Onboarding & Verification System
 - Implement Provider.overall_status aggregator (derived from KYC + verification records)
 - Build resume upload and parsing pipeline
 - Implement verification status tracking and resubmission flow
-- Build auto-verification workers for credential URLs and skill tests (MVP)
+- Build auto-verification workers for credential URLs (MVP)
 - Keep website and admin frontend deferred until app completion milestone
 
 ## 6. Update Template For Future Phase Completions
@@ -343,5 +343,5 @@ Immediate next work (Phase 3 implementation):
 - Build admin verification review queue with approve/reject/request-info actions and immutable audit trail
 - Implement Provider.overall_status aggregator (incomplete/pending/partially_verified/verified/rejected)
 - Build resume upload and parsing pipeline
-- Implement auto-verification workers for credential URLs, OAuth signals, and skill tests
+- Implement auto-verification workers for credential URLs, OAuth signals
 - Wire mobile onboarding screens (category selection, evidence submission, status hub) to live APIs

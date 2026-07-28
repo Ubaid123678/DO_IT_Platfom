@@ -235,10 +235,8 @@ Deliverables:
 - Provider status aggregator (overall_status: incomplete/pending/partially_verified/verified/rejected)
 - Verification status tracking and resubmission flow
 - Resume upload & parsing pipeline with structured editor
-- In-person test scheduling (skeleton)
 - OAuth platform integration (GitHub MVP)
-- In-app skill test engine (MCQ MVP)
-- Auto-verification workers for credential URLs, OAuth signals, skill tests
+- Auto-verification workers for credential URLs, OAuth signals
 
 New collections:
 - `verification_records` — per-skill-item evidence submissions with polymorphic evidence payload
@@ -249,7 +247,7 @@ Exit Criteria:
 - Provider can complete full onboarding: signup → KYC → category selection → skill verification → dashboard
 - Admin can review and approve/reject verification records via API
 - Provider dashboard reflects locked/partial/full access based on verification status
-- Auto-verification workers trigger on eligible submissions (credential URLs, platform OAuth, skill tests)
+- Auto-verification workers trigger on eligible submissions (credential URLs, platform OAuth)
 
 ---
 

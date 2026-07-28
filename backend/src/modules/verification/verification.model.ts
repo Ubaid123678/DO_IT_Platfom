@@ -4,7 +4,7 @@ export type JobType = 'physical' | 'digital';
 
 export type VerificationTrack = 'physical' | 'digital';
 
-export type EvidenceType = 'certificate' | 'prior_work' | 'portfolio' | 'oauth' | 'skill_test' | 'in_person_test';
+export type EvidenceType = 'certificate' | 'prior_work' | 'portfolio' | 'oauth';
 
 export type VerificationStatus = 'draft' | 'pending_review' | 'scheduled' | 'auto_approved' | 'approved' | 'rejected' | 'expired';
 
@@ -27,8 +27,6 @@ export interface ISkillItem extends Document {
   category_id: mongoose.Types.ObjectId;
   name: string;
   requires_certificate: boolean;
-  supports_auto_test: boolean;
-  pass_threshold?: number;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -85,8 +83,6 @@ const skillItemSchema = new Schema<ISkillItem>(
     category_id: { type: Schema.Types.ObjectId, ref: 'SkillCategory', required: true, index: true },
     name: { type: String, required: true, trim: true },
     requires_certificate: { type: Boolean, default: false },
-    supports_auto_test: { type: Boolean, default: false },
-    pass_threshold: { type: Number, required: false },
     active: { type: Boolean, default: true },
   },
   { timestamps: true },
@@ -102,7 +98,7 @@ const verificationRecordSchema = new Schema<IVerificationRecord>(
     verification_track: { type: String, enum: ['physical', 'digital'], required: true },
     evidence_type: {
       type: String,
-      enum: ['certificate', 'prior_work', 'portfolio', 'oauth', 'skill_test', 'in_person_test'],
+      enum: ['certificate', 'prior_work', 'portfolio', 'oauth'],
       required: true,
     },
     evidence_payload: { type: Schema.Types.Mixed, required: true },

@@ -543,7 +543,6 @@ async function seed() {
         category_id: category._id,
         name: skill.name,
         requires_certificate: skill.requires_certificate,
-        supports_auto_test: (skill as { supports_auto_test?: boolean }).supports_auto_test ?? false,
         active: true,
       }));
 

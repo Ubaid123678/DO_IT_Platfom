@@ -385,7 +385,7 @@ stateDiagram-v2
 - Skill test engine (MCQ MVP).
 - Verification records with status state machine (draft/pending_review/scheduled/auto_approved/approved/rejected/expired).
 - Admin review queue with immutable audit trail.
-- Auto-verification workers for credential URLs, OAuth signals, and skill tests.
+- Auto-verification workers for credential URLs, OAuth signals.
 - Provider.overall_status aggregator (incomplete/pending/partially_verified/verified/rejected).
 - Resume upload and parsing pipeline.
 

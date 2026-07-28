@@ -3,7 +3,7 @@ import Joi from 'joi';
 const objectId = Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required();
 
 const evidenceType = Joi.string().valid(
-  'certificate', 'prior_work', 'portfolio', 'oauth', 'skill_test', 'in_person_test',
+  'certificate', 'prior_work', 'portfolio', 'oauth',
 ).required();
 
 const verificationStatus = Joi.string().valid(

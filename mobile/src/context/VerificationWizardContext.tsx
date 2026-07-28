@@ -8,7 +8,6 @@ export type WizardStep =
   | 'prior-work-photos'
   | 'portfolio-link'
   | 'oauth-integration'
-  | 'skill-test'
   | 'resume-bio'
   | 'status-hub'
   | 'rejection-detail';

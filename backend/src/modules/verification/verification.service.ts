@@ -104,7 +104,6 @@ export const verificationService = {
       id: item._id.toString(),
       name: item.name,
       requires_certificate: item.requires_certificate,
-      supports_auto_test: item.supports_auto_test,
     }));
   },
 
@@ -543,36 +542,4 @@ export const verificationService = {
     };
   },
 
-  inPersonTestResult: async (adminId: string, recordId: string, passed: boolean, notes?: string) => {
-    const admin = await getUserOrThrow(adminId);
-    assertAdmin(admin);
-
-    const record = await VerificationRecordModel.findById(recordId);
-    if (!record) throw new AppError('Verification record not found', 404, 'RECORD_NOT_FOUND');
-
-    record.status = passed ? 'approved' : 'rejected';
-    record.reviewed_by = admin._id;
-    record.reviewed_at = new Date();
-    if (!passed) record.rejection_reason = notes || 'In-person test failed';
-    await record.save();
-
-    await AdminReviewModel.create({
-      verification_record_id: record._id,
-      admin_id: admin._id,
-      action: passed ? 'approved' : 'rejected',
-      notes,
-    });
-
-    const overallStatus = await recomputeOverallStatus(record.provider_id.toString());
-    const provider = await UserModel.findById(record.provider_id);
-    if (provider) {
-      provider.set('overall_status', overallStatus);
-      await provider.save();
-    }
-
-    return {
-      record: serializeVerificationRecord(record.toJSON() as Record<string, unknown>),
-      overall_status: overallStatus,
-    };
-  },
 };

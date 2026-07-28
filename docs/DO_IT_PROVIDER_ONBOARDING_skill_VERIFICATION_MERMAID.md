@@ -55,17 +55,15 @@ flowchart TD
 
     P1 -->|certificate/license| P2["12b. Upload Certificate/License"]
     P1 -->|prior work| P3["12c. Prior Work Photos"]
-    P1 -->|in-person test| P4["12d. Schedule In-Person Test"]
 
     D1 -->|certificate| D2["13b. Upload Certificate"]
     D1 -->|portfolio| D3["13c. Portfolio Link"]
     D1 -->|OAuth| D4["13d. Platform Integration"]
-    D1 -->|skill test| D5["13e. In-App Skill Test"]
 
     S11 -.parallel, non-blocking.-> R1["14. Resume/Bio Editor"]
     R1 -.alt path.-> R2["15. Resume Upload -> auto-parse -> pre-fill 14"]
 
-    P2 & P3 & P4 & D2 & D3 & D4 & D5 --> V1["16. Verification Status Hub"]
+    P2 & P3 & D2 & D3 & D4 --> V1["16. Verification Status Hub"]
     V1 -->|rejected| V2["17. Rejection Detail / Resubmit"]
     V2 --> V1
     V1 --> DB1["18. Dashboard (Locked/Partial)"]
@@ -81,8 +79,8 @@ flowchart TD
 | 6–9 | KYC (type/capture/selfie/review) | id_type, front/back image, live selfie | image ≥600x400px, ≤10MB, blur/glare check; liveness prompts | submit → status=pending, non-blocking continue to Category Selection |
 | 10 | Category Selection | job_type, 1–3 categories | ≥1 category required | physical → physical path; digital → digital path; both allowed |
 | 11 | Skill Item Selection | multi-select skill_items per category | ≥1 skill_item per category | continue → per-category verification |
-| 12a–12d | Physical evidence | evidence_type + type-specific fields (see §4) | ≥1 evidence type per physical category | certificate/license/photos → upload; in-person → scheduling |
-| 13a–13e | Digital evidence | evidence_type + type-specific fields (see §5) | ≥1 evidence type per digital category | certificate w/ URL → auto-verify attempt; else → manual review |
+| 12a–12c | Physical evidence | evidence_type + type-specific fields (see §4) | ≥1 evidence type per physical category | certificate/license/photos → upload |
+| 13a–13d | Digital evidence | evidence_type + type-specific fields (see §5) | ≥1 evidence type per digital category | certificate w/ URL → auto-verify attempt; else → manual review |
 | 14 | Resume/Bio Editor | headline, bio (≤500 chars), years_experience, languages, work_history[], education[] | bio required for public profile | save → non-blocking, anytime |
 | 15 | Resume Upload | file (PDF/DOC ≤5MB) | file type/size check | parsed → pre-fills Screen 14, user confirms |
 | 16 | Verification Status Hub | status badges per category/skill | — | tap → detail w/ SLA + resubmit option |
@@ -95,8 +93,7 @@ flowchart TD
 flowchart LR
     A1["A1. KYC Review Queue\nprovider, submitted_at, doc thumbnails"] -->|approve/reject| KYCdone["KYC status updated"]
     A2["A2. Skill Verification Queue\nprovider, category, skill_item, evidence, SLA countdown"] -->|approve/reject/request-info| VRdone["VerificationRecord status updated"]
-    A3["A3. In-Person Test Scheduler\nprovider, date/time, location, tester"] -->|assign/pass-fail/reschedule| A2
-    A4["A4. Provider Detail (Admin View)\nfull audit history"] -->|override, logged| VRdone
+    A3["A3. Provider Detail (Admin View)\nfull audit history"] -->|override, logged| VRdone
 ```
 
 ---
@@ -217,8 +214,7 @@ flowchart TD
 **Evidence submission methods:**
 1. Certificate/license photo or PDF upload
 2. Prior work photos (3–10, captioned, optional client reference)
-3. In-person verification / practical test (scheduled slot)
-4. Video demo (Phase 2)
+3. Video demo (Phase 2)
 
 **Verification workflow:**
 
@@ -229,7 +225,7 @@ flowchart TD
     Pass -- No --> Flag["Flag for manual review + reason"]
     Pass -- Yes --> Queue["Enter Admin Review Queue\n(priority by category risk tier)"]
     Flag --> Queue
-    Queue --> Eval["Admin evaluates:\ndocument authenticity,\ncredential matches skill_item,\nexpiry validity,\nin-person test pass/fail"]
+    Queue --> Eval["Admin evaluates:\ndocument authenticity,\ncredential matches skill_item,\nexpiry validity"]
     Eval --> Outcome{"Decision"}
     Outcome -- Approved --> R1["status=approved\ncategory unlocked"]
     Outcome -- Rejected --> R2["status=rejected\nreason required, resubmit allowed"]
@@ -242,36 +238,38 @@ flowchart TD
 |---|---|---|
 | Low | Cleaning, moving help | 1 of: prior work photos OR self-attestation + rating history |
 | Medium | Home repair, tutoring in-person | Certificate/license OR ≥3 prior work photos + reference |
-| High (regulated) | Electrical, plumbing (legally licensed trades) | Valid license/certificate mandatory; in-person test recommended |
+| High (regulated) | Electrical, plumbing (legally licensed trades) | Valid license/certificate mandatory |
 
-**SLA:** target 48 hours for document-based review, 5–7 business days for in-person test scheduling + completion (configurable per category).
+**SLA:** target 48 hours for document-based review (configurable per category).
 
 ---
 
 ## 5. Digital Skills Verification
 
-**Evidence types:** certificates (with optional `credential_url`), portfolio links, OAuth platform integrations (GitHub, Upwork, LinkedIn), in-app skill tests, skill endorsements (Phase 2).
+**Evidence types:** certificates (with optional `credential_url`), portfolio links, OAuth platform integrations (GitHub, Upwork, LinkedIn), skill endorsements (Phase 2).
 
-**Automated checks:** domain/URL reachability, credential-URL auto-verify against issuer's public verify page, OAuth token validity as ownership proof, auto-graded skill tests, duplicate/fraud heuristics on portfolio URLs.
+**Automated checks:** domain/URL reachability, credential-URL auto-verify against issuer's public verify page, OAuth token validity as ownership proof, duplicate/fraud heuristics on portfolio URLs.
 
 **Automation decision logic:**
 
 ```mermaid
 flowchart TD
     Submit["Provider submits evidence"] --> Type{"evidence_type"}
-    Type -- skill_test --> T1{"score >= pass_threshold?"}
-    T1 -- Yes --> Auto1["auto_approved"]
-    T1 -- No --> Manual1["pending_review"]
 
-    Type -- certificate --> T2{"credential_url\nauto-verify succeeds?"}
+    Type -- certificate --> T2{"credential_url
+    auto-verify succeeds?"}
     T2 -- Yes --> Auto2["auto_approved"]
     T2 -- No --> Manual2["pending_review"]
 
-    Type -- platform_integration --> T3{"activity signals meet\ncategory minimum?\n(e.g. >=5 public repos,\nrecent commits)"}
+    Type -- platform_integration --> T3{"activity signals meet
+    category minimum?
+    (e.g. >=5 public repos,
+    recent commits)"}
     T3 -- Yes --> Auto3["auto_approved"]
     T3 -- No --> Manual3["pending_review"]
 
-    Type -- portfolio_link --> Manual4["pending_review\n(always manual)"]
+    Type -- portfolio_link --> Manual4["pending_review
+    (always manual)"]
 ```
 
 **Verification workflow:**
@@ -334,7 +332,7 @@ flowchart LR
 | Async processing | Bull/Redis — new queues: `verification-auto-check`, `resume-parse`, `credential-url-verify` |
 | OAuth integrations | GitHub OAuth (Phase 2), Upwork/LinkedIn (Phase 2, if APIs permit) |
 | Resume parsing | Third-party parsing API (e.g. Affinda, Sovren) called from a Bull worker — vendor spike in Phase 2 |
-| Skill test engine | In-house MCQ engine for MVP; sandboxed code execution (Phase 2, e.g. Judge0) |
+
 | Notifications | Existing FCM/SendGrid/Twilio pipeline — new event types for verification status changes |
 
 **API endpoints (new, under `/api/v1`):**
@@ -351,9 +349,6 @@ POST   /providers/resume/upload                          upload resume file -> t
 GET    /providers/resume/parse-result/:id                  fetch parsed fields for review
 PATCH  /providers/profile                                 update bio/headline/work_history/education
 
-POST   /providers/skill-tests/:skillItemId/start           begin timed test
-POST   /providers/skill-tests/:attemptId/submit             submit answers -> auto-grade
-
 POST   /providers/oauth/github/connect                     initiate OAuth
 GET    /providers/oauth/github/callback                      handle callback, pull signals
 
@@ -363,7 +358,6 @@ POST   /admin/verification-records/:id/approve
 POST   /admin/verification-records/:id/reject           { reason }
 POST   /admin/verification-records/:id/request-info      { message }
 GET    /admin/verification-records/:id/audit-trail
-POST   /admin/in-person-tests/:id/result                 { pass: boolean, notes }
 ```
 
 **Example end-to-end data flow (digital, certificate with auto-verify):**
@@ -397,18 +391,16 @@ sequenceDiagram
 ### MVP (Phase A — ships alongside/after existing Phase 2 "KYC & Provider Activation" in the master roadmap)
 - Signup → identity KYC (existing pipeline, unchanged)
 - Category + skill_item selection (up to 3 categories)
-- Physical track: certificate/license + prior-work-photo upload only (manual admin review, no in-person scheduling yet)
-- Digital track: certificate + portfolio link only (manual admin review, no auto-verify/OAuth/skill test yet)
+- Physical track: certificate/license + prior-work-photo upload only (manual admin review)
+- Digital track: certificate + portfolio link only (manual admin review, no auto-verify/OAuth yet)
 - Structured bio/resume editor (manual entry or plain file upload, no auto-fill yet)
 - Admin review via lightweight internal tool consuming `/admin/verification-records`
 - Provider dashboard with locked/partial/full states
 - Basic status notifications (in-app + push)
 
 ### Phase 2 (post-MVP enhancement)
-- In-person test scheduling + tester assignment workflow
 - Automated credential-URL verification
 - OAuth platform integrations (GitHub first)
-- In-app skill test engine (MCQ first, sandboxed code execution as stretch)
 - Resume file upload with automated parsing + pre-fill/confirm flow
 - Skill endorsements from completed jobs
 - Richer public profile (portfolio gallery, endorsement counts, verified-badge tiers)

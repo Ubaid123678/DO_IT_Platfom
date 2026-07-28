@@ -16,7 +16,6 @@ export interface SkillItem {
   id: string;
   name: string;
   requires_certificate: boolean;
-  supports_auto_test: boolean;
 }
 
 export interface VerificationRecord {
@@ -127,15 +126,6 @@ export const verificationService = {
   getVerificationStatus: async (): Promise<VerificationStatus> => {
     const res = await api.get('/providers/verification-status');
     return res.data.data;
-  },
-
-  // Phase 2 stubs — will throw but won't crash the app
-  startSkillTest: async (_skillItemId: string): Promise<never> => {
-    throw new Error('Skill tests not available yet');
-  },
-
-  submitSkillTest: async (_attemptId: string, _answers: unknown[]): Promise<never> => {
-    throw new Error('Skill tests not available yet');
   },
 
   connectGithub: async (): Promise<never> => {

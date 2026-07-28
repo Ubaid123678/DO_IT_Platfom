@@ -9,14 +9,12 @@ import { Colors, type AppColors } from '@/src/theme/colors';
 const physicalEvidenceTypes = [
   { key: 'certificate', label: 'Certificate / License', icon: 'document-text-outline', desc: 'Upload a photo of your certificate or license' },
   { key: 'prior_work', label: 'Prior Work Photos', icon: 'images-outline', desc: 'Upload 3-10 photos of your previous work' },
-  { key: 'in_person_test', label: 'Schedule In-Person Test', icon: 'calendar-outline', desc: 'Book a time for a practical skills test' },
 ];
 
 const digitalEvidenceTypes = [
   { key: 'certificate', label: 'Certificate', icon: 'document-text-outline', desc: 'Upload a certificate with optional verification URL' },
   { key: 'portfolio', label: 'Portfolio Link', icon: 'link-outline', desc: 'Share a link to your portfolio or work samples' },
   { key: 'oauth', label: 'Platform Integration', icon: 'logo-github', desc: 'Connect your GitHub or professional account' },
-  { key: 'skill_test', label: 'In-App Skill Test', icon: 'pencil-outline', desc: 'Take a timed skill assessment' },
 ];
 
 export default function EvidenceTypeChoiceStep() {
@@ -45,8 +43,6 @@ export default function EvidenceTypeChoiceStep() {
       prior_work: 'prior-work-photos',
       portfolio: 'portfolio-link',
       oauth: 'oauth-integration',
-      skill_test: 'skill-test',
-      in_person_test: 'certificate-upload',
     };
     dispatch({ type: 'SET_STEP', step: stepMap[typeKey] as any || 'certificate-upload' });
   };

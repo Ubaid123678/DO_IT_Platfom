@@ -96,14 +96,6 @@ export const verificationController = {
     res.status(201).json({ success: true, data: result, meta: { message: 'Resume uploaded successfully' } });
   }),
 
-  startSkillTest: asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
-    res.status(501).json({ success: false, error: { code: 'NOT_IMPLEMENTED', message: 'Skill tests not available yet' } });
-  }),
-
-  submitSkillTest: asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
-    res.status(501).json({ success: false, error: { code: 'NOT_IMPLEMENTED', message: 'Skill tests not available yet' } });
-  }),
-
   connectGithub: asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
     res.status(501).json({ success: false, error: { code: 'NOT_IMPLEMENTED', message: 'OAuth integration not available yet' } });
   }),
@@ -140,10 +132,5 @@ export const verificationController = {
     res.status(200).json({ success: true, data: detail, meta: { message: 'Record detail fetched successfully' } });
   }),
 
-  inPersonTestResult: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const adminId = getUserId(req);
-    const { passed, notes } = req.body;
-    const result = await verificationService.inPersonTestResult(adminId, req.params.recordId, passed, notes);
-    res.status(200).json({ success: true, data: result, meta: { message: `Test result recorded as ${passed ? 'passed' : 'failed'}` } });
-  }),
+
 };

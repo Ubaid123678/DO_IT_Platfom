@@ -61,7 +61,7 @@ Remaining Phase 3 work:
 7. Build admin verification review queue (GET /admin/verification-records, approve/reject/request-info)
 8. Implement Provider.overall_status aggregator (derived from kyc status + all verification records)
 9. Build resume upload with parsing pipeline (Bull worker + third-party parser)
-10. Implement auto-verification workers: credential URL verification, skill test auto-grade
+10. Implement auto-verification workers: credential URL verification
 11. Build verification status hub in mobile app (status badges per category/skill)
 12. Wire mobile onboarding screens to live APIs (category selection, evidence upload, status tracking)
 
