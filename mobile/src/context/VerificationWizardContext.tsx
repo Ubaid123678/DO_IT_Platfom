@@ -15,9 +15,10 @@ export type WizardStep =
 export interface WizardState {
   currentStep: WizardStep;
   selectedCategories: { category_id: string; name: string; job_type: 'physical' | 'digital' }[];
-  selectedSkillItems: { category_id: string; skill_items: { _id: string; name: string }[] }[];
+  selectedSkillItems: { category_id: string; skill_items: { _id: string; name: string; requires_certificate?: boolean }[] }[];
   evidenceTypeMap: Record<string, string>;
-  uploadedCertificates: Record<string, { uri: string; name: string }>;
+  completedEvidence: Record<string, string[]>;  // category_id -> ['certificate', 'prior_work']
+  uploadedCertificates: Record<string, { uri: string; name: string }[]>;
   priorWorkPhotos: Record<string, { uri: string; caption: string }[]>;
   portfolios: Record<string, { url: string; description: string }>;
   currentCategoryIndex: number;
@@ -36,11 +37,12 @@ type WizardAction =
   | { type: 'SET_CATEGORIES'; categories: WizardState['selectedCategories'] }
   | { type: 'SET_SKILL_ITEMS'; items: WizardState['selectedSkillItems'] }
   | { type: 'SET_EVIDENCE_TYPE'; skillItemId: string; evidenceType: string }
-  | { type: 'SET_CERTIFICATE'; skillItemId: string; uri: string; name: string }
+  | { type: 'ADD_CERTIFICATE'; skillItemId: string; uri: string; name: string }
   | { type: 'ADD_PHOTO'; skillItemId: string; uri: string; caption: string }
   | { type: 'SET_PORTFOLIO'; skillItemId: string; url: string; description: string }
   | { type: 'NEXT_CATEGORY' }
-  | { type: 'COMPLETE_CATEGORY_EVIDENCE' }
+  | { type: 'MARK_EVIDENCE_COMPLETE'; categoryId: string; evidenceKey: string }
+  | { type: 'COMPLETE_CATEGORY' }
   | { type: 'SET_RESUME_BIO_COMPLETE' }
   | { type: 'SET_CURRENT_CATEGORY_INDEX'; index: number }
   | { type: 'COMPLETE_WIZARD' }
@@ -55,6 +57,7 @@ const initialState: WizardState = {
   selectedCategories: [],
   selectedSkillItems: [],
   evidenceTypeMap: {},
+  completedEvidence: {},
   uploadedCertificates: {},
   priorWorkPhotos: {},
   portfolios: {},
@@ -77,6 +80,8 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return {
         ...state,
         selectedCategories: action.categories,
+        currentCategoryIndex: 0,
+        completedEvidence: {},
         isPhysicalCategory: action.categories.some(c => c.job_type === 'physical'),
         isDigitalCategory: action.categories.some(c => c.job_type === 'digital'),
       };
@@ -84,8 +89,10 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return { ...state, selectedSkillItems: action.items };
     case 'SET_EVIDENCE_TYPE':
       return { ...state, evidenceTypeMap: { ...state.evidenceTypeMap, [action.skillItemId]: action.evidenceType } };
-    case 'SET_CERTIFICATE':
-      return { ...state, uploadedCertificates: { ...state.uploadedCertificates, [action.skillItemId]: { uri: action.uri, name: action.name } } };
+    case 'ADD_CERTIFICATE': {
+      const existing = state.uploadedCertificates[action.skillItemId] || [];
+      return { ...state, uploadedCertificates: { ...state.uploadedCertificates, [action.skillItemId]: [...existing, { uri: action.uri, name: action.name }] } };
+    }
     case 'ADD_PHOTO': {
       const existing = state.priorWorkPhotos[action.skillItemId] || [];
       return { ...state, priorWorkPhotos: { ...state.priorWorkPhotos, [action.skillItemId]: [...existing, { uri: action.uri, caption: action.caption }] } };
@@ -94,7 +101,19 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return { ...state, portfolios: { ...state.portfolios, [action.skillItemId]: { url: action.url, description: action.description } } };
     case 'NEXT_CATEGORY':
       return { ...state, currentCategoryIndex: state.currentCategoryIndex + 1 };
-    case 'COMPLETE_CATEGORY_EVIDENCE': {
+    case 'MARK_EVIDENCE_COMPLETE': {
+      const existing = state.completedEvidence[action.categoryId] || [];
+      if (existing.includes(action.evidenceKey)) return state;
+      return {
+        ...state,
+        completedEvidence: {
+          ...state.completedEvidence,
+          [action.categoryId]: [...existing, action.evidenceKey],
+        },
+        currentStep: 'evidence-type-choice',
+      };
+    }
+    case 'COMPLETE_CATEGORY': {
       const nextIndex = state.currentCategoryIndex + 1;
       const hasMoreCategories = nextIndex < state.selectedCategories.length;
       return {

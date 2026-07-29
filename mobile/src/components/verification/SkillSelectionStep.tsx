@@ -14,7 +14,16 @@ export default function SkillSelectionStep() {
   const { state, dispatch } = useWizard();
 
   const [skillItemsMap, setSkillItemsMap] = useState<Record<string, SkillItem[]>>({});
-  const [selectedMap, setSelectedMap] = useState<Record<string, string[]>>({});
+  const [selectedMap, setSelectedMap] = useState<Record<string, string[]>>(() => {
+    const m: Record<string, string[]> = {};
+    for (const cat of state.selectedCategories) {
+      m[cat.category_id] = [];
+    }
+    for (const entry of state.selectedSkillItems) {
+      m[entry.category_id] = entry.skill_items.map(s => s._id);
+    }
+    return m;
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,11 +36,6 @@ export default function SkillSelectionStep() {
           map[cat.category_id] = items;
         }
         setSkillItemsMap(map);
-        const initSelected: Record<string, string[]> = {};
-        for (const cat of state.selectedCategories) {
-          initSelected[cat.category_id] = [];
-        }
-        setSelectedMap(initSelected);
       } catch {
         setError('Failed to load skills. Try again.');
       } finally {
@@ -59,7 +63,7 @@ export default function SkillSelectionStep() {
       category_id: cat.category_id,
       skill_items: (selectedMap[cat.category_id] || []).map(id => {
         const found = skillItemsMap[cat.category_id]?.find(s => s.id === id);
-        return { _id: id, name: found?.name || '' };
+        return { _id: id, name: found?.name || '', requires_certificate: found?.requires_certificate };
       }),
     }));
     dispatch({ type: 'SET_SKILL_ITEMS', items });

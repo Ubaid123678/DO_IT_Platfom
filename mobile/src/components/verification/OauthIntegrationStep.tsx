@@ -47,11 +47,15 @@ export default function OauthIntegrationStep() {
     if (currentSkillItem?._id) {
       dispatch({ type: 'MARK_OAUTH_CONNECTED', skillItemId: currentSkillItem._id });
     }
-    dispatch({ type: 'COMPLETE_CATEGORY_EVIDENCE' });
+    if (currentCat) {
+      dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'oauth' });
+    }
   };
 
   const handleSkip = () => {
-    dispatch({ type: 'COMPLETE_CATEGORY_EVIDENCE' });
+    if (currentCat) {
+      dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'oauth' });
+    }
   };
 
   const styles = makeStyles(C);

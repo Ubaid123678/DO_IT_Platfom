@@ -1,19 +1,38 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import React, { useEffect } from 'react';
 import { BackHandler, useColorScheme } from 'react-native';
 
 import { Colors } from '@/src/theme/colors';
-import { VerificationWizardProvider } from '@/src/context/VerificationWizardContext';
+import { useWizard, VerificationWizardProvider } from '@/src/context/VerificationWizardContext';
 
 function useAndroidBackHandler() {
-  const router = useRouter();
+  const { state, dispatch } = useWizard();
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      router.replace('/(provider)/home');
-      return true;
+      if (state.currentStep === 'category-selection') {
+        BackHandler.exitApp();
+        return true;
+      }
+      const prevStepMap: Record<string, string> = {
+        'skill-selection': 'category-selection',
+        'evidence-type-choice': 'skill-selection',
+        'certificate-upload': 'evidence-type-choice',
+        'prior-work-photos': 'evidence-type-choice',
+        'portfolio-link': 'evidence-type-choice',
+        'oauth-integration': 'evidence-type-choice',
+        'resume-bio': 'evidence-type-choice',
+        'status-hub': 'resume-bio',
+        'rejection-detail': 'status-hub',
+      };
+      const prevStep = prevStepMap[state.currentStep];
+      if (prevStep) {
+        dispatch({ type: 'SET_STEP', step: prevStep as any });
+        return true;
+      }
+      return false;
     });
     return () => sub.remove();
-  }, [router]);
+  }, [state.currentStep, dispatch]);
 }
 
 function ProviderVerificationLayoutInner() {

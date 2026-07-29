@@ -32,7 +32,7 @@ export default function PortfolioLinkStep() {
         evidence_payload: { url: url.trim(), description: description.trim() },
       });
       Alert.alert('Submitted', 'Your portfolio link has been submitted for review.', [
-        { text: 'OK', onPress: () => dispatch({ type: 'COMPLETE_CATEGORY_EVIDENCE' }) },
+        { text: 'OK', onPress: () => dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'portfolio' }) },
       ]);
     } catch {
       Alert.alert('Error', 'Failed to submit. Try again.');

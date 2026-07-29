@@ -47,7 +47,7 @@ export default function PriorWorkPhotosStep() {
         evidence_payload: { photos: photos.map(p => ({ uri: p.uri, caption: p.caption })) },
       });
       Alert.alert('Submitted', 'Your work photos have been submitted for review.', [
-        { text: 'OK', onPress: () => dispatch({ type: 'COMPLETE_CATEGORY_EVIDENCE' }) },
+        { text: 'OK', onPress: () => dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'prior_work' }) },
       ]);
     } catch {
       Alert.alert('Error', 'Failed to submit. Try again.');

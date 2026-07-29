@@ -11,10 +11,12 @@ export default function CategorySelectionStep() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
-  const { dispatch } = useWizard();
+  const { state, dispatch } = useWizard();
 
   const [categories, setCategories] = useState<SkillCategory[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    () => state.selectedCategories.map(c => c.category_id),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,7 +79,7 @@ export default function CategorySelectionStep() {
       </View>
 
       <View style={styles.progressBar}>
-        <View style={styles.progressFill} />
+        <View style={[styles.progressFill, { width: `${(selectedIds.length / 3) * 100}%` }]} />
       </View>
 
       <Text style={styles.subtitle}>
@@ -171,7 +173,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '600', color: C.textPrimary },
   progressBar: { height: 4, backgroundColor: C.divider, marginHorizontal: 20, borderRadius: 2, marginBottom: 16 },
-  progressFill: { width: '8%', height: '100%', backgroundColor: C.primary, borderRadius: 2 },
+  progressFill: { height: '100%', backgroundColor: C.primary, borderRadius: 2 },
   subtitle: { fontSize: 14, color: C.textSecondary, paddingHorizontal: 20, marginBottom: 20 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: C.textHint, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
   categoryCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1.5, borderColor: C.cardBorder },

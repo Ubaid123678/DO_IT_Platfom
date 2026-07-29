@@ -1,4 +1,4 @@
-﻿import Ionicons from '@expo/vector-icons/Ionicons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,14 +7,14 @@ import { useWizard } from '@/src/context/VerificationWizardContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const physicalEvidenceTypes = [
-  { key: 'certificate', label: 'Certificate / License', icon: 'document-text-outline', desc: 'Upload a photo of your certificate or license' },
-  { key: 'prior_work', label: 'Prior Work Photos', icon: 'images-outline', desc: 'Upload 3-10 photos of your previous work' },
+  { key: 'certificate', label: 'Certificate / License', icon: 'document-text-outline', desc: 'Upload a photo of your certificate or license', requires_cert: true },
+  { key: 'prior_work', label: 'Prior Work Photos', icon: 'images-outline', desc: 'Upload 3-10 photos of your previous work', requires_cert: false },
 ];
 
 const digitalEvidenceTypes = [
-  { key: 'certificate', label: 'Certificate', icon: 'document-text-outline', desc: 'Upload a certificate with optional verification URL' },
-  { key: 'portfolio', label: 'Portfolio Link', icon: 'link-outline', desc: 'Share a link to your portfolio or work samples' },
-  { key: 'oauth', label: 'Platform Integration', icon: 'logo-github', desc: 'Connect your GitHub or professional account' },
+  { key: 'certificate', label: 'Certificate', icon: 'document-text-outline', desc: 'Upload a certificate with optional verification URL', requires_cert: true },
+  { key: 'portfolio', label: 'Portfolio Link', icon: 'link-outline', desc: 'Share a link to your portfolio or work samples', requires_cert: false },
+  { key: 'oauth', label: 'Platform Integration', icon: 'logo-github', desc: 'Connect your GitHub or professional account', requires_cert: false },
 ];
 
 export default function EvidenceTypeChoiceStep() {
@@ -30,7 +30,15 @@ export default function EvidenceTypeChoiceStep() {
   }
 
   const catItems = state.selectedSkillItems.find(s => s.category_id === currentCat.category_id);
-  const evidenceTypes = currentCat.job_type === 'physical' ? physicalEvidenceTypes : digitalEvidenceTypes;
+  const anySkillRequiresCert = catItems?.skill_items.some(s => s.requires_certificate) ?? false;
+
+  const allTypes = currentCat.job_type === 'physical' ? physicalEvidenceTypes : digitalEvidenceTypes;
+  const evidenceTypes = allTypes.filter(t => !t.requires_cert || anySkillRequiresCert);
+
+  const completedKeys = state.completedEvidence[currentCat.category_id] || [];
+
+  const totalCategories = state.selectedCategories.length;
+  const progressPct = Math.round(((state.currentCategoryIndex) / (totalCategories || 1)) * 100);
 
   const handleSelect = (typeKey: string) => {
     const currentSkillItem = catItems?.skill_items[0];
@@ -47,6 +55,10 @@ export default function EvidenceTypeChoiceStep() {
     dispatch({ type: 'SET_STEP', step: stepMap[typeKey] as any || 'certificate-upload' });
   };
 
+  const handleContinue = () => {
+    dispatch({ type: 'COMPLETE_CATEGORY' });
+  };
+
   const styles = makeStyles(C);
 
   return (
@@ -60,40 +72,67 @@ export default function EvidenceTypeChoiceStep() {
       </View>
 
       <View style={styles.progressBar}>
-        <View style={{ width: '30%', height: '100%', backgroundColor: C.primary, borderRadius: 2 }} />
+        <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
       </View>
 
-      <Text style={styles.categoryLabel}>
-        {currentCat.job_type === 'physical' ? 'ðŸ”§' : 'ðŸ’»'} {currentCat.name}
-      </Text>
+      <View style={styles.categoryLabelRow}>
+        <Ionicons name={currentCat.job_type === 'physical' ? 'construct-outline' : 'laptop-outline'} size={22} color={C.primary} />
+        <Text style={styles.categoryLabel}>{currentCat.name}</Text>
+      </View>
       <Text style={styles.subtitle}>Choose how to verify your skills for this category</Text>
 
       {catItems?.skill_items.map(item => (
         <Text key={item._id} style={styles.skillItemHint}>Verifying: {item.name}</Text>
       ))}
 
+      <Text style={styles.completedCount}>
+        {completedKeys.length} of {evidenceTypes.length} evidence types submitted
+      </Text>
+
       <FlatList
         data={evidenceTypes}
         keyExtractor={item => item.key}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.evidenceCard}
-            onPress={() => handleSelect(item.key)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.evidenceIcon}>
-              <Ionicons name={item.icon as any} size={24} color={C.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.evidenceLabel}>{item.label}</Text>
-              <Text style={styles.evidenceDesc}>{item.desc}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={C.textHint} />
-          </TouchableOpacity>
-        )}
+        renderItem={({ item }) => {
+          const isCompleted = completedKeys.includes(item.key);
+          return (
+            <TouchableOpacity
+              style={[styles.evidenceCard, isCompleted && styles.evidenceCardCompleted]}
+              onPress={() => handleSelect(item.key)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.evidenceIcon}>
+                <Ionicons name={item.icon as any} size={24} color={isCompleted ? C.success : C.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.evidenceLabel}>{item.label}</Text>
+                <Text style={styles.evidenceDesc}>{isCompleted ? 'Submitted' : item.desc}</Text>
+              </View>
+              {isCompleted ? (
+                <Ionicons name="checkmark-circle" size={24} color={C.success} />
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color={C.textHint} />
+              )}
+            </TouchableOpacity>
+          );
+        }}
       />
+
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.continueBtn}
+          onPress={handleContinue}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.continueBtnText}>
+            {totalCategories > 1 && state.currentCategoryIndex < totalCategories - 1
+              ? 'Next Category'
+              : 'Continue to Resume'}
+          </Text>
+          <Ionicons name="arrow-forward" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -104,12 +143,18 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '600', color: C.textPrimary },
   progressBar: { height: 4, backgroundColor: C.divider, marginHorizontal: 20, borderRadius: 2, marginBottom: 16 },
-  categoryLabel: { fontSize: 20, fontWeight: '700', color: C.textPrimary, paddingHorizontal: 20, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: C.textSecondary, paddingHorizontal: 20, marginBottom: 8 },
-  skillItemHint: { fontSize: 12, color: C.textHint, paddingHorizontal: 20, marginBottom: 4 },
+  progressFill: { height: '100%', backgroundColor: C.primary, borderRadius: 2 },
+  categoryLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, marginBottom: 4 },
+  categoryLabel: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
+  subtitle: { fontSize: 14, color: C.textSecondary, paddingHorizontal: 20, marginBottom: 4 },
+  skillItemHint: { fontSize: 12, color: C.textHint, paddingHorizontal: 20, marginBottom: 2 },
+  completedCount: { fontSize: 12, color: C.textHint, paddingHorizontal: 20, marginBottom: 12, fontWeight: '500' },
   evidenceCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.cardBorder },
+  evidenceCardCompleted: { borderColor: C.success, backgroundColor: C.primaryLight },
   evidenceIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   evidenceLabel: { fontSize: 15, fontWeight: '600', color: C.textPrimary, marginBottom: 2 },
   evidenceDesc: { fontSize: 12, color: C.textSecondary },
+  footer: { padding: 20, paddingBottom: 32, backgroundColor: C.background },
+  continueBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, height: 52, borderRadius: 12, gap: 8 },
+  continueBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
-
