@@ -249,6 +249,15 @@ export const kycService = {
     };
   },
 
+  deleteImage: async (userId: string, imageId: string): Promise<void> => {
+    const image = await KycImageModel.findOne({ _id: imageId, userId });
+    if (!image) throw new AppError('Image not found', 404, 'KYC_IMAGE_NOT_FOUND');
+    if (image.url?.startsWith('/uploads/')) {
+      await deleteFileIfExists(path.join(process.cwd(), image.url));
+    }
+    await KycImageModel.deleteOne({ _id: imageId });
+  },
+
   assertProviderApproved: async (userId: string): Promise<void> => {
     const user = await getUserOrThrow(userId);
     assertProviderEligible(user);

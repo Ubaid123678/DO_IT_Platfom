@@ -21,6 +21,7 @@ kycRouter.post(
   handleMulter,
   kycController.uploadImage,
 );
+kycRouter.delete('/provider/images/:imageId', authenticate, requireRoles('pending', 'provider', 'admin'), kycController.deleteImage);
 kycRouter.post('/provider/submit', authenticate, requireRoles('pending', 'provider', 'admin'), kycController.submitKyc);
 kycRouter.post('/provider/resubmit', authenticate, requireRoles('pending', 'provider', 'admin'), kycController.resubmitKyc);
 

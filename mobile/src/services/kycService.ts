@@ -101,6 +101,10 @@ export const kycService = {
     return response.data.data;
   },
 
+  deleteImage: async (imageId: string): Promise<void> => {
+    await api.delete(`/kyc/provider/images/${imageId}`, { headers: await authHeaders() });
+  },
+
   submitKyc: async (payload: KycSubmissionPayload): Promise<KycDocument> => {
     const response = await api.post<ApiEnvelope<{ document: KycDocument }>>('/kyc/provider/submit', payload, {
       headers: await authHeaders(),

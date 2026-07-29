@@ -114,6 +114,9 @@ export default function KycFlow({ onApproved }: KycFlowProps) {
   const [livenessImageIds, setLivenessImageIds] = useState<Record<string, string | null>>({
     face_clear: null, move_left: null, move_right: null, smile: null,
   });
+  const [livenessLocalUris, setLivenessLocalUris] = useState<Record<string, string | null>>({
+    face_clear: null, move_left: null, move_right: null, smile: null,
+  });
   const [currentLivenessStep, setCurrentLivenessStep] = useState(0);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -196,11 +199,9 @@ export default function KycFlow({ onApproved }: KycFlowProps) {
     const imageType = LIVENESS_STEPS[currentLivenessStep].imageType;
     try {
       setUploading(true);
+      setLivenessLocalUris((prev) => ({ ...prev, [stepKey]: picture.uri }));
       const result = await kycService.uploadImage(imageType, picture.uri);
       setLivenessImageIds((prev) => ({ ...prev, [stepKey]: result.imageId }));
-      if (currentLivenessStep < LIVENESS_STEPS.length - 1) {
-        setCurrentLivenessStep((prev) => prev + 1);
-      }
     } catch (err) {
       console.error('captureAndUploadLiveness error:', err);
       setError('Failed to upload liveness image. Please try again.');
@@ -208,6 +209,26 @@ export default function KycFlow({ onApproved }: KycFlowProps) {
       setUploading(false);
     }
   }, [currentLivenessStep]);
+
+  const advanceLivenessStep = useCallback(() => {
+    if (currentLivenessStep < LIVENESS_STEPS.length - 1) {
+      setCurrentLivenessStep((prev) => prev + 1);
+    }
+  }, [currentLivenessStep]);
+
+  const handleRetakeAllLiveness = useCallback(async () => {
+    const ids = Object.values(livenessImageIds).filter(Boolean) as string[];
+    for (const id of ids) {
+      try { await kycService.deleteImage(id); } catch { }
+    }
+    setLivenessImageIds({ face_clear: null, move_left: null, move_right: null, smile: null });
+    setLivenessLocalUris({ face_clear: null, move_left: null, move_right: null, smile: null });
+    setCurrentLivenessStep(0);
+  }, [livenessImageIds]);
+
+  const selectLivenessStep = useCallback((index: number) => {
+    setCurrentLivenessStep(index);
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (!selectedDocType || !docImageIds.front) { setError('Missing document images.'); return; }
@@ -284,10 +305,19 @@ export default function KycFlow({ onApproved }: KycFlowProps) {
       </View>
 
       <View style={styles.progressWrap}>
-        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.min(step, 4) / 4 * 100}%` }]} /></View>
+        <View style={styles.progressSegments}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <View key={i} style={[styles.segment, i < 4 && styles.segmentGap, step > i && styles.segmentFilled]} />
+          ))}
+        </View>
         <View style={styles.progressDots}>
-          {[0, 1, 2, 3].map((i) => (
-            <View key={i} style={[styles.dot, i <= Math.min(step, 3) ? styles.dotActive : styles.dotInactive]} />
+          {['Doc', 'Photo', 'Face', 'Review', 'Done'].map((label, i) => (
+            <View key={i} style={styles.dotWrap}>
+              <View style={[styles.dot, i <= step ? styles.dotActive : styles.dotInactive]}>
+                {i < step ? <Ionicons name="checkmark" size={10} color="#fff" /> : <Text style={[styles.dotNum, i <= step ? { color: '#fff' } : null]}>{i + 1}</Text>}
+              </View>
+              <Text style={[styles.dotLabel, i <= step ? styles.dotLabelActive : null]}>{label}</Text>
+            </View>
           ))}
         </View>
       </View>
@@ -296,8 +326,8 @@ export default function KycFlow({ onApproved }: KycFlowProps) {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {step === 0 && <StepDocSelect C={C} isDark={isDark} selected={selectedDocType} onSelect={setSelectedDocType} status={kycStatus} />}
           {step === 1 && <StepDocCapture C={C} isDark={isDark} selectedDocType={selectedDocType} docImages={docImages} docUploading={docUploading} onCapture={handleCaptureDoc} />}
-          {step === 2 && <StepLiveness C={C} isDark={isDark} currentStep={currentLivenessStep} livenessImageIds={livenessImageIds} onCapture={captureAndUploadLiveness} uploading={uploading} />}
-          {step === 3 && <StepReview C={C} isDark={isDark} selectedDocType={selectedDocType} docImages={docImages} livenessImageIds={livenessImageIds} />}
+          {step === 2 && <StepLiveness C={C} isDark={isDark} currentStep={currentLivenessStep} livenessImageIds={livenessImageIds} onCapture={captureAndUploadLiveness} uploading={uploading} onRetakeAll={handleRetakeAllLiveness} onNextStep={advanceLivenessStep} onStepSelect={selectLivenessStep} />}
+          {step === 3 && <StepReview C={C} isDark={isDark} selectedDocType={selectedDocType} docImages={docImages} livenessImageIds={livenessImageIds} livenessLocalUris={livenessLocalUris} />}
           {step === 4 && <StepPending C={C} isDark={isDark} refreshing={refreshing} onRefresh={refreshStatus} />}
         </ScrollView>
       </Animated.View>
@@ -415,25 +445,34 @@ function StepDocCapture({ C, isDark, selectedDocType, docImages, docUploading, o
   );
 }
 
-function StepLiveness({ C, isDark, currentStep, livenessImageIds, onCapture, uploading }: {
-  C: AppColors; isDark: boolean; currentStep: number; livenessImageIds: Record<string, string | null>; onCapture: () => void; uploading: boolean;
+function StepLiveness({ C, isDark, currentStep, livenessImageIds, onCapture, uploading, onRetakeAll, onNextStep, onStepSelect }: {
+  C: AppColors; isDark: boolean; currentStep: number; livenessImageIds: Record<string, string | null>; onCapture: () => void; uploading: boolean; onRetakeAll: () => void; onNextStep: () => void; onStepSelect: (index: number) => void;
 }) {
   const stepInfo = LIVENESS_STEPS[currentStep];
   const isDone = livenessImageIds[stepInfo.key] !== null;
+  const allDone = LIVENESS_STEPS.every(s => livenessImageIds[s.key]);
   return (
     <View>
       <DocIcon C={C} name="scan-outline" />
       <Title>Liveness Check</Title>
       <Subtitle C={C}>We need to verify your identity with a quick face scan</Subtitle>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20, marginBottom: 24 }}>
-        {LIVENESS_STEPS.map((s, i) => (
-          <React.Fragment key={s.key}>
-            <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: livenessImageIds[s.key] ? C.success : i === currentStep ? C.primary : C.cardBorder }}>
-              {livenessImageIds[s.key] ? <Ionicons name="checkmark" size={14} color="white" /> : <Text style={{ fontSize: 11, fontWeight: '700', color: i === currentStep ? 'white' : C.textHint }}>{i + 1}</Text>}
-            </View>
-            {i < LIVENESS_STEPS.length - 1 ? <View style={{ width: 40, height: 2, backgroundColor: livenessImageIds[s.key] ? C.success : C.cardBorder }} /> : null}
-          </React.Fragment>
-        ))}
+        {LIVENESS_STEPS.map((s, i) => {
+          const isCompleted = !!livenessImageIds[s.key];
+          const canSelect = isCompleted || i === currentStep;
+          return (
+            <React.Fragment key={s.key}>
+              <TouchableOpacity
+                disabled={!canSelect}
+                onPress={() => onStepSelect(i)}
+                style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: isCompleted ? C.success : i === currentStep ? C.primary : C.cardBorder }}
+              >
+                {isCompleted ? <Ionicons name="checkmark" size={14} color="white" /> : <Text style={{ fontSize: 11, fontWeight: '700', color: i === currentStep ? 'white' : C.textHint }}>{i + 1}</Text>}
+              </TouchableOpacity>
+              {i < LIVENESS_STEPS.length - 1 ? <View style={{ width: 40, height: 2, backgroundColor: isCompleted ? C.success : C.cardBorder }} /> : null}
+            </React.Fragment>
+          );
+        })}
       </View>
       <Text style={{ textAlign: 'center', fontSize: 15, fontWeight: '600', color: C.textPrimary, marginBottom: 16 }}>Step {currentStep + 1} of {LIVENESS_STEPS.length}</Text>
       <View style={{ alignItems: 'center', gap: 16, marginHorizontal: 20, padding: 28, borderRadius: 20, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder }}>
@@ -453,19 +492,29 @@ function StepLiveness({ C, isDark, currentStep, livenessImageIds, onCapture, upl
         </TouchableOpacity>
       )}
       {isDone && currentStep < LIVENESS_STEPS.length - 1 ? (
-        <TouchableOpacity onPress={() => {}} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16, height: 48 }}>
-          <Text style={{ fontSize: 15, fontWeight: '600', color: C.primary }}>Next Step</Text>
-          <Ionicons name="arrow-forward" size={18} color={C.primary} />
+        <View style={{ alignItems: 'center', marginTop: 16 }}>
+          <TouchableOpacity onPress={onNextStep} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 48 }}>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: C.primary }}>Next Step</Text>
+            <Ionicons name="arrow-forward" size={18} color={C.primary} />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      {allDone ? (
+        <TouchableOpacity onPress={onRetakeAll} activeOpacity={0.8}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 20, marginHorizontal: 60, height: 44, borderRadius: 12, borderWidth: 1.5, borderColor: C.error }}>
+          <Ionicons name="refresh-outline" size={18} color={C.error} />
+          <Text style={{ fontSize: 14, fontWeight: '600', color: C.error }}>Retake All Photos</Text>
         </TouchableOpacity>
       ) : null}
     </View>
   );
 }
 
-function StepReview({ C, isDark, selectedDocType, docImages, livenessImageIds }: {
+function StepReview({ C, isDark, selectedDocType, docImages, livenessImageIds, livenessLocalUris }: {
   C: AppColors; isDark: boolean; selectedDocType: KycDocumentType | null;
   docImages: { front: CapturedImage | null; back: CapturedImage | null };
   livenessImageIds: Record<string, string | null>;
+  livenessLocalUris: Record<string, string | null>;
 }) {
   const docLabel = DOC_OPTIONS.find((o) => o.key === selectedDocType)?.label || '';
   return (
@@ -483,26 +532,35 @@ function StepReview({ C, isDark, selectedDocType, docImages, livenessImageIds }:
           {docImages.back ? <Image source={{ uri: docImages.back.uri }} style={{ width: 100, height: 72, borderRadius: 10 }} /> : null}
         </View>
       </View>
-      <View style={{ marginTop: 16, marginHorizontal: 20, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, backgroundColor: C.card }}>
+      <View style={{ marginTop: 16, marginHorizontal: 20, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, backgroundColor: C.card, marginBottom: 20 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <Ionicons name="scan-outline" size={18} color={C.primary} />
           <Text style={{ fontSize: 15, fontWeight: '700', color: C.textPrimary }}>Liveness Check</Text>
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {LIVENESS_STEPS.map((s) => (
-            <View key={s.key} style={{ alignItems: 'center', gap: 4 }}>
-              <View style={{ width: 72, height: 56, borderRadius: 8, backgroundColor: C.cardBorder, alignItems: 'center', justifyContent: 'center' }}>
-                {livenessImageIds[s.key] ? (
-                  <Ionicons name="checkmark-circle" size={24} color={C.success} />
-                ) : (
-                  <Ionicons name="close-circle" size={24} color={C.error} />
-                )}
+          {LIVENESS_STEPS.map((s) => {
+            const localUri = livenessLocalUris[s.key];
+            return (
+              <View key={s.key} style={{ alignItems: 'center', gap: 4 }}>
+                <View style={{ width: 72, height: 56, borderRadius: 8, backgroundColor: C.cardBorder, overflow: 'hidden' }}>
+                  {localUri ? (
+                    <Image source={{ uri: localUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  ) : (
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      {livenessImageIds[s.key] ? (
+                        <Ionicons name="checkmark-circle" size={24} color={C.success} />
+                      ) : (
+                        <Ionicons name="close-circle" size={24} color={C.error} />
+                      )}
+                    </View>
+                  )}
+                </View>
+                <Text style={{ fontSize: 10, fontWeight: '500', color: C.textSecondary }}>
+                  {s.key === 'face_clear' ? 'Face' : s.key === 'move_left' ? 'Left' : s.key === 'move_right' ? 'Right' : 'Smile'}
+                </Text>
               </View>
-              <Text style={{ fontSize: 10, fontWeight: '500', color: C.textSecondary }}>
-                {s.key === 'face_clear' ? 'Face' : s.key === 'move_left' ? 'Left' : s.key === 'move_right' ? 'Right' : 'Smile'}
-              </Text>
-            </View>
-          ))}
+            );
+          })}
         </View>
       </View>
     </View>
@@ -652,13 +710,19 @@ const makeStyles = (C: AppColors, isDark: boolean) =>
     backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
     headerTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary },
     headerRight: { width: 36 },
-    progressWrap: { paddingHorizontal: 20, marginBottom: 8 },
-    progressTrack: { height: 4, borderRadius: 2, backgroundColor: C.cardBorder },
-    progressFill: { height: 4, borderRadius: 2, backgroundColor: C.primary },
-    progressDots: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2, marginTop: -8 },
-    dot: { width: 10, height: 10, borderRadius: 5 },
+    progressWrap: { paddingHorizontal: 20, marginBottom: 4, marginTop: 4 },
+    progressSegments: { flexDirection: 'row', alignItems: 'center' },
+    segment: { flex: 1, height: 4, backgroundColor: C.cardBorder },
+    segmentGap: { marginRight: 2 },
+    segmentFilled: { backgroundColor: C.primary },
+    progressDots: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+    dotWrap: { alignItems: 'center', gap: 4 },
+    dot: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
     dotActive: { backgroundColor: C.primary },
     dotInactive: { backgroundColor: C.cardBorder },
+    dotNum: { fontSize: 10, fontWeight: '700', color: C.textHint },
+    dotLabel: { fontSize: 9, color: C.textHint, fontWeight: '500' },
+    dotLabelActive: { color: C.primary },
     content: { flex: 1 },
     scrollContent: { paddingBottom: 30 },
     footer: { paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 24 : 16, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: C.divider, backgroundColor: C.background },

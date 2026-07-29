@@ -51,6 +51,12 @@ export const kycController = {
     throw new AppError('Image file or base64 data is required', 400, 'VALIDATION_ERROR');
   }),
 
+  deleteImage: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = getAuthenticatedUserId(req);
+    await kycService.deleteImage(userId, req.params.imageId);
+    res.status(200).json({ success: true, data: null, meta: { message: 'Image deleted successfully.' } });
+  }),
+
   submitKyc: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = getAuthenticatedUserId(req);
     const payload = validate(kycValidators.submit, req.body);

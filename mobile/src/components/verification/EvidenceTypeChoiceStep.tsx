@@ -75,6 +75,12 @@ export default function EvidenceTypeChoiceStep() {
         <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
       </View>
 
+      {totalCategories > 1 && (
+        <Text style={styles.categoryStepIndicator}>
+          Category {state.currentCategoryIndex + 1} of {totalCategories}
+        </Text>
+      )}
+
       <View style={styles.categoryLabelRow}>
         <Ionicons name={currentCat.job_type === 'physical' ? 'construct-outline' : 'laptop-outline'} size={22} color={C.primary} />
         <Text style={styles.categoryLabel}>{currentCat.name}</Text>
@@ -144,6 +150,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '600', color: C.textPrimary },
   progressBar: { height: 4, backgroundColor: C.divider, marginHorizontal: 20, borderRadius: 2, marginBottom: 16 },
   progressFill: { height: '100%', backgroundColor: C.primary, borderRadius: 2 },
+  categoryStepIndicator: { fontSize: 12, color: C.textHint, fontWeight: '600', paddingHorizontal: 20, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
   categoryLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, marginBottom: 4 },
   categoryLabel: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
   subtitle: { fontSize: 14, color: C.textSecondary, paddingHorizontal: 20, marginBottom: 4 },

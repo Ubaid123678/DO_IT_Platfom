@@ -80,8 +80,14 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return {
         ...state,
         selectedCategories: action.categories,
-        currentCategoryIndex: 0,
+        selectedSkillItems: [],
+        evidenceTypeMap: {},
         completedEvidence: {},
+        uploadedCertificates: {},
+        priorWorkPhotos: {},
+        portfolios: {},
+        oauthConnected: {},
+        currentCategoryIndex: 0,
         isPhysicalCategory: action.categories.some(c => c.job_type === 'physical'),
         isDigitalCategory: action.categories.some(c => c.job_type === 'digital'),
       };
