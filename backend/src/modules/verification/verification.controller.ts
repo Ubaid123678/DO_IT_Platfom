@@ -52,6 +52,13 @@ export const verificationController = {
     res.status(201).json({ success: true, data: { record }, meta: { message: 'Evidence submitted successfully' } });
   }),
 
+  submitBatchEvidence: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = getUserId(req);
+    const payload = validate(verificationValidators.submitBatchEvidence, req.body);
+    const records = await verificationService.submitBatchEvidence(userId, payload);
+    res.status(201).json({ success: true, data: { records }, meta: { message: 'All evidence submitted for review successfully' } });
+  }),
+
   listMyRecords: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = getUserId(req);
     const records = await verificationService.listMyRecords(userId);

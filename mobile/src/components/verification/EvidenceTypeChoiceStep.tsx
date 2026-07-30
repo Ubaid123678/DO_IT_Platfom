@@ -1,9 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
+import { verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const physicalEvidenceTypes = [
@@ -22,10 +23,11 @@ export default function EvidenceTypeChoiceStep() {
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
   const { state, dispatch } = useWizard();
+  const [submitting, setSubmitting] = useState(false);
 
   const currentCat = state.selectedCategories[state.currentCategoryIndex];
   if (!currentCat) {
-    dispatch({ type: 'SET_STEP', step: 'resume-bio' });
+    dispatch({ type: 'SET_STEP', step: 'pending-review' });
     return null;
   }
 
@@ -36,9 +38,18 @@ export default function EvidenceTypeChoiceStep() {
   const evidenceTypes = allTypes.filter(t => !t.requires_cert || anySkillRequiresCert);
 
   const completedKeys = state.completedEvidence[currentCat.category_id] || [];
+  const allDoneForThisCategory = completedKeys.length >= evidenceTypes.length;
 
   const totalCategories = state.selectedCategories.length;
+  const isLastCategory = state.currentCategoryIndex >= totalCategories - 1;
   const progressPct = Math.round(((state.currentCategoryIndex) / (totalCategories || 1)) * 100);
+
+  const allCategoriesDone = state.selectedCategories.every(
+    cat => (state.completedEvidence[cat.category_id]?.length || 0) >= (
+      (cat.job_type === 'physical' ? physicalEvidenceTypes : digitalEvidenceTypes)
+        .filter(t => !t.requires_cert || catItems?.skill_items.some(s => s.requires_certificate)).length
+    )
+  );
 
   const handleSelect = (typeKey: string) => {
     const currentSkillItem = catItems?.skill_items[0];
@@ -55,8 +66,66 @@ export default function EvidenceTypeChoiceStep() {
     dispatch({ type: 'SET_STEP', step: stepMap[typeKey] as any || 'certificate-upload' });
   };
 
+  const buildEvidenceBatch = () => {
+    const batch: {
+      category_id: string;
+      skill_item_id: string;
+      evidence_type: string;
+      evidence_payload: Record<string, unknown>;
+    }[] = [];
+
+    for (const cat of state.selectedCategories) {
+      const items = state.selectedSkillItems.find(s => s.category_id === cat.category_id);
+      for (const skillItem of items?.skill_items || []) {
+        const completedKeysForCat = state.completedEvidence[cat.category_id] || [];
+        for (const evidenceKey of completedKeysForCat) {
+          let evidence_payload: Record<string, unknown> = {};
+
+          if (evidenceKey === 'certificate') {
+            const certs = state.uploadedCertificates[skillItem._id] || [];
+            evidence_payload = { certificates: certs };
+          } else if (evidenceKey === 'prior_work') {
+            const photos = state.priorWorkPhotos[skillItem._id] || [];
+            evidence_payload = { photos };
+          } else if (evidenceKey === 'portfolio') {
+            evidence_payload = state.portfolios[skillItem._id] || { url: '', description: '' };
+          } else if (evidenceKey === 'oauth') {
+            evidence_payload = { connected: state.oauthConnected[skillItem._id] || false };
+          }
+
+          batch.push({
+            category_id: cat.category_id,
+            skill_item_id: skillItem._id,
+            evidence_type: evidenceKey,
+            evidence_payload,
+          });
+        }
+      }
+    }
+
+    return batch;
+  };
+
+  const handleSubmitForReview = async () => {
+    setSubmitting(true);
+    try {
+      const batch = buildEvidenceBatch();
+      await verificationService.submitAllEvidence(batch);
+      dispatch({ type: 'SET_STEP', step: 'pending-review' });
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err.message || 'Failed to submit evidence';
+      Alert.alert('Submission failed', msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleContinue = () => {
-    dispatch({ type: 'COMPLETE_CATEGORY' });
+    if (isLastCategory) {
+      void handleSubmitForReview();
+    } else {
+      dispatch({ type: 'COMPLETE_CATEGORY' });
+    }
   };
 
   const styles = makeStyles(C);
@@ -127,16 +196,26 @@ export default function EvidenceTypeChoiceStep() {
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.continueBtn}
+          style={[
+            styles.continueBtn,
+            (!allDoneForThisCategory || submitting) && styles.continueBtnDisabled,
+          ]}
           onPress={handleContinue}
+          disabled={!allDoneForThisCategory || submitting}
           activeOpacity={0.8}
         >
-          <Text style={styles.continueBtnText}>
-            {totalCategories > 1 && state.currentCategoryIndex < totalCategories - 1
-              ? 'Next Category'
-              : 'Continue to Resume'}
-          </Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
+          {submitting ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <Text style={styles.continueBtnText}>
+                {!isLastCategory
+                  ? 'Next Category'
+                  : 'Submit for Review'}
+              </Text>
+              <Ionicons name="arrow-forward" size={20} color="#fff" />
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -163,5 +242,6 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   evidenceDesc: { fontSize: 12, color: C.textSecondary },
   footer: { padding: 20, paddingBottom: 32, backgroundColor: C.background },
   continueBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, height: 52, borderRadius: 12, gap: 8 },
+  continueBtnDisabled: { backgroundColor: C.divider },
   continueBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

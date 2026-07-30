@@ -5,7 +5,6 @@ import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, useColorSc
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
-import { verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function CertificateUploadStep() {
@@ -17,13 +16,11 @@ export default function CertificateUploadStep() {
   const currentCat = state.selectedCategories[state.currentCategoryIndex];
   const currentItems = state.selectedSkillItems.find(s => s.category_id === currentCat?.category_id);
   const currentSkillItem = currentItems?.skill_items[0];
-  const track = currentCat?.job_type;
 
   const [image, setImage] = useState<string | null>(null);
   const [issuingBody, setIssuingBody] = useState('');
   const [credentialId, setCredentialId] = useState('');
   const [credentialUrl, setCredentialUrl] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [uploaded, setUploaded] = useState(false);
 
   const pickImage = async () => {
@@ -59,31 +56,16 @@ export default function CertificateUploadStep() {
 
   const currentCerts = currentSkillItem ? (state.uploadedCertificates[currentSkillItem._id] || []) : [];
 
-  const handleSubmit = async () => {
-    if (!image || !currentSkillItem || !currentCat) return;
-    setSubmitting(true);
-    try {
-      const evidencePayload: Record<string, unknown> = {
-        file_uri: image,
-        issuing_body: issuingBody,
-        credential_id: credentialId,
-      };
-      if (track === 'digital') {
-        evidencePayload.credential_url = credentialUrl;
-      }
-      await verificationService.submitEvidence({
-        category_id: currentCat.category_id,
-        skill_item_id: currentSkillItem._id,
-        evidence_type: 'certificate',
-        evidence_payload: evidencePayload,
-      });
-      dispatch({ type: 'ADD_CERTIFICATE', skillItemId: currentSkillItem._id, uri: image, name: `${issuingBody} - ${credentialId}` });
-      setUploaded(true);
-    } catch {
-      Alert.alert('Error', 'Failed to submit. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
+  const handleAdd = () => {
+    if (!image || !currentSkillItem) return;
+    const name = `${issuingBody || 'Certificate'}${credentialId ? ` - ${credentialId}` : ''}`;
+    dispatch({ type: 'ADD_CERTIFICATE', skillItemId: currentSkillItem._id, uri: image, name });
+    setUploaded(true);
+  };
+
+  const handleDelete = (index: number) => {
+    if (!currentSkillItem) return;
+    dispatch({ type: 'DELETE_CERTIFICATE', skillItemId: currentSkillItem._id, index });
   };
 
   const handleDone = () => {
@@ -109,15 +91,20 @@ export default function CertificateUploadStep() {
           <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
             <Ionicons name="checkmark-circle" size={48} color={C.success} />
           </View>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: C.textPrimary, marginBottom: 8 }}>Certificate Submitted!</Text>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: C.textPrimary, marginBottom: 8 }}>Certificate Added!</Text>
           <Text style={{ fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 24 }}>
-            Your certificate has been submitted for review.
+            Your certificate has been saved. Add more or continue when ready.
           </Text>
           {currentCerts.length > 0 && (
             <View style={styles.certList}>
               <Text style={styles.certListTitle}>Uploaded certificates ({currentCerts.length}):</Text>
               {currentCerts.map((c, i) => (
-                <Text key={i} style={styles.certListItem}>{i + 1}. {c.name}</Text>
+                <View key={i} style={styles.certRow}>
+                  <Text style={styles.certListItem} numberOfLines={1}>{i + 1}. {c.name}</Text>
+                  <TouchableOpacity onPress={() => handleDelete(i)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="trash-outline" size={18} color={C.error} />
+                  </TouchableOpacity>
+                </View>
               ))}
             </View>
           )}
@@ -146,7 +133,7 @@ export default function CertificateUploadStep() {
       <View style={{ paddingHorizontal: 20, flex: 1 }}>
         <Text style={styles.sectionTitle}>{currentCat?.name}</Text>
         <Text style={styles.subtitle}>
-          Upload a photo or scan of your {track === 'physical' ? 'license/certificate' : 'certificate'}
+          Upload a photo or scan of your certificate/license
         </Text>
 
         <TouchableOpacity style={styles.imageUpload} onPress={pickImage} activeOpacity={0.7}>
@@ -191,7 +178,7 @@ export default function CertificateUploadStep() {
           onChangeText={setCredentialId}
         />
 
-        {track === 'digital' && (
+        {currentCat?.job_type === 'digital' && (
           <>
             <Text style={styles.fieldLabel}>Verification URL (optional)</Text>
             <TextInput
@@ -211,26 +198,20 @@ export default function CertificateUploadStep() {
       {currentCerts.length > 0 && (
         <View style={{ paddingHorizontal: 20, marginBottom: 8 }}>
           <Text style={{ fontSize: 12, color: C.success, fontWeight: '500' }}>
-            {currentCerts.length} certificate(s) already uploaded
+            {currentCerts.length} certificate(s) already saved
           </Text>
         </View>
       )}
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.submitBtn, (!image || !issuingBody || submitting) && styles.submitBtnDisabled]}
-          onPress={handleSubmit}
-          disabled={!image || !issuingBody || submitting}
+          style={[styles.addBtn, (!image) && styles.addBtnDisabled]}
+          onPress={handleAdd}
+          disabled={!image}
           activeOpacity={0.8}
         >
-          {submitting ? (
-            <Text style={styles.submitText}>Submitting...</Text>
-          ) : (
-            <>
-              <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
-              <Text style={styles.submitText}> Submit for Review</Text>
-            </>
-          )}
+          <Ionicons name="add-circle-outline" size={20} color="#fff" />
+          <Text style={styles.addText}> Add Certificate</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -255,15 +236,15 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   input: { backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.inputBorder, borderRadius: 10, height: 52, paddingHorizontal: 14, fontSize: 14, color: C.textPrimary },
   hint: { fontSize: 11, color: C.textHint, marginTop: 4 },
   footer: { padding: 20, paddingBottom: 32, backgroundColor: C.background },
-  submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, height: 52, borderRadius: 12 },
-  submitBtnDisabled: { backgroundColor: C.divider },
-  submitText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, height: 52, borderRadius: 12 },
+  addBtnDisabled: { backgroundColor: C.divider },
+  addText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   certList: { backgroundColor: C.card, borderRadius: 12, padding: 16, marginBottom: 16, width: '100%' },
   certListTitle: { fontSize: 13, fontWeight: '600', color: C.textPrimary, marginBottom: 8 },
-  certListItem: { fontSize: 12, color: C.textSecondary, marginBottom: 4 },
+  certRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  certListItem: { fontSize: 12, color: C.textSecondary, flex: 1, marginRight: 8 },
   addAnotherBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.primary, marginBottom: 12, width: '100%' },
   addAnotherText: { fontSize: 14, fontWeight: '600', color: C.primary },
   doneBtn: { paddingVertical: 12, alignItems: 'center' },
   doneBtnText: { fontSize: 14, fontWeight: '500', color: C.textHint },
 });
-

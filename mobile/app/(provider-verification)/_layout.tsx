@@ -20,7 +20,9 @@ function useAndroidBackHandler() {
         'prior-work-photos': 'evidence-type-choice',
         'portfolio-link': 'evidence-type-choice',
         'oauth-integration': 'evidence-type-choice',
-        'resume-bio': 'evidence-type-choice',
+        'pending-review': 'evidence-type-choice',
+        'review-approved': 'pending-review',
+        'resume-bio': 'pending-review',
         'status-hub': 'resume-bio',
         'rejection-detail': 'status-hub',
       };

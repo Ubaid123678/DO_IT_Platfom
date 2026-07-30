@@ -30,6 +30,7 @@ verificationRouter.post('/oauth/github/connect', authenticate, requireRoles('pro
 verificationRouter.get('/oauth/accounts', authenticate, requireRoles('provider', 'admin'), verificationController.getConnectedAccounts);
 
 verificationRouter.post('/verification-records/auto-verify', authenticate, requireRoles('provider', 'admin'), verificationController.submitEvidenceWithAutoVerify);
+verificationRouter.post('/verification-records/submit-batch', authenticate, requireRoles('provider', 'admin'), verificationController.submitBatchEvidence);
 
 verificationRouter.get('/admin/records', authenticate, requireRoles('admin'), verificationController.listForAdmin);
 verificationRouter.get('/admin/records/:recordId', authenticate, requireRoles('admin'), verificationController.getAdminRecordDetail);

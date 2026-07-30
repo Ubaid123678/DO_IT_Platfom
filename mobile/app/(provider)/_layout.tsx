@@ -32,8 +32,14 @@ export default function ProviderLayout() {
 
       const verifStatus = await verificationService.getVerificationStatus();
       if (verifStatus.overall_status === 'verified' || verifStatus.overall_status === 'partially_verified') {
-        await verificationService.markVerificationComplete();
-        setGate('approved');
+        const profile = await verificationService.getProfile().catch(() => null);
+        const profileComplete = profile?.headline || profile?.bio;
+        if (profileComplete) {
+          await verificationService.markVerificationComplete();
+          setGate('approved');
+        } else {
+          setGate('verification');
+        }
       } else {
         setGate('verification');
       }

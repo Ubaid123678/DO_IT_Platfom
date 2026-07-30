@@ -98,6 +98,17 @@ export const verificationValidators = {
     skill_keywords: Joi.array().items(Joi.string().trim().max(50)).optional(),
   }),
 
+  submitBatchEvidence: Joi.object({
+    evidence_batch: Joi.array().min(1).items(
+      Joi.object({
+        category_id: Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required(),
+        skill_item_id: Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required(),
+        evidence_type: Joi.string().valid('certificate', 'prior_work', 'portfolio', 'oauth').required(),
+        evidence_payload: Joi.object().required(),
+      }),
+    ).required(),
+  }),
+
   updateProfile: Joi.object({
     headline: Joi.string().trim().max(200).optional(),
     bio: Joi.string().trim().max(500).optional(),

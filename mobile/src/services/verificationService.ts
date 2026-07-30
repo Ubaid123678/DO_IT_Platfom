@@ -157,6 +157,16 @@ export const verificationService = {
     return res.data.data.accounts;
   },
 
+  submitAllEvidence: async (evidenceBatch: {
+    category_id: string;
+    skill_item_id: string;
+    evidence_type: string;
+    evidence_payload: Record<string, unknown>;
+  }[]): Promise<VerificationRecord[]> => {
+    const res = await api.post('/providers/verification-records/submit-batch', { evidence_batch: evidenceBatch });
+    return res.data.data.records;
+  },
+
   submitEvidenceWithAutoVerify: async (evidence: {
     category_id: string;
     skill_item_id: string;

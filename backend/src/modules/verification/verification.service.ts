@@ -192,6 +192,50 @@ export const verificationService = {
     return serializeVerificationRecord(record.toJSON() as Record<string, unknown>);
   },
 
+  submitBatchEvidence: async (
+    userId: string,
+    input: { evidence_batch: { category_id: string; skill_item_id: string; evidence_type: EvidenceType; evidence_payload: Record<string, unknown> }[] },
+  ) => {
+    const user = await getUserOrThrow(userId);
+    assertProviderOrAdmin(user);
+
+    const createdRecords = [];
+    for (const item of input.evidence_batch) {
+      const category = await SkillCategoryModel.findById(item.category_id);
+      if (!category || !category.active) {
+        throw new AppError(`Category ${item.category_id} not found or inactive`, 404, 'CATEGORY_NOT_FOUND');
+      }
+
+      const skillItem = await SkillItemModel.findById(item.skill_item_id);
+      if (!skillItem || !skillItem.active) {
+        throw new AppError(`Skill item ${item.skill_item_id} not found or inactive`, 404, 'SKILL_ITEM_NOT_FOUND');
+      }
+
+      const slaDueAt = new Date();
+      slaDueAt.setHours(slaDueAt.getHours() + (category.sla_hours || 48));
+
+      const record = await VerificationRecordModel.create({
+        provider_id: userId,
+        category_id: item.category_id,
+        skill_item_id: item.skill_item_id,
+        verification_track: category.job_type,
+        evidence_type: item.evidence_type,
+        evidence_payload: item.evidence_payload,
+        status: 'pending_review',
+        sla_due_at: slaDueAt,
+        created_at: new Date(),
+      });
+
+      createdRecords.push(serializeVerificationRecord(record.toJSON() as Record<string, unknown>));
+    }
+
+    const overallStatus = await recomputeOverallStatus(userId);
+    user.set('overall_status', overallStatus);
+    await user.save();
+
+    return createdRecords;
+  },
+
   listMyRecords: async (userId: string) => {
     const user = await getUserOrThrow(userId);
     assertProviderOrAdmin(user);

@@ -8,6 +8,8 @@ export type WizardStep =
   | 'prior-work-photos'
   | 'portfolio-link'
   | 'oauth-integration'
+  | 'pending-review'
+  | 'review-approved'
   | 'resume-bio'
   | 'status-hub'
   | 'rejection-detail';
@@ -38,7 +40,9 @@ type WizardAction =
   | { type: 'SET_SKILL_ITEMS'; items: WizardState['selectedSkillItems'] }
   | { type: 'SET_EVIDENCE_TYPE'; skillItemId: string; evidenceType: string }
   | { type: 'ADD_CERTIFICATE'; skillItemId: string; uri: string; name: string }
+  | { type: 'DELETE_CERTIFICATE'; skillItemId: string; index: number }
   | { type: 'ADD_PHOTO'; skillItemId: string; uri: string; caption: string }
+  | { type: 'DELETE_PHOTO'; skillItemId: string; index: number }
   | { type: 'SET_PORTFOLIO'; skillItemId: string; url: string; description: string }
   | { type: 'NEXT_CATEGORY' }
   | { type: 'MARK_EVIDENCE_COMPLETE'; categoryId: string; evidenceKey: string }
@@ -99,9 +103,19 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       const existing = state.uploadedCertificates[action.skillItemId] || [];
       return { ...state, uploadedCertificates: { ...state.uploadedCertificates, [action.skillItemId]: [...existing, { uri: action.uri, name: action.name }] } };
     }
+    case 'DELETE_CERTIFICATE': {
+      const existing = state.uploadedCertificates[action.skillItemId] || [];
+      const updated = existing.filter((_, i) => i !== action.index);
+      return { ...state, uploadedCertificates: { ...state.uploadedCertificates, [action.skillItemId]: updated } };
+    }
     case 'ADD_PHOTO': {
       const existing = state.priorWorkPhotos[action.skillItemId] || [];
       return { ...state, priorWorkPhotos: { ...state.priorWorkPhotos, [action.skillItemId]: [...existing, { uri: action.uri, caption: action.caption }] } };
+    }
+    case 'DELETE_PHOTO': {
+      const existing = state.priorWorkPhotos[action.skillItemId] || [];
+      const updated = existing.filter((_, i) => i !== action.index);
+      return { ...state, priorWorkPhotos: { ...state.priorWorkPhotos, [action.skillItemId]: updated } };
     }
     case 'SET_PORTFOLIO':
       return { ...state, portfolios: { ...state.portfolios, [action.skillItemId]: { url: action.url, description: action.description } } };
@@ -125,7 +139,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return {
         ...state,
         currentCategoryIndex: nextIndex,
-        currentStep: hasMoreCategories ? 'evidence-type-choice' : 'resume-bio',
+        currentStep: hasMoreCategories ? 'evidence-type-choice' : 'pending-review',
       };
     }
     case 'SET_RESUME_BIO_COMPLETE':

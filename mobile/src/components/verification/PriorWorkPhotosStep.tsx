@@ -5,7 +5,6 @@ import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
-import { verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function PriorWorkPhotosStep() {
@@ -18,39 +17,36 @@ export default function PriorWorkPhotosStep() {
   const currentItems = state.selectedSkillItems.find(s => s.category_id === currentCat?.category_id);
   const currentSkillItem = currentItems?.skill_items[0];
 
-  const [photos, setPhotos] = useState<{ uri: string; caption: string }[]>([]);
+  const existingPhotos = currentSkillItem ? (state.priorWorkPhotos[currentSkillItem._id] || []) : [];
   const [currentCaption, setCurrentCaption] = useState('');
 
   const addPhoto = async () => {
+    if (existingPhotos.length >= 10) {
+      Alert.alert('Limit reached', 'Maximum 10 photos allowed.');
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.8,
       allowsEditing: true,
     });
     if (!result.canceled && result.assets[0]) {
-      setPhotos(prev => [...prev, { uri: result.assets[0].uri, caption: currentCaption }]);
+      if (currentSkillItem) {
+        dispatch({ type: 'ADD_PHOTO', skillItemId: currentSkillItem._id, uri: result.assets[0].uri, caption: currentCaption });
+      }
       setCurrentCaption('');
     }
   };
 
   const removePhoto = (index: number) => {
-    setPhotos(prev => prev.filter((_, i) => i !== index));
+    if (currentSkillItem) {
+      dispatch({ type: 'DELETE_PHOTO', skillItemId: currentSkillItem._id, index });
+    }
   };
 
-  const handleSubmit = async () => {
-    if (photos.length < 3 || !currentSkillItem || !currentCat) return;
-    try {
-      await verificationService.submitEvidence({
-        category_id: currentCat.category_id,
-        skill_item_id: currentSkillItem._id,
-        evidence_type: 'prior_work',
-        evidence_payload: { photos: photos.map(p => ({ uri: p.uri, caption: p.caption })) },
-      });
-      Alert.alert('Submitted', 'Your work photos have been submitted for review.', [
-        { text: 'OK', onPress: () => dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'prior_work' }) },
-      ]);
-    } catch {
-      Alert.alert('Error', 'Failed to submit. Try again.');
+  const handleDone = () => {
+    if (currentCat && existingPhotos.length >= 3) {
+      dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'prior_work' });
     }
   };
 
@@ -71,7 +67,7 @@ export default function PriorWorkPhotosStep() {
         <Text style={styles.subtitle}>Add captions to describe each photo</Text>
 
         <FlatList
-          data={photos}
+          data={existingPhotos}
           keyExtractor={(_, i) => String(i)}
           contentContainerStyle={{ paddingBottom: 16 }}
           renderItem={({ item, index }) => (
@@ -97,18 +93,22 @@ export default function PriorWorkPhotosStep() {
 
         <TouchableOpacity style={styles.addBtn} onPress={addPhoto}>
           <Ionicons name="add-circle-outline" size={20} color={C.primary} />
-          <Text style={styles.addText}> Add Photo ({photos.length}/10)</Text>
+          <Text style={styles.addText}> Add Photo ({existingPhotos.length}/10)</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.submitBtn, photos.length < 3 && styles.submitBtnDisabled]}
-          onPress={handleSubmit}
-          disabled={photos.length < 3}
+          style={[styles.submitBtn, existingPhotos.length < 3 && styles.submitBtnDisabled]}
+          onPress={handleDone}
+          disabled={existingPhotos.length < 3}
           activeOpacity={0.8}
         >
-          <Text style={styles.submitText}>Submit {photos.length} Photos for Review</Text>
+          <Text style={styles.submitText}>
+            {existingPhotos.length < 3
+              ? `Add ${3 - existingPhotos.length} more photo(s)`
+              : 'Done — Back to Evidence Options'}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -133,4 +133,3 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   submitBtnDisabled: { backgroundColor: C.divider },
   submitText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
-

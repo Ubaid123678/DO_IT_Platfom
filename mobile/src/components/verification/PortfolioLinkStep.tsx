@@ -1,10 +1,9 @@
 ﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
-import { verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function PortfolioLinkStep() {
@@ -17,28 +16,17 @@ export default function PortfolioLinkStep() {
   const currentItems = state.selectedSkillItems.find(s => s.category_id === currentCat?.category_id);
   const currentSkillItem = currentItems?.skill_items[0];
 
-  const [url, setUrl] = useState('');
-  const [description, setDescription] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [url, setUrl] = useState(
+    currentSkillItem ? (state.portfolios[currentSkillItem._id]?.url || '') : ''
+  );
+  const [description, setDescription] = useState(
+    currentSkillItem ? (state.portfolios[currentSkillItem._id]?.description || '') : ''
+  );
 
-  const handleSubmit = async () => {
+  const handleSave = () => {
     if (!url.trim() || !currentSkillItem || !currentCat) return;
-    setSubmitting(true);
-    try {
-      await verificationService.submitEvidence({
-        category_id: currentCat.category_id,
-        skill_item_id: currentSkillItem._id,
-        evidence_type: 'portfolio',
-        evidence_payload: { url: url.trim(), description: description.trim() },
-      });
-      Alert.alert('Submitted', 'Your portfolio link has been submitted for review.', [
-        { text: 'OK', onPress: () => dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'portfolio' }) },
-      ]);
-    } catch {
-      Alert.alert('Error', 'Failed to submit. Try again.');
-    } finally {
-      setSubmitting(false);
-    }
+    dispatch({ type: 'SET_PORTFOLIO', skillItemId: currentSkillItem._id, url: url.trim(), description: description.trim() });
+    dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'portfolio' });
   };
 
   const styles = makeStyles(C);
@@ -88,13 +76,13 @@ export default function PortfolioLinkStep() {
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.submitBtn, (!url.trim() || submitting) && styles.submitBtnDisabled]}
-          onPress={handleSubmit}
-          disabled={!url.trim() || submitting}
+          style={[styles.submitBtn, (!url.trim()) && styles.submitBtnDisabled]}
+          onPress={handleSave}
+          disabled={!url.trim()}
           activeOpacity={0.8}
         >
           <Ionicons name="link-outline" size={20} color="#fff" />
-          <Text style={styles.submitText}> {submitting ? 'Submitting...' : 'Submit for Review'}</Text>
+          <Text style={styles.submitText}> Save Portfolio Link</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -118,4 +106,3 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   submitBtnDisabled: { backgroundColor: C.divider },
   submitText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });
-

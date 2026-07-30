@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
+import { verificationService } from '@/src/services/verificationService';
 import CategorySelectionStep from '@/src/components/verification/CategorySelectionStep';
 import SkillSelectionStep from '@/src/components/verification/SkillSelectionStep';
 import EvidenceTypeChoiceStep from '@/src/components/verification/EvidenceTypeChoiceStep';
@@ -11,6 +13,7 @@ import OauthIntegrationStep from '@/src/components/verification/OauthIntegration
 import ResumeBioStep from '@/src/components/verification/ResumeBioStep';
 import StatusHubScreen from '@/src/components/verification/StatusHubScreen';
 import RejectionDetailScreen from '@/src/components/verification/RejectionDetailScreen';
+import PendingReviewScreen from '@/src/components/verification/PendingReviewScreen';
 
 const stepComponents: Record<string, React.FC> = {
   'category-selection': CategorySelectionStep,
@@ -20,18 +23,56 @@ const stepComponents: Record<string, React.FC> = {
   'prior-work-photos': PriorWorkPhotosStep,
   'portfolio-link': PortfolioLinkStep,
   'oauth-integration': OauthIntegrationStep,
+  'pending-review': PendingReviewScreen,
+  'review-approved': ResumeBioStep,
   'resume-bio': ResumeBioStep,
   'status-hub': StatusHubScreen,
   'rejection-detail': RejectionDetailScreen,
 };
 
 export default function VerificationWizardScreen() {
-  const { state } = useWizard();
-  const StepComponent = stepComponents[state.currentStep];
+  const { state, dispatch } = useWizard();
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const determineStep = async () => {
+      try {
+        const status = await verificationService.getVerificationStatus();
+        if (status.overall_status === 'verified' || status.overall_status === 'partially_verified') {
+          const profile = await verificationService.getProfile().catch(() => null);
+          const profileComplete = profile?.headline || profile?.bio;
+          if (!profileComplete) {
+            dispatch({ type: 'SET_STEP', step: 'review-approved' });
+          } else {
+            await verificationService.markVerificationComplete();
+            dispatch({ type: 'COMPLETE_WIZARD' });
+          }
+        } else if (status.overall_status === 'pending') {
+          const records = await verificationService.getVerificationRecords();
+          if (records.length > 0) {
+            dispatch({ type: 'SET_STEP', step: 'pending-review' });
+          }
+        }
+      } catch {
+        // Start from beginning if error
+      } finally {
+        setLoading(false);
+      }
+    };
+    void determineStep();
+  }, [dispatch]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  const StepComponent = stepComponents[state.currentStep];
   if (!StepComponent) {
     return <CategorySelectionStep />;
   }
-
   return <StepComponent />;
 }
