@@ -55,7 +55,13 @@ const recomputeOverallStatus = async (providerId: string): Promise<OverallStatus
   if (!provider) return 'pending';
 
   const providerData = provider.toJSON?.() as Record<string, unknown> ?? {};
-  const selectedCategoryIds = (providerData.categories_selected ?? []) as string[];
+  let selectedCategoryIds = (providerData.categories_selected ?? []) as string[];
+
+  // Fall back to the categories present in submitted verification records so the
+  // overall status stays accurate even if the provider never persisted a selection.
+  if (selectedCategoryIds.length === 0) {
+    selectedCategoryIds = await VerificationRecordModel.distinct('category_id', { provider_id: providerId });
+  }
 
   if (selectedCategoryIds.length === 0) return 'incomplete';
 
@@ -397,7 +403,15 @@ export const verificationService = {
   getVerificationStatus: async (userId: string) => {
     const user = await getUserOrThrow(userId);
     const json = user.toJSON() as Record<string, unknown>;
-    const overallStatus = (json.overall_status as OverallStatus) ?? 'incomplete';
+    const currentStatus = (json.overall_status as OverallStatus) ?? 'incomplete';
+
+    // Recompute from the actual records on every read so approvals/rejections are
+    // reflected immediately (e.g. while the provider polls from the pending screen).
+    const overallStatus = await recomputeOverallStatus(userId);
+    if (currentStatus !== overallStatus) {
+      user.set('overall_status', overallStatus);
+      await user.save();
+    }
 
     const records = await VerificationRecordModel.find({ provider_id: userId })
       .populate('category_id', 'name')

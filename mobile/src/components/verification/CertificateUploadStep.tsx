@@ -15,12 +15,13 @@ export default function CertificateUploadStep() {
 
   const currentCat = state.selectedCategories[state.currentCategoryIndex];
   const evidenceKey = currentCat ? getEvidenceKey(state, currentCat) : null;
+  const currentCerts = evidenceKey ? (state.uploadedCertificates[evidenceKey] || []) : [];
 
   const [image, setImage] = useState<string | null>(null);
   const [issuingBody, setIssuingBody] = useState('');
   const [credentialId, setCredentialId] = useState('');
   const [credentialUrl, setCredentialUrl] = useState('');
-  const [uploaded, setUploaded] = useState(false);
+  const [showManage, setShowManage] = useState(() => currentCerts.length > 0);
 
   const pickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -53,18 +54,17 @@ export default function CertificateUploadStep() {
     }
   };
 
-  const currentCerts = evidenceKey ? (state.uploadedCertificates[evidenceKey] || []) : [];
-
   const handleAdd = () => {
     if (!image || !evidenceKey) return;
     const name = `${issuingBody || 'Certificate'}${credentialId ? ` - ${credentialId}` : ''}`;
     dispatch({ type: 'ADD_CERTIFICATE', skillItemId: evidenceKey, uri: image, name });
-    setUploaded(true);
+    setShowManage(true);
   };
 
   const handleDelete = (index: number) => {
     if (!evidenceKey) return;
     dispatch({ type: 'DELETE_CERTIFICATE', skillItemId: evidenceKey, index });
+    if (currentCerts.length <= 1) setShowManage(false);
   };
 
   const handleDone = () => {
@@ -78,21 +78,21 @@ export default function CertificateUploadStep() {
     setIssuingBody('');
     setCredentialId('');
     setCredentialUrl('');
-    setUploaded(false);
+    setShowManage(false);
   };
 
   const styles = makeStyles(C);
 
-  if (uploaded) {
+  if (showManage) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
             <Ionicons name="checkmark-circle" size={48} color={C.success} />
           </View>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: C.textPrimary, marginBottom: 8 }}>Certificate Added!</Text>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: C.textPrimary, marginBottom: 8 }}>Your Certificates</Text>
           <Text style={{ fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 24 }}>
-            Your certificate has been saved. Add more or continue when ready.
+            Manage your uploaded certificates below. Add more or continue when ready.
           </Text>
           {currentCerts.length > 0 && (
             <View style={styles.certList}>

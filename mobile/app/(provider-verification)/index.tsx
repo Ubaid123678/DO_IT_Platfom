@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
@@ -33,8 +33,12 @@ const stepComponents: Record<string, React.FC> = {
 export default function VerificationWizardScreen() {
   const { state, dispatch } = useWizard();
   const [loading, setLoading] = useState(true);
+  const initRef = useRef(false);
 
   useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+
     const determineStep = async () => {
       try {
         const status = await verificationService.getVerificationStatus();
@@ -47,11 +51,12 @@ export default function VerificationWizardScreen() {
             await verificationService.markVerificationComplete();
             dispatch({ type: 'COMPLETE_WIZARD' });
           }
-        } else if (status.overall_status === 'pending') {
-          const records = await verificationService.getVerificationRecords();
-          if (records.length > 0) {
-            dispatch({ type: 'SET_STEP', step: 'pending-review' });
-          }
+          return;
+        }
+        // If any records exist (pending or rejected) the provider must not redo the
+        // category process — show the status screen, which handles both states.
+        if (status.has_pending || status.has_rejected) {
+          dispatch({ type: 'SET_STEP', step: 'pending-review' });
         }
       } catch {
         // Start from beginning if error

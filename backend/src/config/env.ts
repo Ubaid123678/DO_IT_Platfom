@@ -44,7 +44,7 @@ const config: Config = {
   redis_url: process.env.REDIS_URL || 'redis://localhost:6379',
   jwt_secret: process.env.JWT_SECRET || 'change-me',
   jwt_refresh_secret: process.env.JWT_REFRESH_SECRET || 'change-me',
-  jwt_expires_in: process.env.JWT_EXPIRES_IN || '15m',
+  jwt_expires_in: process.env.JWT_EXPIRES_IN || '2h',
   jwt_refresh_expires_in: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
   stripe_secret_key: process.env.STRIPE_SECRET_KEY || '',
   wise_api_key: process.env.WISE_API_KEY || '',

@@ -22,7 +22,8 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 // Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // limit each IP to 1000 requests per windowMs
+  skip: (req) => req.path === '/health' || req.path === '/api/v1/health',
 });
 app.use(limiter);
 

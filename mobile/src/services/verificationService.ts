@@ -4,6 +4,9 @@ import { api } from './api';
 
 const VERIF_COMPLETE_KEY = '@doit_verification_complete';
 
+let categoriesCache: SkillCategory[] | null = null;
+const skillItemsCache: Record<string, SkillItem[]> = {};
+
 export interface SkillCategory {
   id: string;
   name: string;
@@ -73,13 +76,19 @@ export interface ResumeBioData {
 
 export const verificationService = {
   getCategories: async (): Promise<SkillCategory[]> => {
+    if (categoriesCache) return categoriesCache;
     const res = await api.get('/providers/categories');
-    return res.data.data.categories;
+    const cats = res.data.data.categories;
+    categoriesCache = cats;
+    return cats;
   },
 
   getSkillItems: async (categoryId: string): Promise<SkillItem[]> => {
+    if (skillItemsCache[categoryId]) return skillItemsCache[categoryId];
     const res = await api.get(`/providers/categories/${categoryId}/skill-items`);
-    return res.data.data.skill_items;
+    const items = res.data.data.skill_items;
+    skillItemsCache[categoryId] = items;
+    return items;
   },
 
   selectCategories: async (categoryIds: string[], skillItemIds: string[]): Promise<void> => {

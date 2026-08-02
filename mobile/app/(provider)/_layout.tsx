@@ -30,32 +30,20 @@ export default function ProviderLayout() {
         return;
       }
 
-      const verifStatus = await verificationService.getVerificationStatus();
-      if (verifStatus.overall_status === 'verified' || verifStatus.overall_status === 'partially_verified') {
-        const profile = await verificationService.getProfile().catch(() => null);
-        const profileComplete = profile?.headline || profile?.bio;
-        if (profileComplete) {
-          await verificationService.markVerificationComplete();
-          setGate('approved');
-        } else {
-          setGate('verification');
-        }
-      } else {
-        setGate('verification');
-      }
+      // The verification wizard decides the correct starting step (category,
+      // pending review, profile completion, etc.).
+      router.replace('/(provider-verification)');
     } catch {
       const verifDone = await verificationService.isVerificationComplete().catch(() => false);
-      setGate(verifDone ? 'approved' : 'verification');
+      if (verifDone) {
+        setGate('approved');
+      } else {
+        router.replace('/(provider-verification)');
+      }
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => { void checkGate(); }, [checkGate]);
-
-  useEffect(() => {
-    if (gate === 'verification') {
-      router.replace('/(provider-verification)');
-    }
-  }, [gate, router]);
 
   if (gate === 'loading') {
     return (
@@ -71,17 +59,8 @@ export default function ProviderLayout() {
     return <KycFlow onApproved={() => { void checkGate(); }} />;
   }
 
-  if (gate === 'verification') {
+  if (gate === 'approved') {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={C.primary} />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  return (
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -151,6 +130,7 @@ export default function ProviderLayout() {
       <Tabs.Screen name="kyc" options={{ href: null }} />
       <Tabs.Screen name="withdraw" options={{ href: null }} />
     </Tabs>
-  );
+    );
+  }
 }
 

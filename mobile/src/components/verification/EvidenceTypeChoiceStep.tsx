@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getEvidenceKey, useWizard } from '@/src/context/VerificationWizardContext';
+import { getCategoryCompletedKeys, getEvidenceKey, useWizard } from '@/src/context/VerificationWizardContext';
 import { verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
@@ -37,12 +37,12 @@ export default function EvidenceTypeChoiceStep() {
   const allTypes = currentCat.job_type === 'physical' ? physicalEvidenceTypes : digitalEvidenceTypes;
   const evidenceTypes = allTypes.filter(t => !t.requires_cert || anySkillRequiresCert);
 
-  const completedKeys = state.completedEvidence[currentCat.category_id] || [];
+  const completedKeys = getCategoryCompletedKeys(state, currentCat);
   const allDoneForThisCategory = completedKeys.length >= evidenceTypes.length;
 
   const totalCategories = state.selectedCategories.length;
   const isLastCategory = state.currentCategoryIndex >= totalCategories - 1;
-  const progressPct = Math.round(((state.currentCategoryIndex) / (totalCategories || 1)) * 100);
+  const progressPct = Math.round(((state.currentCategoryIndex + 1) / (totalCategories || 1)) * 100);
 
   const handleSelect = (typeKey: string) => {
     const evidenceKey = getEvidenceKey(state, currentCat);
@@ -69,7 +69,7 @@ export default function EvidenceTypeChoiceStep() {
     for (const cat of state.selectedCategories) {
       const items = state.selectedSkillItems.find(s => s.category_id === cat.category_id);
       const skillItems = items?.skill_items || [];
-      const completedEvidenceKeys = state.completedEvidence[cat.category_id] || [];
+      const completedEvidenceKeys = getCategoryCompletedKeys(state, cat);
 
       const buildPayload = (evidenceKey: string, storageKey: string): Record<string, unknown> => {
         if (evidenceKey === 'certificate') return { certificates: state.uploadedCertificates[storageKey] || [] };
@@ -111,6 +111,12 @@ export default function EvidenceTypeChoiceStep() {
   const handleSubmitForReview = async () => {
     setSubmitting(true);
     try {
+      // Persist the selected categories/skills so the backend can recompute the
+      // provider's overall verification status from the submitted records.
+      const categoryIds = state.selectedCategories.map(c => c.category_id);
+      const skillItemIds = state.selectedSkillItems.flatMap(s => s.skill_items.map(i => i._id));
+      await verificationService.selectCategories(categoryIds, skillItemIds);
+
       const batch = buildEvidenceBatch();
       await verificationService.submitAllEvidence(batch);
       dispatch({ type: 'SET_STEP', step: 'pending-review' });

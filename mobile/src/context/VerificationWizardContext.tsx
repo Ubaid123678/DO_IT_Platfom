@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 
 export type WizardStep =
   | 'category-selection'
@@ -96,6 +96,25 @@ export function getEvidenceKey(
   return items?.skill_items[0]?._id ?? category.category_id;
 }
 
+export function getCategoryCompletedKeys(
+  state: WizardState,
+  category: { category_id: string; job_type: 'physical' | 'digital' },
+): string[] {
+  const key = getEvidenceKey(state, category);
+  const completed: string[] = [];
+
+  if ((state.uploadedCertificates[key] || []).length > 0) completed.push('certificate');
+
+  if (category.job_type === 'physical') {
+    if ((state.priorWorkPhotos[key] || []).length >= 3) completed.push('prior_work');
+  } else {
+    if (state.portfolios[key]?.url) completed.push('portfolio');
+    if (state.oauthConnected[key]) completed.push('oauth');
+  }
+
+  return completed;
+}
+
 function wizardReducer(state: WizardState, action: WizardAction): WizardState {
   switch (action.type) {
     case 'SET_STEP':
@@ -114,10 +133,9 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         case 'portfolio-link':
         case 'oauth-integration':
           return { ...state, currentStep: 'evidence-type-choice' };
-        case 'pending-review': {
-          const lastIndex = state.selectedCategories.length - 1;
-          return { ...state, currentCategoryIndex: Math.max(lastIndex, 0), currentStep: 'evidence-type-choice' };
-        }
+        case 'pending-review':
+          // Block navigation back to evidence while verification is under review.
+          return state;
         case 'review-approved':
         case 'resume-bio':
           return { ...state, currentStep: 'pending-review' };
@@ -221,9 +239,9 @@ const WizardContext = createContext<WizardContextValue | null>(null);
 export function VerificationWizardProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useState(initialState);
 
-  const reducerDispatch = (action: WizardAction) => {
+  const reducerDispatch = useCallback((action: WizardAction) => {
     dispatch(prev => wizardReducer(prev, action));
-  };
+  }, [dispatch]);
 
   return (
     <WizardContext.Provider value={{ state, dispatch: reducerDispatch }}>

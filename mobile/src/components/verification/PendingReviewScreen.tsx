@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, useColorScheme, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
-import { verificationService } from '@/src/services/verificationService';
+import { VerificationRecord, verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function PendingReviewScreen() {
@@ -13,6 +13,8 @@ export default function PendingReviewScreen() {
   const C = isDark ? Colors.dark : Colors.light;
   const { state, dispatch } = useWizard();
   const [checking, setChecking] = useState(false);
+  const [decision, setDecision] = useState<'pending' | 'rejected'>('pending');
+  const [rejectionReasons, setRejectionReasons] = useState<string[]>([]);
 
   const checkStatus = useCallback(async () => {
     setChecking(true);
@@ -20,7 +22,18 @@ export default function PendingReviewScreen() {
       const status = await verificationService.getVerificationStatus();
       if (status.overall_status === 'verified' || status.overall_status === 'partially_verified') {
         dispatch({ type: 'SET_STEP', step: 'review-approved' });
+        return;
       }
+      if (status.overall_status === 'rejected' || status.has_rejected) {
+        const records = await verificationService.getVerificationRecords().catch(() => [] as VerificationRecord[]);
+        const reasons = records
+          .filter(r => r.status === 'rejected' && r.rejection_reason)
+          .map(r => r.rejection_reason as string);
+        setRejectionReasons([...new Set(reasons)]);
+        setDecision('rejected');
+        return;
+      }
+      setDecision('pending');
     } catch {
       // ignore, user can retry
     } finally {
@@ -29,11 +42,49 @@ export default function PendingReviewScreen() {
   }, [dispatch]);
 
   useEffect(() => {
-    const timer = setTimeout(() => void checkStatus(), 2000);
-    return () => clearTimeout(timer);
+    void checkStatus();
+    const interval = setInterval(() => void checkStatus(), 15000);
+    return () => clearInterval(interval);
   }, [checkStatus]);
 
+  const handleBackToCategories = () => {
+    dispatch({ type: 'RESET' });
+  };
+
   const styles = makeStyles(C);
+
+  if (decision === 'rejected') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <View style={[styles.iconCircle, { backgroundColor: '#FDECEA' }]}>
+            <Ionicons name="close-circle" size={48} color={C.error} />
+          </View>
+
+          <Text style={styles.title}>Verification Rejected</Text>
+          <Text style={styles.subtitle}>
+            Your verification was not approved. Review the reasons below and try again.
+          </Text>
+
+          {rejectionReasons.length > 0 && (
+            <View style={styles.categoriesCard}>
+              <Text style={styles.categoriesTitle}>Reasons:</Text>
+              {rejectionReasons.map((reason, i) => (
+                <View key={i} style={styles.categoryRow}>
+                  <Ionicons name="alert-circle" size={18} color={C.error} />
+                  <Text style={styles.categoryName}>{reason}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.backBtn} onPress={handleBackToCategories} activeOpacity={0.8}>
+            <Text style={styles.backBtnText}>Back to Categories</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -95,7 +146,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   categoriesCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, width: '100%', marginBottom: 20, borderWidth: 1, borderColor: C.cardBorder },
   categoriesTitle: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 12 },
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  categoryName: { fontSize: 15, fontWeight: '500', color: C.textPrimary },
+  categoryName: { fontSize: 15, fontWeight: '500', color: C.textPrimary, flex: 1 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.amberLight, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginBottom: 16 },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.amber, marginRight: 8 },
   statusText: { fontSize: 14, fontWeight: '600', color: C.amber },
@@ -103,4 +154,6 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   refreshBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: C.primary },
   refreshBtnDisabled: { opacity: 0.5 },
   refreshText: { fontSize: 14, fontWeight: '600', color: C.primary },
+  backBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, height: 52, borderRadius: 12, paddingHorizontal: 24 },
+  backBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

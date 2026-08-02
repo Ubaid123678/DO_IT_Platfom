@@ -13,6 +13,10 @@ function useAndroidBackHandler() {
         BackHandler.exitApp();
         return true;
       }
+      if (state.currentStep === 'pending-review') {
+        // Block back navigation while verification is under review.
+        return true;
+      }
       dispatch({ type: 'GO_BACK' });
       return true;
     });
