@@ -86,6 +86,21 @@ const recomputeOverallStatus = async (providerId: string): Promise<OverallStatus
   return 'pending';
 };
 
+const supersedePreviousEvidence = async (
+  providerId: string,
+  categoryId: string,
+  skillItemId: string,
+  evidenceType: string,
+): Promise<void> => {
+  await VerificationRecordModel.deleteMany({
+    provider_id: providerId,
+    category_id: categoryId,
+    skill_item_id: skillItemId,
+    evidence_type: evidenceType,
+    status: { $in: ['rejected', 'pending_review'] },
+  });
+};
+
 export const verificationService = {
   listCategories: async (jobType?: string, activeOnly = true) => {
     const filter: Record<string, unknown> = {};
@@ -176,6 +191,8 @@ export const verificationService = {
     const skillItem = await SkillItemModel.findById(input.skill_item_id);
     if (!skillItem || !skillItem.active) throw new AppError('Skill item not found or inactive', 404, 'SKILL_ITEM_NOT_FOUND');
 
+    await supersedePreviousEvidence(userId, input.category_id, input.skill_item_id, input.evidence_type);
+
     const slaDueAt = new Date();
     slaDueAt.setHours(slaDueAt.getHours() + (category.sla_hours || 48));
 
@@ -205,6 +222,11 @@ export const verificationService = {
     const user = await getUserOrThrow(userId);
     assertProviderOrAdmin(user);
 
+    // A batch submission represents the provider's current set of categories. Clear
+    // every prior rejected record so a resubmission with different categories/skills
+    // doesn't keep surfacing old rejections as the status.
+    await VerificationRecordModel.deleteMany({ provider_id: userId, status: 'rejected' });
+
     const createdRecords = [];
     for (const item of input.evidence_batch) {
       const category = await SkillCategoryModel.findById(item.category_id);
@@ -216,6 +238,8 @@ export const verificationService = {
       if (!skillItem || !skillItem.active) {
         throw new AppError(`Skill item ${item.skill_item_id} not found or inactive`, 404, 'SKILL_ITEM_NOT_FOUND');
       }
+
+      await supersedePreviousEvidence(userId, item.category_id, item.skill_item_id, item.evidence_type);
 
       const slaDueAt = new Date();
       slaDueAt.setHours(slaDueAt.getHours() + (category.sla_hours || 48));

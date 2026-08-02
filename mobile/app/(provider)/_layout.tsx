@@ -1,7 +1,7 @@
 ﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, useColorScheme, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import KycFlow from '@/src/components/KycFlow';
@@ -15,6 +15,7 @@ export default function ProviderLayout() {
   const router = useRouter();
 
   const [gate, setGate] = useState<'loading' | 'kyc' | 'verification' | 'approved'>('loading');
+  const gateRanRef = useRef(false);
 
   const checkGate = useCallback(async () => {
     try {
@@ -43,14 +44,21 @@ export default function ProviderLayout() {
     }
   }, [router]);
 
-  useEffect(() => { void checkGate(); }, [checkGate]);
+  // Runs once per mount (StrictMode-safe) so the wizard isn't entered twice.
+  // A ref resets on a real remount, so re-entering the provider group after the
+  // wizard still re-checks instead of being stuck on the loading gate.
+  useEffect(() => {
+    if (gateRanRef.current) return;
+    gateRanRef.current = true;
+    void checkGate();
+  }, [checkGate]);
 
   if (gate === 'loading') {
+    // No visible loader here — the wizard immediately shows its own single
+    // loading spinner, so this only renders during the brief KYC check.
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={C.primary} />
-        </View>
+        <View style={{ flex: 1 }} />
       </SafeAreaView>
     );
   }

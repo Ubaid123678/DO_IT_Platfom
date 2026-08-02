@@ -36,12 +36,14 @@ export default function ResumeBioStep() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    await verificationService.markVerificationComplete().catch(() => {});
     dispatch({ type: 'SET_RESUME_BIO_COMPLETE' });
     dispatch({ type: 'COMPLETE_WIZARD' });
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    await verificationService.markVerificationComplete().catch(() => {});
     dispatch({ type: 'COMPLETE_WIZARD' });
   };
 

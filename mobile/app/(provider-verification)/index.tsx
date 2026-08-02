@@ -42,6 +42,14 @@ export default function VerificationWizardScreen() {
     const determineStep = async () => {
       try {
         const status = await verificationService.getVerificationStatus();
+        // Any pending or rejected record means the provider must see the status
+        // screen first (it handles approved/pending/rejected states internally).
+        // Checked before the verified branches so a mixed set of records (e.g.
+        // some approved, some still pending) doesn't skip the status screen.
+        if (status.has_pending || status.has_rejected) {
+          dispatch({ type: 'SET_STEP', step: 'pending-review' });
+          return;
+        }
         if (status.overall_status === 'verified' || status.overall_status === 'partially_verified') {
           const profile = await verificationService.getProfile().catch(() => null);
           const profileComplete = profile?.headline || profile?.bio;
@@ -51,12 +59,6 @@ export default function VerificationWizardScreen() {
             await verificationService.markVerificationComplete();
             dispatch({ type: 'COMPLETE_WIZARD' });
           }
-          return;
-        }
-        // If any records exist (pending or rejected) the provider must not redo the
-        // category process — show the status screen, which handles both states.
-        if (status.has_pending || status.has_rejected) {
-          dispatch({ type: 'SET_STEP', step: 'pending-review' });
         }
       } catch {
         // Start from beginning if error
@@ -67,6 +69,9 @@ export default function VerificationWizardScreen() {
     void determineStep();
   }, [dispatch]);
 
+  // Wait for the status check before rendering so the provider lands directly on
+  // the correct screen (status, resume/profile, or categories) — matching the KYC
+  // flow. The step components have their own loaders for their data fetches.
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>

@@ -14,7 +14,9 @@ function useAndroidBackHandler() {
         return true;
       }
       if (state.currentStep === 'pending-review') {
-        // Block back navigation while verification is under review.
+        // Verification is under review; the back gesture should close the app
+        // rather than navigating back into the wizard.
+        BackHandler.exitApp();
         return true;
       }
       dispatch({ type: 'GO_BACK' });

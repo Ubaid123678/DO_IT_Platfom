@@ -11,10 +11,11 @@ export default function PendingReviewScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
-  const { state, dispatch } = useWizard();
+  const { dispatch } = useWizard();
   const [checking, setChecking] = useState(false);
   const [decision, setDecision] = useState<'pending' | 'rejected'>('pending');
   const [rejectionReasons, setRejectionReasons] = useState<string[]>([]);
+  const [submittedCategories, setSubmittedCategories] = useState<{ category_id: string; category_name: string }[]>([]);
 
   const checkStatus = useCallback(async () => {
     setChecking(true);
@@ -33,6 +34,7 @@ export default function PendingReviewScreen() {
         setDecision('rejected');
         return;
       }
+      setSubmittedCategories(status.categories ?? []);
       setDecision('pending');
     } catch {
       // ignore, user can retry
@@ -43,8 +45,6 @@ export default function PendingReviewScreen() {
 
   useEffect(() => {
     void checkStatus();
-    const interval = setInterval(() => void checkStatus(), 15000);
-    return () => clearInterval(interval);
   }, [checkStatus]);
 
   const handleBackToCategories = () => {
@@ -100,12 +100,14 @@ export default function PendingReviewScreen() {
 
         <View style={styles.categoriesCard}>
           <Text style={styles.categoriesTitle}>Categories submitted:</Text>
-          {state.selectedCategories.map((cat, i) => (
+          {submittedCategories.length > 0 ? submittedCategories.map((cat, i) => (
             <View key={i} style={styles.categoryRow}>
               <Ionicons name="checkmark-circle" size={18} color={C.success} />
-              <Text style={styles.categoryName}>{cat.name}</Text>
+              <Text style={styles.categoryName}>{cat.category_name}</Text>
             </View>
-          ))}
+          )) : (
+            <Text style={styles.categoryName}>Loading...</Text>
+          )}
         </View>
 
         <View style={styles.statusBadge}>
