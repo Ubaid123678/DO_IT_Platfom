@@ -36,9 +36,16 @@ export default function CategorySelectionStep() {
   }, []);
 
   const toggle = (id: string) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 3 ? [...prev, id] : prev,
-    );
+    setSelectedIds(prev => {
+      const target = categories.find(c => c.id === id);
+      if (!target) return prev;
+      const hasOppositeTrack = prev.some(pid => {
+        const c = categories.find(x => x.id === pid);
+        return c && c.job_type !== target.job_type;
+      });
+      if (hasOppositeTrack) return prev;
+      return prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 3 ? [...prev, id] : prev;
+    });
   };
 
   const handleNext = () => {
@@ -70,6 +77,40 @@ export default function CategorySelectionStep() {
   const physicalCats = categories.filter(c => c.job_type === 'physical');
   const digitalCats = categories.filter(c => c.job_type === 'digital');
 
+  const selectedPhysical = selectedIds.some(id => categories.find(c => c.id === id)?.job_type === 'physical');
+  const selectedDigital = selectedIds.some(id => categories.find(c => c.id === id)?.job_type === 'digital');
+  const physicalLocked = selectedDigital;
+  const digitalLocked = selectedPhysical;
+
+  const renderCategoryCard = (cat: SkillCategory, locked: boolean) => (
+    <TouchableOpacity
+      key={cat.id}
+      style={[
+        styles.categoryCard,
+        selectedIds.includes(cat.id) && styles.categoryCardSelected,
+        locked && styles.categoryCardDisabled,
+      ]}
+      onPress={() => toggle(cat.id)}
+      activeOpacity={locked ? 1 : 0.7}
+      disabled={locked}
+    >
+      <View style={[styles.categoryIcon, locked && styles.categoryIconDisabled]}>
+        <Ionicons name={cat.job_type === 'physical' ? 'construct-outline' : 'laptop-outline'} size={28} color={locked ? C.textHint : C.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.categoryName, locked && { color: C.textHint }]}>{cat.name}</Text>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{cat.job_type === 'physical' ? 'Physical' : 'Digital'}</Text>
+        </View>
+      </View>
+      {locked ? (
+        <Ionicons name="lock-closed-outline" size={20} color={C.textHint} />
+      ) : selectedIds.includes(cat.id) ? (
+        <Ionicons name="checkmark-circle" size={24} color={C.primary} />
+      ) : null}
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -86,6 +127,15 @@ export default function CategorySelectionStep() {
         Select the service categories you want to offer ({selectedIds.length}/3)
       </Text>
 
+      {(physicalLocked || digitalLocked) && (
+        <View style={styles.trackHint}>
+          <Ionicons name="lock-closed-outline" size={14} color={C.amber} />
+          <Text style={styles.trackHintText}>
+            You can only offer {digitalLocked ? 'physical' : 'digital'} services. To switch, remove your current selection first.
+          </Text>
+        </View>
+      )}
+
       <FlatList
         data={[]}
         renderItem={null}
@@ -94,54 +144,14 @@ export default function CategorySelectionStep() {
             {physicalCats.length > 0 && (
               <>
                 <Text style={styles.sectionLabel}>Physical Services</Text>
-                {physicalCats.map(cat => (
-                  <TouchableOpacity
-                    key={cat.id}
-                    style={[styles.categoryCard, selectedIds.includes(cat.id) && styles.categoryCardSelected]}
-                    onPress={() => toggle(cat.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.categoryIcon}>
-                      <Ionicons name="construct-outline" size={28} color={C.primary} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.categoryName}>{cat.name}</Text>
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>Physical</Text>
-                      </View>
-                    </View>
-                    {selectedIds.includes(cat.id) && (
-                      <Ionicons name="checkmark-circle" size={24} color={C.primary} />
-                    )}
-                  </TouchableOpacity>
-                ))}
+                {physicalCats.map(cat => renderCategoryCard(cat, physicalLocked))}
               </>
             )}
 
             {digitalCats.length > 0 && (
               <>
                 <Text style={[styles.sectionLabel, { marginTop: physicalCats.length > 0 ? 24 : 0 }]}>Digital Services</Text>
-                {digitalCats.map(cat => (
-                  <TouchableOpacity
-                    key={cat.id}
-                    style={[styles.categoryCard, selectedIds.includes(cat.id) && styles.categoryCardSelected]}
-                    onPress={() => toggle(cat.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.categoryIcon}>
-                      <Ionicons name="laptop-outline" size={28} color={C.primary} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.categoryName}>{cat.name}</Text>
-                      <View style={[styles.badge, styles.badgeDigital]}>
-                        <Text style={[styles.badgeText, { color: C.primary }]}>Digital</Text>
-                      </View>
-                    </View>
-                    {selectedIds.includes(cat.id) && (
-                      <Ionicons name="checkmark-circle" size={24} color={C.primary} />
-                    )}
-                  </TouchableOpacity>
-                ))}
+                {digitalCats.map(cat => renderCategoryCard(cat, digitalLocked))}
               </>
             )}
           </>
@@ -175,10 +185,14 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   progressBar: { height: 4, backgroundColor: C.divider, marginHorizontal: 20, borderRadius: 2, marginBottom: 16 },
   progressFill: { height: '100%', backgroundColor: C.primary, borderRadius: 2 },
   subtitle: { fontSize: 14, color: C.textSecondary, paddingHorizontal: 20, marginBottom: 20 },
+  trackHint: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.amberLight, borderRadius: 12, padding: 12, marginHorizontal: 20, marginBottom: 16 },
+  trackHintText: { flex: 1, fontSize: 12, color: C.amber, lineHeight: 17 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: C.textHint, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 },
   categoryCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1.5, borderColor: C.cardBorder },
   categoryCardSelected: { borderColor: C.primary, backgroundColor: C.primaryLight },
+  categoryCardDisabled: { opacity: 0.45, backgroundColor: C.divider, borderColor: C.divider },
   categoryIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  categoryIconDisabled: { backgroundColor: C.divider },
   categoryName: { fontSize: 15, fontWeight: '600', color: C.textPrimary, marginBottom: 4 },
   badge: { alignSelf: 'flex-start', backgroundColor: C.primaryLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   badgeDigital: { backgroundColor: C.primaryLight },

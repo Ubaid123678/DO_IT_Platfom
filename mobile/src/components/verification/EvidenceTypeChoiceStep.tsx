@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useWizard } from '@/src/context/VerificationWizardContext';
+import { getEvidenceKey, useWizard } from '@/src/context/VerificationWizardContext';
 import { verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
@@ -44,18 +44,10 @@ export default function EvidenceTypeChoiceStep() {
   const isLastCategory = state.currentCategoryIndex >= totalCategories - 1;
   const progressPct = Math.round(((state.currentCategoryIndex) / (totalCategories || 1)) * 100);
 
-  const allCategoriesDone = state.selectedCategories.every(
-    cat => (state.completedEvidence[cat.category_id]?.length || 0) >= (
-      (cat.job_type === 'physical' ? physicalEvidenceTypes : digitalEvidenceTypes)
-        .filter(t => !t.requires_cert || catItems?.skill_items.some(s => s.requires_certificate)).length
-    )
-  );
-
   const handleSelect = (typeKey: string) => {
-    const currentSkillItem = catItems?.skill_items[0];
-    if (!currentSkillItem) return;
+    const evidenceKey = getEvidenceKey(state, currentCat);
 
-    dispatch({ type: 'SET_EVIDENCE_TYPE', skillItemId: currentSkillItem._id, evidenceType: typeKey });
+    dispatch({ type: 'SET_EVIDENCE_TYPE', skillItemId: evidenceKey, evidenceType: typeKey });
 
     const stepMap: Record<string, string> = {
       certificate: 'certificate-upload',
@@ -76,29 +68,39 @@ export default function EvidenceTypeChoiceStep() {
 
     for (const cat of state.selectedCategories) {
       const items = state.selectedSkillItems.find(s => s.category_id === cat.category_id);
-      for (const skillItem of items?.skill_items || []) {
-        const completedKeysForCat = state.completedEvidence[cat.category_id] || [];
-        for (const evidenceKey of completedKeysForCat) {
-          let evidence_payload: Record<string, unknown> = {};
+      const skillItems = items?.skill_items || [];
+      const completedEvidenceKeys = state.completedEvidence[cat.category_id] || [];
 
-          if (evidenceKey === 'certificate') {
-            const certs = state.uploadedCertificates[skillItem._id] || [];
-            evidence_payload = { certificates: certs };
-          } else if (evidenceKey === 'prior_work') {
-            const photos = state.priorWorkPhotos[skillItem._id] || [];
-            evidence_payload = { photos };
-          } else if (evidenceKey === 'portfolio') {
-            evidence_payload = state.portfolios[skillItem._id] || { url: '', description: '' };
-          } else if (evidenceKey === 'oauth') {
-            evidence_payload = { connected: state.oauthConnected[skillItem._id] || false };
+      const buildPayload = (evidenceKey: string, storageKey: string): Record<string, unknown> => {
+        if (evidenceKey === 'certificate') return { certificates: state.uploadedCertificates[storageKey] || [] };
+        if (evidenceKey === 'prior_work') return { photos: state.priorWorkPhotos[storageKey] || [] };
+        if (evidenceKey === 'portfolio') return state.portfolios[storageKey] || { url: '', description: '' };
+        if (evidenceKey === 'oauth') return { connected: state.oauthConnected[storageKey] || false };
+        return {};
+      };
+
+      if (cat.job_type === 'physical') {
+        for (const evidenceKey of completedEvidenceKeys) {
+          const evidence_payload = buildPayload(evidenceKey, cat.category_id);
+          for (const skillItem of skillItems) {
+            batch.push({
+              category_id: cat.category_id,
+              skill_item_id: skillItem._id,
+              evidence_type: evidenceKey,
+              evidence_payload,
+            });
           }
-
-          batch.push({
-            category_id: cat.category_id,
-            skill_item_id: skillItem._id,
-            evidence_type: evidenceKey,
-            evidence_payload,
-          });
+        }
+      } else {
+        for (const skillItem of skillItems) {
+          for (const evidenceKey of completedEvidenceKeys) {
+            batch.push({
+              category_id: cat.category_id,
+              skill_item_id: skillItem._id,
+              evidence_type: evidenceKey,
+              evidence_payload: buildPayload(evidenceKey, skillItem._id),
+            });
+          }
         }
       }
     }
@@ -133,7 +135,7 @@ export default function EvidenceTypeChoiceStep() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => dispatch({ type: 'SET_STEP', step: 'skill-selection' })} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => dispatch({ type: 'GO_BACK' })} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={C.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Submit Evidence</Text>

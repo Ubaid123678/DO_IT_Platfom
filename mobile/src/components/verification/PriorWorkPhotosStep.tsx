@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useWizard } from '@/src/context/VerificationWizardContext';
+import { getEvidenceKey, useWizard } from '@/src/context/VerificationWizardContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function PriorWorkPhotosStep() {
@@ -14,10 +14,9 @@ export default function PriorWorkPhotosStep() {
   const { state, dispatch } = useWizard();
 
   const currentCat = state.selectedCategories[state.currentCategoryIndex];
-  const currentItems = state.selectedSkillItems.find(s => s.category_id === currentCat?.category_id);
-  const currentSkillItem = currentItems?.skill_items[0];
+  const evidenceKey = currentCat ? getEvidenceKey(state, currentCat) : null;
 
-  const existingPhotos = currentSkillItem ? (state.priorWorkPhotos[currentSkillItem._id] || []) : [];
+  const existingPhotos = evidenceKey ? (state.priorWorkPhotos[evidenceKey] || []) : [];
   const [currentCaption, setCurrentCaption] = useState('');
 
   const addPhoto = async () => {
@@ -31,16 +30,16 @@ export default function PriorWorkPhotosStep() {
       allowsEditing: true,
     });
     if (!result.canceled && result.assets[0]) {
-      if (currentSkillItem) {
-        dispatch({ type: 'ADD_PHOTO', skillItemId: currentSkillItem._id, uri: result.assets[0].uri, caption: currentCaption });
+      if (evidenceKey) {
+        dispatch({ type: 'ADD_PHOTO', skillItemId: evidenceKey, uri: result.assets[0].uri, caption: currentCaption });
       }
       setCurrentCaption('');
     }
   };
 
   const removePhoto = (index: number) => {
-    if (currentSkillItem) {
-      dispatch({ type: 'DELETE_PHOTO', skillItemId: currentSkillItem._id, index });
+    if (evidenceKey) {
+      dispatch({ type: 'DELETE_PHOTO', skillItemId: evidenceKey, index });
     }
   };
 
@@ -55,7 +54,7 @@ export default function PriorWorkPhotosStep() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => dispatch({ type: 'SET_STEP', step: 'evidence-type-choice' })} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => dispatch({ type: 'GO_BACK' })} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={C.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Prior Work Photos</Text>

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useWizard } from '@/src/context/VerificationWizardContext';
+import { getEvidenceKey, useWizard } from '@/src/context/VerificationWizardContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function CertificateUploadStep() {
@@ -14,8 +14,7 @@ export default function CertificateUploadStep() {
   const { state, dispatch } = useWizard();
 
   const currentCat = state.selectedCategories[state.currentCategoryIndex];
-  const currentItems = state.selectedSkillItems.find(s => s.category_id === currentCat?.category_id);
-  const currentSkillItem = currentItems?.skill_items[0];
+  const evidenceKey = currentCat ? getEvidenceKey(state, currentCat) : null;
 
   const [image, setImage] = useState<string | null>(null);
   const [issuingBody, setIssuingBody] = useState('');
@@ -54,18 +53,18 @@ export default function CertificateUploadStep() {
     }
   };
 
-  const currentCerts = currentSkillItem ? (state.uploadedCertificates[currentSkillItem._id] || []) : [];
+  const currentCerts = evidenceKey ? (state.uploadedCertificates[evidenceKey] || []) : [];
 
   const handleAdd = () => {
-    if (!image || !currentSkillItem) return;
+    if (!image || !evidenceKey) return;
     const name = `${issuingBody || 'Certificate'}${credentialId ? ` - ${credentialId}` : ''}`;
-    dispatch({ type: 'ADD_CERTIFICATE', skillItemId: currentSkillItem._id, uri: image, name });
+    dispatch({ type: 'ADD_CERTIFICATE', skillItemId: evidenceKey, uri: image, name });
     setUploaded(true);
   };
 
   const handleDelete = (index: number) => {
-    if (!currentSkillItem) return;
-    dispatch({ type: 'DELETE_CERTIFICATE', skillItemId: currentSkillItem._id, index });
+    if (!evidenceKey) return;
+    dispatch({ type: 'DELETE_CERTIFICATE', skillItemId: evidenceKey, index });
   };
 
   const handleDone = () => {
@@ -123,7 +122,7 @@ export default function CertificateUploadStep() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => dispatch({ type: 'SET_STEP', step: 'evidence-type-choice' })} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => dispatch({ type: 'GO_BACK' })} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={C.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Upload Certificate</Text>

@@ -13,25 +13,8 @@ function useAndroidBackHandler() {
         BackHandler.exitApp();
         return true;
       }
-      const prevStepMap: Record<string, string> = {
-        'skill-selection': 'category-selection',
-        'evidence-type-choice': 'skill-selection',
-        'certificate-upload': 'evidence-type-choice',
-        'prior-work-photos': 'evidence-type-choice',
-        'portfolio-link': 'evidence-type-choice',
-        'oauth-integration': 'evidence-type-choice',
-        'pending-review': 'evidence-type-choice',
-        'review-approved': 'pending-review',
-        'resume-bio': 'pending-review',
-        'status-hub': 'resume-bio',
-        'rejection-detail': 'status-hub',
-      };
-      const prevStep = prevStepMap[state.currentStep];
-      if (prevStep) {
-        dispatch({ type: 'SET_STEP', step: prevStep as any });
-        return true;
-      }
-      return false;
+      dispatch({ type: 'GO_BACK' });
+      return true;
     });
     return () => sub.remove();
   }, [state.currentStep, dispatch]);

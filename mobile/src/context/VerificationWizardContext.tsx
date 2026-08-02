@@ -35,6 +35,7 @@ export interface WizardState {
 }
 
 type WizardAction =
+  | { type: 'GO_BACK' }
   | { type: 'SET_STEP'; step: WizardStep }
   | { type: 'SET_CATEGORIES'; categories: WizardState['selectedCategories'] }
   | { type: 'SET_SKILL_ITEMS'; items: WizardState['selectedSkillItems'] }
@@ -76,10 +77,57 @@ const initialState: WizardState = {
   skillTestResults: {},
 };
 
+const clearEvidenceState = (state: WizardState): WizardState => ({
+  ...state,
+  evidenceTypeMap: {},
+  completedEvidence: {},
+  uploadedCertificates: {},
+  priorWorkPhotos: {},
+  portfolios: {},
+  oauthConnected: {},
+});
+
+export function getEvidenceKey(
+  state: WizardState,
+  category: { category_id: string; job_type: 'physical' | 'digital' },
+): string {
+  if (category.job_type === 'physical') return category.category_id;
+  const items = state.selectedSkillItems.find(s => s.category_id === category.category_id);
+  return items?.skill_items[0]?._id ?? category.category_id;
+}
+
 function wizardReducer(state: WizardState, action: WizardAction): WizardState {
   switch (action.type) {
     case 'SET_STEP':
       return { ...state, currentStep: action.step };
+    case 'GO_BACK':
+      switch (state.currentStep) {
+        case 'skill-selection':
+          return { ...state, currentStep: 'category-selection' };
+        case 'evidence-type-choice':
+          if (state.currentCategoryIndex > 0) {
+            return { ...state, currentCategoryIndex: state.currentCategoryIndex - 1, currentStep: 'evidence-type-choice' };
+          }
+          return clearEvidenceState({ ...state, currentStep: 'skill-selection' });
+        case 'certificate-upload':
+        case 'prior-work-photos':
+        case 'portfolio-link':
+        case 'oauth-integration':
+          return { ...state, currentStep: 'evidence-type-choice' };
+        case 'pending-review': {
+          const lastIndex = state.selectedCategories.length - 1;
+          return { ...state, currentCategoryIndex: Math.max(lastIndex, 0), currentStep: 'evidence-type-choice' };
+        }
+        case 'review-approved':
+        case 'resume-bio':
+          return { ...state, currentStep: 'pending-review' };
+        case 'status-hub':
+          return { ...state, currentStep: 'resume-bio' };
+        case 'rejection-detail':
+          return { ...state, currentStep: 'status-hub' };
+        default:
+          return state;
+      }
     case 'SET_CATEGORIES':
       return {
         ...state,
@@ -96,7 +144,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         isDigitalCategory: action.categories.some(c => c.job_type === 'digital'),
       };
     case 'SET_SKILL_ITEMS':
-      return { ...state, selectedSkillItems: action.items };
+      return clearEvidenceState({ ...state, selectedSkillItems: action.items });
     case 'SET_EVIDENCE_TYPE':
       return { ...state, evidenceTypeMap: { ...state.evidenceTypeMap, [action.skillItemId]: action.evidenceType } };
     case 'ADD_CERTIFICATE': {

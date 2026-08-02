@@ -1,11 +1,40 @@
 ﻿import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo, useCallback } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
 import { SkillItem, verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
+
+interface SkillCardProps {
+  item: SkillItem;
+  isSelected: boolean;
+  onPress: () => void;
+  C: AppColors;
+}
+
+const SkillCard = memo(function SkillCard({ item, isSelected, onPress, C }: SkillCardProps) {
+  const styles = makeStyles(C);
+  return (
+    <TouchableOpacity
+      style={[styles.skillCard, isSelected && styles.skillCardSelected]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.checkbox}>
+        {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.skillName}>{item.name}</Text>
+        {item.requires_certificate && (
+          <Text style={styles.certHint}>Certificate required</Text>
+        )}
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={C.textHint} />
+    </TouchableOpacity>
+  );
+});
 
 export default function SkillSelectionStep() {
   const scheme = useColorScheme();
@@ -45,20 +74,20 @@ export default function SkillSelectionStep() {
     void fetch();
   }, [state.selectedCategories]);
 
-  const toggle = (catId: string, itemId: string) => {
+const toggle = useCallback((catId: string, itemId: string) => {
     setSelectedMap(prev => ({
       ...prev,
       [catId]: prev[catId]?.includes(itemId)
         ? prev[catId].filter(x => x !== itemId)
         : [...(prev[catId] || []), itemId],
     }));
-  };
+  }, []);
 
-  const allHaveSelection = () => {
+  const allHaveSelection = useCallback(() => {
     return state.selectedCategories.every(cat => (selectedMap[cat.category_id]?.length || 0) > 0);
-  };
+  }, [selectedMap, state.selectedCategories]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     const items = state.selectedCategories.map(cat => ({
       category_id: cat.category_id,
       skill_items: (selectedMap[cat.category_id] || []).map(id => {
@@ -68,7 +97,7 @@ export default function SkillSelectionStep() {
     }));
     dispatch({ type: 'SET_SKILL_ITEMS', items });
     dispatch({ type: 'SET_STEP', step: 'evidence-type-choice' });
-  };
+  }, [dispatch, selectedMap, skillItemsMap, state.selectedCategories]);
 
   const totalSections = Object.keys(skillItemsMap).length;
   const completedSections = Object.values(selectedMap).filter(arr => arr.length > 0).length;
@@ -98,7 +127,7 @@ export default function SkillSelectionStep() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => dispatch({ type: 'SET_STEP', step: 'category-selection' })} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => dispatch({ type: 'GO_BACK' })} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={C.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Select Skills</Text>
@@ -111,7 +140,7 @@ export default function SkillSelectionStep() {
 
       <Text style={styles.subtitle}>Choose at least one skill per category</Text>
 
-      <FlatList
+<FlatList
         data={state.selectedCategories}
         keyExtractor={item => item.category_id}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
@@ -127,28 +156,15 @@ export default function SkillSelectionStep() {
                 <Text style={styles.categoryTitle}>{cat.name}</Text>
                 <Text style={styles.countText}>{selected.length}/{items.length}</Text>
               </View>
-              {items.map(item => {
-                const isSelected = selected.includes(item.id);
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[styles.skillCard, isSelected && styles.skillCardSelected]}
-                    onPress={() => toggle(cat.category_id, item.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.checkbox}>
-                      {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.skillName}>{item.name}</Text>
-                      {item.requires_certificate && (
-                        <Text style={styles.certHint}>Certificate required</Text>
-                      )}
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color={C.textHint} />
-                  </TouchableOpacity>
-                );
-              })}
+              {items.map(item => (
+                <SkillCard
+                  key={item.id}
+                  item={item}
+                  isSelected={selected.includes(item.id)}
+                  onPress={() => toggle(cat.category_id, item.id)}
+                  C={C}
+                />
+              ))}
             </View>
           );
         }}

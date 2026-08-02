@@ -1,12 +1,49 @@
 ﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo, useCallback, useMemo } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
 import { VerificationRecord, verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
+
+interface RecordItemProps {
+  item: VerificationRecord;
+  catName: string;
+  skillName: string;
+  cfg: { label: string; color: string; icon: string; bg: string };
+  onResubmit: () => void;
+  C: AppColors;
+}
+
+const RecordItem = memo(function RecordItem({ item, catName, skillName, cfg, onResubmit, C }: RecordItemProps) {
+  const styles = makeStyles(C);
+  return (
+    <View style={styles.recordCard}>
+      <View style={styles.recordHeader}>
+        <Text style={styles.catName}>{catName}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
+          <Ionicons name={cfg.icon as any} size={12} color={cfg.color} />
+          <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+        </View>
+      </View>
+      <Text style={styles.skillName}>Skill: {skillName}</Text>
+      <Text style={styles.evidenceType}>Type: {item.evidence_type.replace('_', ' ')}</Text>
+      {item.status === 'rejected' && item.rejection_reason && (
+        <View style={styles.rejectionBox}>
+          <Text style={styles.rejectionLabel}>Reason:</Text>
+          <Text style={styles.rejectionReason}>{item.rejection_reason}</Text>
+        </View>
+      )}
+      {item.status === 'rejected' && (
+        <TouchableOpacity style={styles.resubmitBtn} onPress={onResubmit}>
+          <Text style={styles.resubmitText}>Resubmit</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
 
 const statusConfig: Record<string, { label: string; color: string; icon: string; bg: string }> = {
   draft: { label: 'Draft', color: '#AAAAAA', icon: 'ellipse-outline', bg: '#E8EDED' },
@@ -53,9 +90,28 @@ export default function StatusHubScreen() {
     router.replace('/(provider)/home');
   };
 
-  const handleResubmit = (record: VerificationRecord) => {
+const handleResubmit = useCallback((record: VerificationRecord) => {
     dispatch({ type: 'SET_REJECTION_RECORD', id: record.id });
-  };
+  }, [dispatch]);
+
+  // Precompute category and skill name maps for O(1) lookup in renderItem
+  const catNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const cat of state.selectedCategories) {
+      map[cat.category_id] = cat.name;
+    }
+    return map;
+  }, [state.selectedCategories]);
+
+  const skillNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const entry of state.selectedSkillItems) {
+      for (const skill of entry.skill_items) {
+        map[skill._id] = skill.name;
+      }
+    }
+    return map;
+  }, [state.selectedSkillItems]);
 
   const styles = makeStyles(C);
 
@@ -110,7 +166,7 @@ export default function StatusHubScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
+<FlatList
           data={records}
           keyExtractor={item => item.id}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
@@ -124,34 +180,18 @@ export default function StatusHubScreen() {
           }
           renderItem={({ item }) => {
             const cfg = statusConfig[item.status] || statusConfig.pending_review;
-            const catName = state.selectedCategories.find(c => c.category_id === item.category_id)?.name || item.category || 'Unknown';
-            const skillName = state.selectedSkillItems
-              .flatMap(s => s.skill_items)
-              .find(s => s._id === item.skill_item_id)?.name || 'Unknown';
+            const catName = catNameMap[item.category_id] || item.category || 'Unknown';
+            const skillName = skillNameMap[item.skill_item_id] || 'Unknown';
 
             return (
-              <View style={styles.recordCard}>
-                <View style={styles.recordHeader}>
-                  <Text style={styles.catName}>{catName}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
-                    <Ionicons name={cfg.icon as any} size={12} color={cfg.color} />
-                    <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
-                  </View>
-                </View>
-                <Text style={styles.skillName}>Skill: {skillName}</Text>
-                <Text style={styles.evidenceType}>Type: {item.evidence_type.replace('_', ' ')}</Text>
-                {item.status === 'rejected' && item.rejection_reason && (
-                  <View style={styles.rejectionBox}>
-                    <Text style={styles.rejectionLabel}>Reason:</Text>
-                    <Text style={styles.rejectionReason}>{item.rejection_reason}</Text>
-                  </View>
-                )}
-                {item.status === 'rejected' && (
-                  <TouchableOpacity style={styles.resubmitBtn} onPress={() => handleResubmit(item)}>
-                    <Text style={styles.resubmitText}>Resubmit</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <RecordItem
+                item={item}
+                catName={catName}
+                skillName={skillName}
+                cfg={cfg}
+                onResubmit={() => handleResubmit(item)}
+                C={C}
+              />
             );
           }}
         />
