@@ -56,7 +56,7 @@ async function fetchGitHubRepos(username: string): Promise<GitHubRepo[]> {
   try {
     const res = await axios.get(`${GITHUB_API_BASE}/users/${encodeURIComponent(username)}/repos`, {
       headers: { Accept: 'application/vnd.github.v3+json', 'User-Agent': 'do-it-platform' },
-      params: { sort: 'updated', per_page: 30, type: 'public' },
+      params: { sort: 'updated', per_page: 100 },
       timeout: 10000,
     });
     return res.data;
@@ -65,17 +65,75 @@ async function fetchGitHubRepos(username: string): Promise<GitHubRepo[]> {
   }
 }
 
+const WEB_LANGUAGES = new Set([
+  'javascript', 'typescript', 'html', 'css', 'scss', 'sass', 'less',
+  'php', 'ruby', 'python', 'go', 'java', 'vue', 'svelte', 'astro',
+  'react', 'next', 'shell', 'hcl', 'django', 'flask', 'laravel',
+]);
+
+const MOBILE_LANGUAGES = new Set([
+  'kotlin', 'swift', 'dart', 'java', 'objective-c', 'c#', 'typescript', 'javascript', 'c++',
+]);
+
+interface ExpandedKeywords {
+  terms: string[];
+  isWebSkill: boolean;
+  isMobileSkill: boolean;
+}
+
+function expandSkillKeywords(skillKeywords: string[]): ExpandedKeywords {
+  const terms = new Set<string>();
+  const joined = skillKeywords.join(' ').toLowerCase();
+
+  for (const kw of skillKeywords) {
+    const lower = kw.toLowerCase();
+    terms.add(lower);
+    // Break multi-word skills ("Web Development Full Stack") into individual
+    // tokens so repos describing only part of the skill still match.
+    for (const part of lower.split(/[^a-z0-9+#._-]+/)) {
+      if (part.length >= 3) terms.add(part);
+    }
+  }
+
+  const isWebSkill = /\b(web|frontend|front-end|backend|back-end|full[\s-]?stack|fullstack|website|html|css|javascript|react|node)\b/.test(joined);
+  const isMobileSkill = /\b(mobile|android|ios|flutter|react[\s-]?native|app)\b/.test(joined);
+
+  return { terms: Array.from(terms), isWebSkill, isMobileSkill };
+}
+
 function analyzeReposForSkills(repos: GitHubRepo[], skillKeywords: string[]): { match_count: number; matched_repos: string[]; languages: string[] } {
+  const { terms, isWebSkill, isMobileSkill } = expandSkillKeywords(skillKeywords);
   const matchedRepos: string[] = [];
   const languages = new Set<string>();
+
+  const languageMatchesDomain = (lang: string | null): boolean => {
+    const l = (lang || '').toLowerCase();
+    if (!l) return false;
+    if (isWebSkill && WEB_LANGUAGES.has(l)) return true;
+    if (isMobileSkill && MOBILE_LANGUAGES.has(l)) return true;
+    return false;
+  };
 
   for (const repo of repos) {
     if (repo.fork) continue;
     if (repo.language) languages.add(repo.language);
     for (const topic of repo.topics) languages.add(topic);
 
-    const searchText = [repo.name, repo.description, ...repo.topics].filter(Boolean).join(' ').toLowerCase();
-    const matched = skillKeywords.some((kw) => searchText.includes(kw.toLowerCase()));
+    // Match against the repo name, description, topics AND primary language so a
+    // "Web Development Full Stack" skill matches repos that simply use web tech.
+    const searchText = [repo.name, repo.description, ...repo.topics, repo.language]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    let matched = terms.some((term) => searchText.includes(term));
+
+    // Fallback: when no text token matches, count repos written in a language that
+    // belongs to the skill's domain (e.g. a JS/HTML portfolio for a web skill).
+    if (!matched && languageMatchesDomain(repo.language)) {
+      matched = true;
+    }
+
     if (matched) matchedRepos.push(repo.html_url);
   }
 
@@ -97,12 +155,19 @@ export const verificationAutoService = {
 
     const verificationScore = (() => {
       let score = 0;
-      if (userData.public_repos >= 5) score += 0.2;
-      if (userData.followers >= 10) score += 0.15;
-      if (nonForkRepos.length >= 5) score += 0.15;
+      if (userData.public_repos >= 10) score += 0.2;
+      else if (userData.public_repos >= 5) score += 0.15;
+      else if (userData.public_repos >= 1) score += 0.05;
+      if (userData.followers >= 20) score += 0.15;
+      else if (userData.followers >= 10) score += 0.1;
+      if (nonForkRepos.length >= 10) score += 0.15;
+      else if (nonForkRepos.length >= 5) score += 0.1;
+      else if (nonForkRepos.length >= 1) score += 0.05;
       if (userData.bio) score += 0.1;
-      if (repoAnalysis.match_count >= 1) score += 0.3;
-      if (repoAnalysis.languages.length > 0) score += 0.1;
+      if (repoAnalysis.match_count >= 3) score += 0.35;
+      else if (repoAnalysis.match_count >= 1) score += 0.25;
+      if (repoAnalysis.languages.length >= 3) score += 0.1;
+      else if (repoAnalysis.languages.length >= 1) score += 0.05;
       return Math.min(score, 1);
     })();
 
@@ -134,6 +199,28 @@ export const verificationAutoService = {
       return { valid, status_code: res.status, content_type: res.headers['content-type'] };
     } catch {
       return { valid: false, status_code: 0 };
+    }
+  },
+
+  verifyPortfolioUrl: async (url: string): Promise<{ valid: boolean; status_code: number; content_length: number }> => {
+    try {
+      const res = await axios.get(url, {
+        timeout: 15000,
+        validateStatus: () => true,
+        maxContentLength: 5 * 1024 * 1024,
+        maxRedirects: 5,
+        responseType: 'text',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/json,*/*',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+      const contentLength = typeof res.data === 'string' ? res.data.length : 0;
+      const valid = res.status >= 200 && res.status < 400 && contentLength > 0;
+      return { valid, status_code: res.status, content_length: contentLength };
+    } catch {
+      return { valid: false, status_code: 0, content_length: 0 };
     }
   },
 

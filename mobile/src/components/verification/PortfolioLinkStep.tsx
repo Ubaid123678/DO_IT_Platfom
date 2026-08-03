@@ -1,9 +1,10 @@
 ﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useWizard } from '@/src/context/VerificationWizardContext';
+import { getEvidenceKey, useWizard } from '@/src/context/VerificationWizardContext';
+import { verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function PortfolioLinkStep() {
@@ -13,20 +14,36 @@ export default function PortfolioLinkStep() {
   const { state, dispatch } = useWizard();
 
   const currentCat = state.selectedCategories[state.currentCategoryIndex];
-  const currentItems = state.selectedSkillItems.find(s => s.category_id === currentCat?.category_id);
-  const currentSkillItem = currentItems?.skill_items[0];
+  const evidenceKey = currentCat ? getEvidenceKey(state, currentCat) : null;
 
   const [url, setUrl] = useState(
-    currentSkillItem ? (state.portfolios[currentSkillItem._id]?.url || '') : ''
+    evidenceKey ? (state.portfolios[evidenceKey]?.url || '') : ''
   );
   const [description, setDescription] = useState(
-    currentSkillItem ? (state.portfolios[currentSkillItem._id]?.description || '') : ''
+    evidenceKey ? (state.portfolios[evidenceKey]?.description || '') : ''
   );
+  const [validating, setValidating] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  const handleSave = () => {
-    if (!url.trim() || !currentSkillItem || !currentCat) return;
-    dispatch({ type: 'SET_PORTFOLIO', skillItemId: currentSkillItem._id, url: url.trim(), description: description.trim() });
-    dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'portfolio' });
+  const handleSave = async () => {
+    const trimmed = url.trim();
+    if (!trimmed || !evidenceKey || !currentCat) return;
+    setValidating(true);
+    setValidationError(null);
+    try {
+      const result = await verificationService.verifyPortfolioUrl(trimmed);
+      if (!result.valid) {
+        setValidationError('This link is not reachable or returned no content. Check the URL and try again.');
+        return;
+      }
+      // Save locally, mark the evidence tick, and return to the evidence screen.
+      dispatch({ type: 'SET_PORTFOLIO', skillItemId: evidenceKey, url: trimmed, description: description.trim() });
+      dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'portfolio' });
+    } catch {
+      setValidationError('Could not verify this link right now. Please try again.');
+    } finally {
+      setValidating(false);
+    }
   };
 
   const styles = makeStyles(C);
@@ -43,7 +60,7 @@ export default function PortfolioLinkStep() {
 
       <View style={{ paddingHorizontal: 20, flex: 1 }}>
         <Text style={styles.title}>Share your portfolio or work samples</Text>
-        <Text style={styles.subtitle}>Provide a link to your online portfolio, GitHub, Behance, or any work showcase</Text>
+        <Text style={styles.subtitle}>We'll check that the link is live before saving it.</Text>
 
         <Text style={styles.fieldLabel}>Portfolio URL</Text>
         <TextInput
@@ -54,6 +71,7 @@ export default function PortfolioLinkStep() {
           onChangeText={setUrl}
           autoCapitalize="none"
           keyboardType="url"
+          editable={!validating}
         />
 
         <Text style={styles.fieldLabel}>Description (optional)</Text>
@@ -66,23 +84,46 @@ export default function PortfolioLinkStep() {
           multiline
           numberOfLines={4}
           textAlignVertical="top"
+          editable={!validating}
         />
 
         <View style={styles.infoCard}>
           <Ionicons name="information-circle-outline" size={18} color={C.primary} />
-          <Text style={styles.infoText}>Links are manually reviewed. For faster verification, include a credential URL if available.</Text>
+          <Text style={styles.infoText}>
+            We verify the link is live and contains content. A valid link is saved and marked as done.
+          </Text>
         </View>
+
+        {validating && (
+          <View style={styles.validatingRow}>
+            <ActivityIndicator size="small" color={C.primary} />
+            <Text style={styles.validatingText}>Checking link...</Text>
+          </View>
+        )}
+
+        {validationError ? (
+          <View style={styles.errorCard}>
+            <Ionicons name="alert-circle" size={18} color={C.error} />
+            <Text style={styles.errorText}>{validationError}</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.submitBtn, (!url.trim()) && styles.submitBtnDisabled]}
-          onPress={handleSave}
-          disabled={!url.trim()}
+          style={[styles.submitBtn, (!url.trim() || validating) && styles.submitBtnDisabled]}
+          onPress={() => void handleSave()}
+          disabled={!url.trim() || validating}
           activeOpacity={0.8}
         >
-          <Ionicons name="link-outline" size={20} color="#fff" />
-          <Text style={styles.submitText}> Save Portfolio Link</Text>
+          {validating ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <Ionicons name="link-outline" size={20} color="#fff" />
+              <Text style={styles.submitText}> Check & Save Portfolio Link</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -101,6 +142,10 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   textArea: { height: 100, paddingTop: 14 },
   infoCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: C.primaryLight, borderRadius: 12, padding: 14, marginTop: 20 },
   infoText: { flex: 1, fontSize: 12, color: C.textSecondary, lineHeight: 18 },
+  validatingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  validatingText: { fontSize: 13, color: C.textSecondary },
+  errorCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: C.errorBg, borderRadius: 12, padding: 12, marginTop: 12 },
+  errorText: { flex: 1, fontSize: 12, color: C.error, lineHeight: 18 },
   footer: { padding: 20, paddingBottom: 32, backgroundColor: C.background },
   submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, height: 52, borderRadius: 12 },
   submitBtnDisabled: { backgroundColor: C.divider },

@@ -75,32 +75,24 @@ export default function EvidenceTypeChoiceStep() {
         if (evidenceKey === 'certificate') return { certificates: state.uploadedCertificates[storageKey] || [] };
         if (evidenceKey === 'prior_work') return { photos: state.priorWorkPhotos[storageKey] || [] };
         if (evidenceKey === 'portfolio') return state.portfolios[storageKey] || { url: '', description: '' };
-        if (evidenceKey === 'oauth') return { connected: state.oauthConnected[storageKey] || false };
+        if (evidenceKey === 'oauth') {
+          const connected = state.oauthConnected[storageKey] || false;
+          return { connected, username: connected ? (state.githubUsernames[storageKey] || '') : '' };
+        }
         return {};
       };
 
-      if (cat.job_type === 'physical') {
-        for (const evidenceKey of completedEvidenceKeys) {
-          const evidence_payload = buildPayload(evidenceKey, cat.category_id);
-          for (const skillItem of skillItems) {
-            batch.push({
-              category_id: cat.category_id,
-              skill_item_id: skillItem._id,
-              evidence_type: evidenceKey,
-              evidence_payload,
-            });
-          }
-        }
-      } else {
+      // Evidence is collected per category (one portfolio + one GitHub + optional
+      // certificate) and applied to every skill in the category — same as physical.
+      for (const evidenceKey of completedEvidenceKeys) {
+        const evidence_payload = buildPayload(evidenceKey, cat.category_id);
         for (const skillItem of skillItems) {
-          for (const evidenceKey of completedEvidenceKeys) {
-            batch.push({
-              category_id: cat.category_id,
-              skill_item_id: skillItem._id,
-              evidence_type: evidenceKey,
-              evidence_payload: buildPayload(evidenceKey, skillItem._id),
-            });
-          }
+          batch.push({
+            category_id: cat.category_id,
+            skill_item_id: skillItem._id,
+            evidence_type: evidenceKey,
+            evidence_payload,
+          });
         }
       }
     }

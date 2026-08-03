@@ -98,6 +98,10 @@ export const verificationValidators = {
     skill_keywords: Joi.array().items(Joi.string().trim().max(50)).optional(),
   }),
 
+  verifyPortfolio: Joi.object({
+    url: Joi.string().uri({ scheme: ['http', 'https'] }).required(),
+  }),
+
   submitBatchEvidence: Joi.object({
     evidence_batch: Joi.array().min(1).items(
       Joi.object({

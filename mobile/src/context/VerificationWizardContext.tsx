@@ -31,6 +31,7 @@ export interface WizardState {
   rejectionRecordId: string | null;
   inPersonTestScheduled: Record<string, { date: string; location: string }>;
   oauthConnected: Record<string, boolean>;
+  githubUsernames: Record<string, string>;
   skillTestResults: Record<string, { score: number; passed: boolean }>;
 }
 
@@ -53,6 +54,7 @@ type WizardAction =
   | { type: 'COMPLETE_WIZARD' }
   | { type: 'SET_REJECTION_RECORD'; id: string }
   | { type: 'MARK_OAUTH_CONNECTED'; skillItemId: string }
+  | { type: 'SET_GITHUB_USERNAME'; skillItemId: string; username: string }
   | { type: 'SET_SKILL_TEST_RESULT'; skillItemId: string; score: number; passed: boolean }
   | { type: 'SET_IN_PERSON_TEST'; skillItemId: string; date: string; location: string }
   | { type: 'RESET' };
@@ -74,6 +76,7 @@ const initialState: WizardState = {
   rejectionRecordId: null,
   inPersonTestScheduled: {},
   oauthConnected: {},
+  githubUsernames: {},
   skillTestResults: {},
 };
 
@@ -85,15 +88,14 @@ const clearEvidenceState = (state: WizardState): WizardState => ({
   priorWorkPhotos: {},
   portfolios: {},
   oauthConnected: {},
+  githubUsernames: {},
 });
 
 export function getEvidenceKey(
-  state: WizardState,
-  category: { category_id: string; job_type: 'physical' | 'digital' },
+  _state: WizardState,
+  category: { category_id: string },
 ): string {
-  if (category.job_type === 'physical') return category.category_id;
-  const items = state.selectedSkillItems.find(s => s.category_id === category.category_id);
-  return items?.skill_items[0]?._id ?? category.category_id;
+  return category.category_id;
 }
 
 export function getCategoryCompletedKeys(
@@ -101,18 +103,18 @@ export function getCategoryCompletedKeys(
   category: { category_id: string; job_type: 'physical' | 'digital' },
 ): string[] {
   const key = getEvidenceKey(state, category);
-  const completed: string[] = [];
+  const completed = new Set<string>(state.completedEvidence[category.category_id] || []);
 
-  if ((state.uploadedCertificates[key] || []).length > 0) completed.push('certificate');
+  if ((state.uploadedCertificates[key] || []).length > 0) completed.add('certificate');
 
   if (category.job_type === 'physical') {
-    if ((state.priorWorkPhotos[key] || []).length >= 3) completed.push('prior_work');
+    if ((state.priorWorkPhotos[key] || []).length >= 3) completed.add('prior_work');
   } else {
-    if (state.portfolios[key]?.url) completed.push('portfolio');
-    if (state.oauthConnected[key]) completed.push('oauth');
+    if (state.portfolios[key]?.url) completed.add('portfolio');
+    if (state.oauthConnected[key]) completed.add('oauth');
   }
 
-  return completed;
+  return Array.from(completed);
 }
 
 function wizardReducer(state: WizardState, action: WizardAction): WizardState {
@@ -157,6 +159,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         priorWorkPhotos: {},
         portfolios: {},
         oauthConnected: {},
+        githubUsernames: {},
         currentCategoryIndex: 0,
         isPhysicalCategory: action.categories.some(c => c.job_type === 'physical'),
         isDigitalCategory: action.categories.some(c => c.job_type === 'digital'),
@@ -218,6 +221,8 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return { ...state, rejectionRecordId: action.id, currentStep: 'rejection-detail' };
     case 'MARK_OAUTH_CONNECTED':
       return { ...state, oauthConnected: { ...state.oauthConnected, [action.skillItemId]: true } };
+    case 'SET_GITHUB_USERNAME':
+      return { ...state, githubUsernames: { ...state.githubUsernames, [action.skillItemId]: action.username } };
     case 'SET_SKILL_TEST_RESULT':
       return { ...state, skillTestResults: { ...state.skillTestResults, [action.skillItemId]: { score: action.score, passed: action.passed } } };
     case 'SET_IN_PERSON_TEST':

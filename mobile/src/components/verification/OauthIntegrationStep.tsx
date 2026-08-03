@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useWizard } from '@/src/context/VerificationWizardContext';
+import { getEvidenceKey, useWizard } from '@/src/context/VerificationWizardContext';
 import { verificationService, type OAuthConnectResult } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
@@ -18,9 +18,20 @@ export default function OauthIntegrationStep() {
   const [result, setResult] = useState<OAuthConnectResult | null>(null);
 
   const currentCat = state.selectedCategories[state.currentCategoryIndex];
+  const evidenceKey = currentCat ? getEvidenceKey(state, currentCat) : null;
   const currentItems = state.selectedSkillItems.find(s => s.category_id === currentCat?.category_id);
-  const currentSkillItem = currentItems?.skill_items[0];
-  const currentSkillName = currentSkillItem?.name || '';
+  const skillNames = currentItems?.skill_items.map(s => s.name) ?? [];
+
+  const markCompleteAndContinue = () => {
+    if (evidenceKey && username.trim()) {
+      dispatch({ type: 'SET_GITHUB_USERNAME', skillItemId: evidenceKey, username: username.trim() });
+      dispatch({ type: 'MARK_OAUTH_CONNECTED', skillItemId: evidenceKey });
+    }
+    if (currentCat) {
+      // MARK_EVIDENCE_COMPLETE routes back to the evidence screen with the tick.
+      dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'oauth' });
+    }
+  };
 
   const handleConnectGithub = async () => {
     if (!username.trim()) {
@@ -30,25 +41,13 @@ export default function OauthIntegrationStep() {
     setLoading(true);
     setResult(null);
     try {
-      const res = await verificationService.connectGithub(username.trim(), currentSkillName ? [currentSkillName] : undefined);
+      const res = await verificationService.connectGithub(username.trim(), skillNames);
       setResult(res);
-      if (res.verified) {
-        dispatch({ type: 'MARK_OAUTH_CONNECTED', skillItemId: currentSkillItem?._id || '' });
-      }
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || err.message || 'Failed to connect GitHub';
       Alert.alert('Connection failed', msg);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleContinue = () => {
-    if (currentSkillItem?._id) {
-      dispatch({ type: 'MARK_OAUTH_CONNECTED', skillItemId: currentSkillItem._id });
-    }
-    if (currentCat) {
-      dispatch({ type: 'MARK_EVIDENCE_COMPLETE', categoryId: currentCat.category_id, evidenceKey: 'oauth' });
     }
   };
 
@@ -77,7 +76,8 @@ export default function OauthIntegrationStep() {
 
         <Text style={styles.title}>Connect GitHub</Text>
         <Text style={styles.subtitle}>
-          Link your GitHub account as proof of your skills. We'll analyze your public repos and activity signals.
+          Enter your GitHub username. We'll analyze your public repos and activity signals for
+          {skillNames.length > 0 ? ` ${skillNames.join(', ')}` : ' your skills'}.
         </Text>
 
         {!result ? (
@@ -95,7 +95,7 @@ export default function OauthIntegrationStep() {
 
             <TouchableOpacity
               style={[styles.ghBtn, loading && { opacity: 0.6 }]}
-              onPress={handleConnectGithub}
+              onPress={() => void handleConnectGithub()}
               activeOpacity={0.8}
               disabled={loading}
             >
@@ -125,11 +125,18 @@ export default function OauthIntegrationStep() {
                 : `Could not fully verify ${result.username} (score: ${Math.round((result.verification_score || 0) * 100)}%). You can still continue.`}
             </Text>
             {result.repo_analysis && (
-              <Text style={styles.resultDetail}>
-                {result.repo_analysis.match_count} skill-relevant repos found · {result.repo_analysis.languages.length} languages
-              </Text>
+              <>
+                <Text style={styles.resultDetail}>
+                  {result.repo_analysis.match_count} skill-relevant repos found · {result.repo_analysis.languages.length} languages
+                </Text>
+                {result.repo_analysis.languages.length > 0 && (
+                  <Text style={styles.resultDetail}>
+                    Languages: {result.repo_analysis.languages.slice(0, 8).join(', ')}
+                  </Text>
+                )}
+              </>
             )}
-            <TouchableOpacity style={styles.continueBtn} onPress={handleContinue} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.continueBtn} onPress={markCompleteAndContinue} activeOpacity={0.8}>
               <Text style={styles.continueBtnText}>Continue</Text>
             </TouchableOpacity>
           </View>
@@ -168,10 +175,9 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   resultCard: { backgroundColor: C.card, borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 20 },
   resultTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary, marginTop: 12, marginBottom: 8 },
   resultText: { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 20 },
-  resultDetail: { fontSize: 12, color: C.textHint, textAlign: 'center', marginTop: 8, marginBottom: 16 },
+  resultDetail: { fontSize: 12, color: C.textHint, textAlign: 'center', marginTop: 8, lineHeight: 18 },
   continueBtn: { backgroundColor: C.textPrimary, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, marginTop: 8 },
   continueBtnText: { fontSize: 15, fontWeight: '600', color: C.background },
   comingSoon: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 24 },
   comingSoonText: { fontSize: 12, color: C.textHint },
 });
-

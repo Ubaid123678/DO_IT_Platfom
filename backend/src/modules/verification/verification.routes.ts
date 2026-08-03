@@ -29,6 +29,8 @@ verificationRouter.get('/resume/parse-result/:resultId', authenticate, requireRo
 verificationRouter.post('/oauth/github/connect', authenticate, requireRoles('provider', 'admin'), verificationController.connectGithub);
 verificationRouter.get('/oauth/accounts', authenticate, requireRoles('provider', 'admin'), verificationController.getConnectedAccounts);
 
+verificationRouter.post('/portfolio/verify', authenticate, requireRoles('provider', 'admin'), verificationController.verifyPortfolio);
+
 verificationRouter.post('/verification-records/auto-verify', authenticate, requireRoles('provider', 'admin'), verificationController.submitEvidenceWithAutoVerify);
 verificationRouter.post('/verification-records/submit-batch', authenticate, requireRoles('provider', 'admin'), verificationController.submitBatchEvidence);
 

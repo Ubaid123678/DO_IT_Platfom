@@ -166,6 +166,11 @@ export const verificationService = {
     return res.data.data.accounts;
   },
 
+  verifyPortfolioUrl: async (url: string): Promise<{ valid: boolean; status_code: number; content_length: number }> => {
+    const res = await api.post('/providers/portfolio/verify', { url });
+    return res.data.data;
+  },
+
   submitAllEvidence: async (evidenceBatch: {
     category_id: string;
     skill_item_id: string;

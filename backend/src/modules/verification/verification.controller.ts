@@ -123,6 +123,12 @@ export const verificationController = {
     res.status(200).json({ success: true, data: { accounts }, meta: { message: 'Connected accounts fetched successfully' } });
   }),
 
+  verifyPortfolio: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const payload = validate(verificationValidators.verifyPortfolio, req.body);
+    const result = await verificationAutoService.verifyPortfolioUrl(payload.url);
+    res.status(200).json({ success: true, data: result, meta: { message: 'Portfolio link checked successfully' } });
+  }),
+
   submitEvidenceWithAutoVerify: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = getUserId(req);
     const payload = validate(verificationValidators.submitEvidence, req.body);
