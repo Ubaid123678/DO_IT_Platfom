@@ -3,6 +3,7 @@ import axios from 'axios';
 import { AppError } from '../../common/errors/AppError.js';
 import {
   ConnectedAccountModel,
+  SkillItemModel,
   VerificationRecordModel,
   type VerificationStatus,
 } from './verification.model.js';
@@ -75,6 +76,12 @@ const MOBILE_LANGUAGES = new Set([
   'kotlin', 'swift', 'dart', 'java', 'objective-c', 'c#', 'typescript', 'javascript', 'c++',
 ]);
 
+const MOBILE_ONLY_LANGUAGES = new Set(['dart', 'kotlin', 'swift', 'objective-c']);
+
+const WEB_ONLY_LANGUAGES = new Set(['html', 'css', 'scss', 'sass', 'less', 'vue', 'svelte', 'astro']);
+
+const MAX_LANG_ENRICH_REPOS = 6;
+
 interface ExpandedKeywords {
   terms: string[];
   isWebSkill: boolean;
@@ -101,26 +108,64 @@ function expandSkillKeywords(skillKeywords: string[]): ExpandedKeywords {
   return { terms: Array.from(terms), isWebSkill, isMobileSkill };
 }
 
-function analyzeReposForSkills(repos: GitHubRepo[], skillKeywords: string[]): { match_count: number; matched_repos: string[]; languages: string[] } {
+async function fetchRepoLanguages(repoUrl: string): Promise<Record<string, number>> {
+  try {
+    const apiUrl = repoUrl.replace('https://github.com/', `${GITHUB_API_BASE}/repos/`) + '/languages';
+    const res = await axios.get(apiUrl, {
+      headers: { Accept: 'application/vnd.github.v3+json', 'User-Agent': 'do-it-platform' },
+      timeout: 8000,
+    });
+    return res.data ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function isClearlyMobileProject(repo: GitHubRepo): boolean {
+  const lang = (repo.language || '').toLowerCase();
+  if (MOBILE_ONLY_LANGUAGES.has(lang)) return true;
+  const text = [repo.name, repo.description, ...repo.topics].filter(Boolean).join(' ').toLowerCase();
+  return /(flutter|react[ -]?native|android|ios|iphone|mobile|play store|app store|swift|kotlin|dart)/.test(text);
+}
+
+function isClearlyWebProject(repo: GitHubRepo): boolean {
+  const lang = (repo.language || '').toLowerCase();
+  if (WEB_ONLY_LANGUAGES.has(lang)) return true;
+  const text = [repo.name, repo.description, ...repo.topics].filter(Boolean).join(' ').toLowerCase();
+  return /(website|web ?app|webapplication|web application|frontend|front-end|front end|landing page)/.test(text);
+}
+
+function languageMatchesDomain(lang: string | null, isWebSkill: boolean, isMobileSkill: boolean): boolean {
+  const l = (lang || '').toLowerCase();
+  if (!l) return false;
+  if (isWebSkill && WEB_LANGUAGES.has(l)) return true;
+  if (isMobileSkill && MOBILE_LANGUAGES.has(l)) return true;
+  return false;
+}
+
+async function analyzeReposForSkills(
+  repos: GitHubRepo[],
+  skillKeywords: string[],
+): Promise<{ match_count: number; matched_repos: string[]; languages: string[]; languages_by_bytes: string[]; excluded_repos: number }> {
   const { terms, isWebSkill, isMobileSkill } = expandSkillKeywords(skillKeywords);
   const matchedRepos: string[] = [];
-  const languages = new Set<string>();
-
-  const languageMatchesDomain = (lang: string | null): boolean => {
-    const l = (lang || '').toLowerCase();
-    if (!l) return false;
-    if (isWebSkill && WEB_LANGUAGES.has(l)) return true;
-    if (isMobileSkill && MOBILE_LANGUAGES.has(l)) return true;
-    return false;
-  };
+  const primaryLanguages = new Set<string>();
+  const byteCounts: Record<string, number> = {};
+  let excludedRepos = 0;
 
   for (const repo of repos) {
     if (repo.fork) continue;
-    if (repo.language) languages.add(repo.language);
-    for (const topic of repo.topics) languages.add(topic);
 
-    // Match against the repo name, description, topics AND primary language so a
-    // "Web Development Full Stack" skill matches repos that simply use web tech.
+    const isOtherDomain =
+      (isWebSkill && !isMobileSkill && isClearlyMobileProject(repo)) ||
+      (isMobileSkill && !isWebSkill && isClearlyWebProject(repo));
+    if (isOtherDomain) {
+      excludedRepos += 1;
+      continue;
+    }
+
+    if (repo.language) primaryLanguages.add(repo.language);
+
     const searchText = [repo.name, repo.description, ...repo.topics, repo.language]
       .filter(Boolean)
       .join(' ')
@@ -128,16 +173,43 @@ function analyzeReposForSkills(repos: GitHubRepo[], skillKeywords: string[]): { 
 
     let matched = terms.some((term) => searchText.includes(term));
 
-    // Fallback: when no text token matches, count repos written in a language that
-    // belongs to the skill's domain (e.g. a JS/HTML portfolio for a web skill).
-    if (!matched && languageMatchesDomain(repo.language)) {
+    if (!matched && languageMatchesDomain(repo.language, isWebSkill, isMobileSkill)) {
       matched = true;
     }
 
     if (matched) matchedRepos.push(repo.html_url);
   }
 
-  return { match_count: matchedRepos.length, matched_repos: matchedRepos, languages: Array.from(languages) };
+  const reposToEnrich = repos
+    .filter((r) => !r.fork && matchedRepos.includes(r.html_url))
+    .slice(0, MAX_LANG_ENRICH_REPOS);
+
+  for (const repo of reposToEnrich) {
+    const breakdown = await fetchRepoLanguages(repo.html_url);
+    const entries = Object.keys(breakdown).length > 0
+      ? Object.entries(breakdown)
+      : repo.language
+        ? [[repo.language, 1] as [string, number]]
+        : [];
+    for (const [lang, bytes] of entries) {
+      byteCounts[lang] = (byteCounts[lang] || 0) + bytes;
+    }
+  }
+
+  const languages = new Set<string>(primaryLanguages);
+  for (const lang of Object.keys(byteCounts)) languages.add(lang);
+
+  const languagesByBytes = Object.entries(byteCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([lang]) => lang);
+
+  return {
+    match_count: matchedRepos.length,
+    matched_repos: matchedRepos,
+    languages: Array.from(languages),
+    languages_by_bytes: languagesByBytes,
+    excluded_repos: excludedRepos,
+  };
 }
 
 export const verificationAutoService = {
@@ -148,8 +220,8 @@ export const verificationAutoService = {
     ]);
 
     const repoAnalysis = skillKeywords && skillKeywords.length > 0
-      ? analyzeReposForSkills(repos, skillKeywords)
-      : { match_count: 0, matched_repos: [], languages: [] };
+      ? await analyzeReposForSkills(repos, skillKeywords)
+      : { match_count: 0, matched_repos: [], languages: [], languages_by_bytes: [], excluded_repos: 0 };
 
     const nonForkRepos = repos.filter((r) => !r.fork);
 
@@ -166,8 +238,11 @@ export const verificationAutoService = {
       if (userData.bio) score += 0.1;
       if (repoAnalysis.match_count >= 3) score += 0.35;
       else if (repoAnalysis.match_count >= 1) score += 0.25;
-      if (repoAnalysis.languages.length >= 3) score += 0.1;
-      else if (repoAnalysis.languages.length >= 1) score += 0.05;
+      const repoLanguages = repoAnalysis.languages_by_bytes && repoAnalysis.languages_by_bytes.length > 0
+        ? repoAnalysis.languages_by_bytes
+        : repoAnalysis.languages;
+      if (repoLanguages.length >= 3) score += 0.1;
+      else if (repoLanguages.length >= 1) score += 0.05;
       return Math.min(score, 1);
     })();
 
@@ -242,32 +317,25 @@ export const verificationAutoService = {
     platform: 'github' | 'upwork' | 'linkedin',
     username: string,
     skillKeywords?: string[],
+    opts?: { persist?: boolean },
   ) => {
-    const existing = await ConnectedAccountModel.findOne({ provider_id: providerId, platform });
-    if (existing) {
-      existing.set('username', username);
-      existing.set('verified', false);
-      existing.set('verified_at', undefined);
-      existing.set('platform_data', undefined);
-      await existing.save();
-    }
+    const persist = opts?.persist !== false;
 
     if (platform === 'github') {
       const verification = await verificationAutoService.verifyGitHubUsername(username, skillKeywords);
 
-      const account = existing ?? new ConnectedAccountModel({
-        provider_id: providerId,
-        platform,
-        username,
-      });
-
-      account.set('platform_user_id', verification.platform_user_id);
-      account.set('platform_data', verification.platform_data);
-      account.set('verified', verification.verified);
-      account.set('verified_at', verification.verified ? new Date() : undefined);
-
-      if (!existing) await account.save();
-      else await account.save();
+      if (persist) {
+        let account = await ConnectedAccountModel.findOne({ provider_id: providerId, platform });
+        if (!account) {
+          account = new ConnectedAccountModel({ provider_id: providerId, platform, username });
+        }
+        account.set('username', username);
+        account.set('platform_user_id', verification.platform_user_id);
+        account.set('platform_data', verification.platform_data);
+        account.set('verified', verification.verified);
+        account.set('verified_at', verification.verified ? new Date() : undefined);
+        await account.save();
+      }
 
       return {
         platform,
@@ -279,12 +347,21 @@ export const verificationAutoService = {
       };
     }
 
-    if (!existing) {
-      await ConnectedAccountModel.create({
-        provider_id: providerId,
-        platform,
-        username,
-      });
+    if (persist) {
+      const existing = await ConnectedAccountModel.findOne({ provider_id: providerId, platform });
+      if (existing) {
+        existing.set('username', username);
+        existing.set('verified', false);
+        existing.set('verified_at', undefined);
+        existing.set('platform_data', undefined);
+        await existing.save();
+      } else {
+        await ConnectedAccountModel.create({
+          provider_id: providerId,
+          platform,
+          username,
+        });
+      }
     }
 
     return {
@@ -293,6 +370,69 @@ export const verificationAutoService = {
       verified: false,
       platform_data: null,
     };
+  },
+
+  persistOAuthFromBatch: async (
+    providerId: string,
+    batch: { skill_item_id?: string; evidence_type: string; evidence_payload: Record<string, unknown> }[],
+  ): Promise<void> => {
+    const getOAuthUsername = (item: { evidence_type: string; evidence_payload: Record<string, unknown> }): string | null => {
+      const payload = item.evidence_payload ?? {};
+      if (item.evidence_type === 'oauth') {
+        if (payload.connected === true && typeof payload.username === 'string' && payload.username.trim().length > 0) {
+          return payload.username.trim();
+        }
+        return null;
+      }
+      if (item.evidence_type === 'digital') {
+        const oauthPayload = (payload.oauth ?? {}) as Record<string, unknown>;
+        if (oauthPayload.connected === true && typeof oauthPayload.username === 'string' && oauthPayload.username.trim().length > 0) {
+          return oauthPayload.username.trim();
+        }
+        return null;
+      }
+      return null;
+    };
+
+    const oauthEntries = batch
+      .map((item) => ({ item, username: getOAuthUsername(item) }))
+      .filter((e): e is { item: typeof batch[number]; username: string } => e.username !== null);
+
+    if (oauthEntries.length === 0) return;
+
+    const skillItemIds = batch
+      .flatMap((item) => {
+        const ids: string[] = [];
+        if (typeof item.skill_item_id === 'string') ids.push(item.skill_item_id);
+        const payloadIds = item.evidence_payload?.skill_item_ids;
+        if (Array.isArray(payloadIds)) ids.push(...payloadIds.filter((x): x is string => typeof x === 'string'));
+        return ids;
+      })
+      .filter((id) => /^[a-fA-F0-9]{24}$/.test(id));
+    const skillItems = skillItemIds.length > 0
+      ? await SkillItemModel.find({ _id: { $in: skillItemIds } }).lean()
+      : [];
+
+    const skillKeywords = Array.from(
+      new Set(skillItems.map((s) => s.name).filter((n): n is string => typeof n === 'string')),
+    );
+
+    for (const { username } of oauthEntries) {
+      try {
+        await verificationAutoService.connectOAuthPlatform(providerId, 'github', username, skillKeywords, { persist: true });
+      } catch (err) {
+        console.warn(`[verification] GitHub persistence for ${username} failed:`, (err as Error).message);
+        const existing = await ConnectedAccountModel.findOne({ provider_id: providerId, platform: 'github' });
+        if (existing) {
+          existing.set('username', username);
+          existing.set('verified', false);
+          existing.set('verified_at', undefined);
+          await existing.save();
+        } else {
+          await ConnectedAccountModel.create({ provider_id: providerId, platform: 'github', username });
+        }
+      }
+    }
   },
 
   getConnectedAccounts: async (providerId: string) => {

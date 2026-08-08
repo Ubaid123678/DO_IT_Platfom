@@ -13,12 +13,33 @@ export default function CategorySelectionStep() {
   const C = isDark ? Colors.dark : Colors.light;
   const { state, dispatch } = useWizard();
 
+  // Resubmit mode: category is pre-selected and locked
+  const isResubmitMode = state.resubmitMode;
+  const resubmitCategoryId = state.resubmitCategoryId;
+
   const [categories, setCategories] = useState<SkillCategory[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>(
-    () => state.selectedCategories.map(c => c.category_id),
-  );
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    if (isResubmitMode && resubmitCategoryId) return [resubmitCategoryId];
+    return state.selectedCategories.map(c => c.category_id);
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Resolve the resubmit target across every source that could know it: the
+  // freshly fetched active list, the wizard's selected categories, or the info
+  // carried into START_RESUBMIT by the caller (works even when the category was
+  // deactivated and no longer appears in the active list).
+  const resubmitTarget: { category_id: string; name: string; job_type: 'physical' | 'digital' } | null = (() => {
+    if (!resubmitCategoryId) return null;
+    const fromList = categories.find(c => c.id === resubmitCategoryId);
+    if (fromList) return { category_id: fromList.id, name: fromList.name, job_type: fromList.job_type };
+    const fromState = state.selectedCategories.find(c => c.category_id === resubmitCategoryId);
+    if (fromState) return fromState;
+    if (state.resubmitCategoryInfo) {
+      return { category_id: resubmitCategoryId, name: state.resubmitCategoryInfo.name, job_type: state.resubmitCategoryInfo.job_type };
+    }
+    return null;
+  })();
 
   useEffect(() => {
     const fetch = async () => {
@@ -36,6 +57,13 @@ export default function CategorySelectionStep() {
   }, []);
 
   const toggle = (id: string) => {
+    if (isResubmitMode) {
+      // Resubmit is scoped to one category: only the resubmit target can be
+      // unselected/re-selected; every other category stays locked.
+      if (id !== resubmitCategoryId) return;
+      setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+      return;
+    }
     setSelectedIds(prev => {
       const target = categories.find(c => c.id === id);
       if (!target) return prev;
@@ -49,9 +77,18 @@ export default function CategorySelectionStep() {
   };
 
   const handleNext = () => {
-    const selected = categories.filter(c => selectedIds.includes(c.id));
-    dispatch({ type: 'SET_CATEGORIES', categories: selected.map(c => ({ category_id: c.id, name: c.name, job_type: c.job_type })) });
-    dispatch({ type: 'SET_STEP', step: 'skill-selection' });
+    if (isResubmitMode && resubmitTarget) {
+      // Only submit the resubmit category
+      dispatch({ type: 'SET_CATEGORIES', categories: [{ category_id: resubmitTarget.category_id, name: resubmitTarget.name, job_type: resubmitTarget.job_type }] });
+      dispatch({ type: 'SET_STEP', step: 'skill-selection' });
+    } else if (isResubmitMode) {
+      // No resubmit target resolved; do nothing rather than clobber the selection.
+      return;
+    } else {
+      const selected = categories.filter(c => selectedIds.includes(c.id));
+      dispatch({ type: 'SET_CATEGORIES', categories: selected.map(c => ({ category_id: c.id, name: c.name, job_type: c.job_type })) });
+      dispatch({ type: 'SET_STEP', step: 'skill-selection' });
+    }
   };
 
   if (loading) {
@@ -74,64 +111,101 @@ export default function CategorySelectionStep() {
   }
 
   const styles = makeStyles(C);
-  const physicalCats = categories.filter(c => c.job_type === 'physical');
-  const digitalCats = categories.filter(c => c.job_type === 'digital');
 
-  const selectedPhysical = selectedIds.some(id => categories.find(c => c.id === id)?.job_type === 'physical');
-  const selectedDigital = selectedIds.some(id => categories.find(c => c.id === id)?.job_type === 'digital');
-  const physicalLocked = selectedDigital;
-  const digitalLocked = selectedPhysical;
+  // Normalize the resubmit target into a renderable category card so it always
+  // shows as the selected + locked card even if it's missing from the active list.
+  const resubmitCatForRender: SkillCategory | null = resubmitTarget
+    ? { id: resubmitTarget.category_id, name: resubmitTarget.name, job_type: resubmitTarget.job_type, active: true }
+    : null;
 
-  const renderCategoryCard = (cat: SkillCategory, locked: boolean) => (
-    <TouchableOpacity
-      key={cat.id}
-      style={[
-        styles.categoryCard,
-        selectedIds.includes(cat.id) && styles.categoryCardSelected,
-        locked && styles.categoryCardDisabled,
-      ]}
-      onPress={() => toggle(cat.id)}
-      activeOpacity={locked ? 1 : 0.7}
-      disabled={locked}
-    >
-      <View style={[styles.categoryIcon, locked && styles.categoryIconDisabled]}>
-        <Ionicons name={cat.job_type === 'physical' ? 'construct-outline' : 'laptop-outline'} size={28} color={locked ? C.textHint : C.primary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.categoryName, locked && { color: C.textHint }]}>{cat.name}</Text>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{cat.job_type === 'physical' ? 'Physical' : 'Digital'}</Text>
+  const buildTrackList = (list: SkillCategory[], jobType: 'physical' | 'digital'): SkillCategory[] => {
+    if (!resubmitCatForRender || resubmitCatForRender.job_type !== jobType) return list;
+    if (list.some(c => c.id === resubmitCatForRender.id)) return list;
+    return [resubmitCatForRender, ...list];
+  };
+
+  const physicalCats = buildTrackList(categories.filter(c => c.job_type === 'physical'), 'physical');
+  const digitalCats = buildTrackList(categories.filter(c => c.job_type === 'digital'), 'digital');
+
+  const selectedPhysical = isResubmitMode
+    ? resubmitTarget?.job_type === 'physical'
+    : selectedIds.some(id => categories.find(c => c.id === id)?.job_type === 'physical');
+  const selectedDigital = isResubmitMode
+    ? resubmitTarget?.job_type === 'digital'
+    : selectedIds.some(id => categories.find(c => c.id === id)?.job_type === 'digital');
+  const physicalLocked = selectedDigital || (isResubmitMode && resubmitTarget?.job_type !== 'physical');
+  const digitalLocked = selectedPhysical || (isResubmitMode && resubmitTarget?.job_type !== 'digital');
+
+  const renderCategoryCard = (cat: SkillCategory, locked: boolean) => {
+    const isResubmitTarget = isResubmitMode && resubmitCategoryId === cat.id;
+    // In resubmit mode every category except the resubmit target is locked; the
+    // target itself can be unselected/re-selected.
+    const isDisabled = isResubmitMode ? !isResubmitTarget : locked;
+    const isSelected = selectedIds.includes(cat.id);
+    return (
+      <TouchableOpacity
+        key={cat.id}
+        style={[
+          styles.categoryCard,
+          isSelected && styles.categoryCardSelected,
+          isDisabled && styles.categoryCardDisabled,
+        ]}
+        onPress={() => toggle(cat.id)}
+        activeOpacity={isDisabled ? 1 : 0.7}
+        disabled={isDisabled}
+      >
+        <View style={[styles.categoryIcon, isDisabled && styles.categoryIconDisabled]}>
+          <Ionicons name={cat.job_type === 'physical' ? 'construct-outline' : 'laptop-outline'} size={28} color={isDisabled ? C.textHint : C.primary} />
         </View>
-      </View>
-      {locked ? (
-        <Ionicons name="lock-closed-outline" size={20} color={C.textHint} />
-      ) : selectedIds.includes(cat.id) ? (
-        <Ionicons name="checkmark-circle" size={24} color={C.primary} />
-      ) : null}
-    </TouchableOpacity>
-  );
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.categoryName, isDisabled && { color: C.textHint }]}>{cat.name}</Text>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{cat.job_type === 'physical' ? 'Physical' : 'Digital'}</Text>
+          </View>
+        </View>
+        {isResubmitTarget ? (
+          <Ionicons name={isSelected ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={C.primary} />
+        ) : isDisabled ? (
+          <Ionicons name="lock-closed-outline" size={20} color={C.textHint} />
+        ) : isSelected ? (
+          <Ionicons name="checkmark-circle" size={24} color={C.primary} />
+        ) : null}
+      </TouchableOpacity>
+    );
+  };
 
-  return (
+return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View style={{ width: 40 }} />
-        <Text style={styles.headerTitle}>Choose Categories</Text>
+        <Text style={styles.headerTitle}>{isResubmitMode ? 'Resubmit Category' : 'Choose Categories'}</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${(selectedIds.length / 3) * 100}%` }]} />
-      </View>
+      {isResubmitMode ? (
+        <Text style={styles.subtitle}>
+          You are resubmitting: {resubmitTarget?.name ?? 'selected category'}
+        </Text>
+      ) : (
+        <>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${(selectedIds.length / 3) * 100}%` }]} />
+          </View>
 
-      <Text style={styles.subtitle}>
-        Select the service categories you want to offer ({selectedIds.length}/3)
-      </Text>
+          <Text style={styles.subtitle}>
+            Select the service categories you want to offer ({selectedIds.length}/3)
+          </Text>
+        </>
+      )}
 
       {(physicalLocked || digitalLocked) && (
         <View style={styles.trackHint}>
           <Ionicons name="lock-closed-outline" size={14} color={C.amber} />
           <Text style={styles.trackHintText}>
-            You can only offer {digitalLocked ? 'physical' : 'digital'} services. To switch, remove your current selection first.
+          {isResubmitMode
+            ? 'Only your rejected category can be resubmitted.'
+            : digitalLocked ? 'You can only offer physical services. To switch, remove your current selection first.'
+            : 'You can only offer digital services. To switch, remove your current selection first.'}
           </Text>
         </View>
       )}

@@ -25,8 +25,9 @@ export interface VerificationRecord {
   id: string;
   category_id: string;
   category?: string;
-  skill_item_id: string;
-  skill_item?: string;
+  category_job_type?: string | null;
+  skill_item_id: string | null;
+  skill_item?: string | null;
   evidence_type: string;
   status: 'draft' | 'pending_review' | 'scheduled' | 'auto_approved' | 'approved' | 'rejected' | 'expired';
   sla_due_at?: string;
@@ -39,7 +40,9 @@ export interface VerificationStatus {
   categories: {
     category_id: string;
     category_name: string;
+    job_type?: string | null;
     status: string;
+    rejection_reason?: string | null;
   }[];
   has_pending: boolean;
   has_rejected: boolean;
@@ -62,7 +65,13 @@ export interface OAuthConnectResult {
   verified: boolean;
   verification_score: number;
   platform_data: Record<string, unknown> | null;
-  repo_analysis?: { match_count: number; matched_repos: string[]; languages: string[] };
+  repo_analysis?: {
+    match_count: number;
+    matched_repos: string[];
+    languages: string[];
+    languages_by_bytes?: string[];
+    excluded_repos?: number;
+  };
 }
 
 export interface ResumeBioData {
@@ -173,7 +182,7 @@ export const verificationService = {
 
   submitAllEvidence: async (evidenceBatch: {
     category_id: string;
-    skill_item_id: string;
+    skill_item_id?: string;
     evidence_type: string;
     evidence_payload: Record<string, unknown>;
   }[]): Promise<VerificationRecord[]> => {

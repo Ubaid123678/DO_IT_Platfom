@@ -1,6 +1,7 @@
 import { AppError } from '../../common/errors/AppError.js';
 import UserModel from '../auth/auth.model.js';
 import KycDocumentModel from '../kyc/kyc.model.js';
+import { verificationAutoService } from './verification-auto.service.js';
 import {
   AdminReviewModel,
   ResumeParseResultModel,
@@ -89,16 +90,17 @@ const recomputeOverallStatus = async (providerId: string): Promise<OverallStatus
 const supersedePreviousEvidence = async (
   providerId: string,
   categoryId: string,
-  skillItemId: string,
+  skillItemId: string | undefined,
   evidenceType: string,
 ): Promise<void> => {
-  await VerificationRecordModel.deleteMany({
+  const filter: Record<string, unknown> = {
     provider_id: providerId,
     category_id: categoryId,
-    skill_item_id: skillItemId,
     evidence_type: evidenceType,
     status: { $in: ['rejected', 'pending_review'] },
-  });
+  };
+  if (skillItemId) filter.skill_item_id = skillItemId;
+  await VerificationRecordModel.deleteMany(filter);
 };
 
 export const verificationService = {
@@ -217,15 +219,20 @@ export const verificationService = {
 
   submitBatchEvidence: async (
     userId: string,
-    input: { evidence_batch: { category_id: string; skill_item_id: string; evidence_type: EvidenceType; evidence_payload: Record<string, unknown> }[] },
+    input: { evidence_batch: { category_id: string; skill_item_id?: string; evidence_type: EvidenceType; evidence_payload: Record<string, unknown> }[] },
   ) => {
     const user = await getUserOrThrow(userId);
     assertProviderOrAdmin(user);
 
-    // A batch submission represents the provider's current set of categories. Clear
-    // every prior rejected record so a resubmission with different categories/skills
-    // doesn't keep surfacing old rejections as the status.
-    await VerificationRecordModel.deleteMany({ provider_id: userId, status: 'rejected' });
+    // A batch submission covers the categories being (re)submitted. Clear prior
+    // rejected records only for those categories so a scoped resubmission doesn't
+    // wipe rejection records of other categories the provider hasn't resubmitted.
+    const batchCategoryIds = input.evidence_batch.map((item) => item.category_id);
+    await VerificationRecordModel.deleteMany({
+      provider_id: userId,
+      status: 'rejected',
+      category_id: { $in: batchCategoryIds },
+    });
 
     const createdRecords = [];
     for (const item of input.evidence_batch) {
@@ -234,12 +241,27 @@ export const verificationService = {
         throw new AppError(`Category ${item.category_id} not found or inactive`, 404, 'CATEGORY_NOT_FOUND');
       }
 
-      const skillItem = await SkillItemModel.findById(item.skill_item_id);
-      if (!skillItem || !skillItem.active) {
-        throw new AppError(`Skill item ${item.skill_item_id} not found or inactive`, 404, 'SKILL_ITEM_NOT_FOUND');
+      const isBundle = item.evidence_type === 'digital' || item.evidence_type === 'physical';
+
+      if (item.skill_item_id && !isBundle) {
+        const skillItem = await SkillItemModel.findById(item.skill_item_id);
+        if (!skillItem || !skillItem.active) {
+          throw new AppError(`Skill item ${item.skill_item_id} not found or inactive`, 404, 'SKILL_ITEM_NOT_FOUND');
+        }
       }
 
-      await supersedePreviousEvidence(userId, item.category_id, item.skill_item_id, item.evidence_type);
+      if (isBundle) {
+        // One record per category bundles all evidence + skills. Clear every prior
+        // rejected/pending record for the category (including legacy per-skill
+        // records) so a category never holds multiple review docs that collide.
+        await VerificationRecordModel.deleteMany({
+          provider_id: userId,
+          category_id: item.category_id,
+          status: { $in: ['rejected', 'pending_review'] },
+        });
+      } else {
+        await supersedePreviousEvidence(userId, item.category_id, item.skill_item_id, item.evidence_type);
+      }
 
       const slaDueAt = new Date();
       slaDueAt.setHours(slaDueAt.getHours() + (category.sla_hours || 48));
@@ -247,7 +269,7 @@ export const verificationService = {
       const record = await VerificationRecordModel.create({
         provider_id: userId,
         category_id: item.category_id,
-        skill_item_id: item.skill_item_id,
+        skill_item_id: item.skill_item_id || undefined,
         verification_track: category.job_type,
         evidence_type: item.evidence_type,
         evidence_payload: item.evidence_payload,
@@ -258,6 +280,8 @@ export const verificationService = {
 
       createdRecords.push(serializeVerificationRecord(record.toJSON() as Record<string, unknown>));
     }
+
+    await verificationAutoService.persistOAuthFromBatch(userId, input.evidence_batch);
 
     const overallStatus = await recomputeOverallStatus(userId);
     user.set('overall_status', overallStatus);
@@ -276,19 +300,23 @@ export const verificationService = {
       .populate('skill_item_id', 'name')
       .lean();
 
-    return records.map((r) => ({
-      id: r._id.toString(),
-      category_id: r.category_id.toString(),
-      category: (r.category_id as unknown as { name?: string; job_type?: string })?.name ?? null,
-      category_job_type: (r.category_id as unknown as { job_type?: string })?.job_type ?? null,
-      skill_item_id: r.skill_item_id.toString(),
-      skill_item: (r.skill_item_id as unknown as { name?: string })?.name ?? null,
-      evidence_type: r.evidence_type,
-      status: r.status,
-      sla_due_at: r.sla_due_at ?? null,
-      rejection_reason: r.rejection_reason ?? null,
-      created_at: r.created_at,
-    }));
+    return records.map((r) => {
+      const catRef = r.category_id as unknown as { _id?: unknown; name?: string; job_type?: string } | null;
+      const skillRef = r.skill_item_id as unknown as { _id?: unknown; name?: string } | null;
+      return {
+        id: r._id.toString(),
+        category_id: String(catRef?._id ?? r.category_id),
+        category: catRef?.name ?? null,
+        category_job_type: catRef?.job_type ?? null,
+        skill_item_id: skillRef?._id != null ? String(skillRef._id) : null,
+        skill_item: skillRef?.name ?? null,
+        evidence_type: r.evidence_type,
+        status: r.status,
+        sla_due_at: r.sla_due_at ?? null,
+        rejection_reason: r.rejection_reason ?? null,
+        created_at: r.created_at,
+      };
+    });
   },
 
   getRecordDetail: async (userId: string, recordId: string) => {
@@ -302,12 +330,16 @@ export const verificationService = {
 
     if (!record) throw new AppError('Verification record not found', 404, 'RECORD_NOT_FOUND');
 
+    const catRef = record.category_id as unknown as { _id?: unknown; name?: string; job_type?: string } | null;
+    const skillRef = record.skill_item_id as unknown as { _id?: unknown; name?: string } | null;
+
     return {
       id: record._id.toString(),
-      category_id: record.category_id.toString(),
-      category: (record.category_id as unknown as { name?: string })?.name ?? null,
-      skill_item_id: record.skill_item_id.toString(),
-      skill_item: (record.skill_item_id as unknown as { name?: string })?.name ?? null,
+      category_id: String(catRef?._id ?? record.category_id),
+      category: catRef?.name ?? null,
+      category_job_type: catRef?.job_type ?? null,
+      skill_item_id: skillRef?._id != null ? String(skillRef._id) : null,
+      skill_item: skillRef?.name ?? null,
       evidence_type: record.evidence_type,
       evidence_payload: record.evidence_payload,
       status: record.status,
@@ -438,17 +470,23 @@ export const verificationService = {
     }
 
     const records = await VerificationRecordModel.find({ provider_id: userId })
-      .populate('category_id', 'name')
+      .populate('category_id', 'name job_type')
       .lean();
 
-    const categoryMap = new Map<string, { name: string; statuses: Set<VerificationStatus> }>();
+    const categoryMap = new Map<string, { name: string; jobType: string; statuses: Set<VerificationStatus>; rejectionReason?: string }>();
     for (const r of records) {
-      const catId = r.category_id.toString();
-      const catName = (r.category_id as unknown as { name?: string })?.name ?? 'Unknown';
+      const catRef = r.category_id as unknown as { _id?: unknown; name?: string; job_type?: string } | null;
+      const catId = String(catRef?._id ?? r.category_id);
+      const catName = catRef?.name ?? 'Unknown';
+      const jobType = catRef?.job_type ?? (r.verification_track ?? 'digital');
       if (!categoryMap.has(catId)) {
-        categoryMap.set(catId, { name: catName, statuses: new Set() });
+        categoryMap.set(catId, { name: catName, jobType, statuses: new Set() });
       }
-      categoryMap.get(catId)!.statuses.add(r.status);
+      const data = categoryMap.get(catId)!;
+      data.statuses.add(r.status);
+      if (r.status === 'rejected' && r.rejection_reason) {
+        data.rejectionReason = r.rejection_reason;
+      }
     }
 
     const categories = Array.from(categoryMap.entries()).map(([id, data]) => {
@@ -458,7 +496,13 @@ export const verificationService = {
       else if (statuses.includes('rejected')) catStatus = 'rejected';
       else if (statuses.includes('pending_review')) catStatus = 'pending';
       else catStatus = 'incomplete';
-      return { category_id: id, category_name: data.name, status: catStatus };
+      return {
+        category_id: id,
+        category_name: data.name,
+        job_type: data.jobType,
+        status: catStatus,
+        rejection_reason: data.rejectionReason ?? null,
+      };
     });
 
     return {

@@ -19,7 +19,7 @@ export interface WizardState {
   selectedCategories: { category_id: string; name: string; job_type: 'physical' | 'digital' }[];
   selectedSkillItems: { category_id: string; skill_items: { _id: string; name: string; requires_certificate?: boolean }[] }[];
   evidenceTypeMap: Record<string, string>;
-  completedEvidence: Record<string, string[]>;  // category_id -> ['certificate', 'prior_work']
+  completedEvidence: Record<string, string[]>;
   uploadedCertificates: Record<string, { uri: string; name: string }[]>;
   priorWorkPhotos: Record<string, { uri: string; caption: string }[]>;
   portfolios: Record<string, { url: string; description: string }>;
@@ -33,6 +33,11 @@ export interface WizardState {
   oauthConnected: Record<string, boolean>;
   githubUsernames: Record<string, string>;
   skillTestResults: Record<string, { score: number; passed: boolean }>;
+  // Resubmission mode
+  resubmitMode: boolean;
+  resubmitCategoryId: string | null;
+  resubmitCategoryInfo: { name: string; job_type: 'physical' | 'digital' } | null;
+  resubmitOriginalCategoryIds: string[];
 }
 
 type WizardAction =
@@ -57,7 +62,9 @@ type WizardAction =
   | { type: 'SET_GITHUB_USERNAME'; skillItemId: string; username: string }
   | { type: 'SET_SKILL_TEST_RESULT'; skillItemId: string; score: number; passed: boolean }
   | { type: 'SET_IN_PERSON_TEST'; skillItemId: string; date: string; location: string }
-  | { type: 'RESET' };
+  | { type: 'RESET' }
+  | { type: 'START_RESUBMIT'; categoryId: string; categoryName?: string; jobType?: 'physical' | 'digital' }
+  | { type: 'CLEAR_RESUBMIT' };
 
 const initialState: WizardState = {
   currentStep: 'category-selection',
@@ -78,6 +85,10 @@ const initialState: WizardState = {
   oauthConnected: {},
   githubUsernames: {},
   skillTestResults: {},
+  resubmitMode: false,
+  resubmitCategoryId: null,
+  resubmitCategoryInfo: null,
+  resubmitOriginalCategoryIds: [],
 };
 
 const clearEvidenceState = (state: WizardState): WizardState => ({
@@ -229,6 +240,27 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
       return { ...state, inPersonTestScheduled: { ...state.inPersonTestScheduled, [action.skillItemId]: { date: action.date, location: action.location } } };
     case 'RESET':
       return initialState;
+    case 'START_RESUBMIT':
+      return {
+        ...state,
+        resubmitMode: true,
+        resubmitCategoryId: action.categoryId,
+        resubmitCategoryInfo: action.categoryName
+          ? { name: action.categoryName, job_type: action.jobType ?? 'digital' }
+          : null,
+        currentStep: 'category-selection',
+        // Clear evidence state for the resubmit category only
+        completedEvidence: Object.fromEntries(
+          Object.entries(state.completedEvidence).filter(([catId]) => catId !== action.categoryId),
+        ),
+      };
+    case 'CLEAR_RESUBMIT':
+      return {
+        ...state,
+        resubmitMode: false,
+        resubmitCategoryId: null,
+        resubmitCategoryInfo: null,
+      };
     default:
       return state;
   }

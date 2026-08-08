@@ -61,7 +61,7 @@ export default function EvidenceTypeChoiceStep() {
   const buildEvidenceBatch = () => {
     const batch: {
       category_id: string;
-      skill_item_id: string;
+      skill_item_id?: string;
       evidence_type: string;
       evidence_payload: Record<string, unknown>;
     }[] = [];
@@ -69,29 +69,47 @@ export default function EvidenceTypeChoiceStep() {
     for (const cat of state.selectedCategories) {
       const items = state.selectedSkillItems.find(s => s.category_id === cat.category_id);
       const skillItems = items?.skill_items || [];
-      const completedEvidenceKeys = getCategoryCompletedKeys(state, cat);
+      const skillItemIds = skillItems.map(s => s._id);
 
-      const buildPayload = (evidenceKey: string, storageKey: string): Record<string, unknown> => {
-        if (evidenceKey === 'certificate') return { certificates: state.uploadedCertificates[storageKey] || [] };
-        if (evidenceKey === 'prior_work') return { photos: state.priorWorkPhotos[storageKey] || [] };
-        if (evidenceKey === 'portfolio') return state.portfolios[storageKey] || { url: '', description: '' };
-        if (evidenceKey === 'oauth') {
-          const connected = state.oauthConnected[storageKey] || false;
-          return { connected, username: connected ? (state.githubUsernames[storageKey] || '') : '' };
-        }
-        return {};
-      };
+      if (cat.job_type === 'digital') {
+        // Digital: one record per category bundling all evidence types
+        const portfolio = state.portfolios[cat.category_id];
+        const oauthConnected = state.oauthConnected[cat.category_id] || false;
+        const oauthUsername = oauthConnected ? (state.githubUsernames[cat.category_id] || '') : '';
+        const certificates = state.uploadedCertificates[cat.category_id] || [];
 
-      // Evidence is collected per category (one portfolio + one GitHub + optional
-      // certificate) and applied to every skill in the category — same as physical.
-      for (const evidenceKey of completedEvidenceKeys) {
-        const evidence_payload = buildPayload(evidenceKey, cat.category_id);
-        for (const skillItem of skillItems) {
+        const hasPortfolio = portfolio?.url && portfolio.url.trim().length > 0;
+        const hasOAuth = oauthConnected && oauthUsername.trim().length > 0;
+        const hasCertificates = certificates.length > 0;
+
+        if (hasPortfolio || hasOAuth || hasCertificates) {
           batch.push({
             category_id: cat.category_id,
-            skill_item_id: skillItem._id,
-            evidence_type: evidenceKey,
-            evidence_payload,
+            // no skill_item_id for digital bundle
+            evidence_type: 'digital',
+            evidence_payload: {
+              portfolio: hasPortfolio ? portfolio : { url: '', description: '' },
+              oauth: { connected: hasOAuth, username: oauthUsername },
+              certificates,
+              skill_item_ids: skillItemIds,
+            },
+          });
+        }
+      } else {
+        // Physical: one record per category bundling all evidence types
+        const photos = state.priorWorkPhotos[cat.category_id] || [];
+        const certificates = state.uploadedCertificates[cat.category_id] || [];
+
+        if (photos.length > 0 || certificates.length > 0) {
+          batch.push({
+            category_id: cat.category_id,
+            // no skill_item_id for physical bundle
+            evidence_type: 'physical',
+            evidence_payload: {
+              photos,
+              certificates,
+              skill_item_ids: skillItemIds,
+            },
           });
         }
       }
@@ -103,14 +121,20 @@ export default function EvidenceTypeChoiceStep() {
   const handleSubmitForReview = async () => {
     setSubmitting(true);
     try {
-      // Persist the selected categories/skills so the backend can recompute the
-      // provider's overall verification status from the submitted records.
-      const categoryIds = state.selectedCategories.map(c => c.category_id);
-      const skillItemIds = state.selectedSkillItems.flatMap(s => s.skill_items.map(i => i._id));
-      await verificationService.selectCategories(categoryIds, skillItemIds);
+      if (!state.resubmitMode) {
+        // Persist the selected categories/skills so the backend can recompute the
+        // provider's overall verification status from the submitted records.
+        // Skipped on resubmit: the full category set is already persisted, and
+        // re-persisting a single category would clobber it and break overall-status
+        // computation for the other (untouched) categories.
+        const categoryIds = state.selectedCategories.map(c => c.category_id);
+        const skillItemIds = state.selectedSkillItems.flatMap(s => s.skill_items.map(i => i._id));
+        await verificationService.selectCategories(categoryIds, skillItemIds);
+      }
 
       const batch = buildEvidenceBatch();
       await verificationService.submitAllEvidence(batch);
+      dispatch({ type: 'CLEAR_RESUBMIT' });
       dispatch({ type: 'SET_STEP', step: 'pending-review' });
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || err.message || 'Failed to submit evidence';

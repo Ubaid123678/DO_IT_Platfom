@@ -31,8 +31,17 @@ export default function RejectionDetailScreen() {
     void fetch();
   }, [state.rejectionRecordId]);
 
-  const handleResubmit = () => {
-    dispatch({ type: 'SET_STEP', step: 'certificate-upload' });
+const handleResubmit = () => {
+    if (record?.category_id) {
+      dispatch({
+        type: 'START_RESUBMIT',
+        categoryId: record.category_id,
+        categoryName: record.category ?? undefined,
+        jobType: (record.category_job_type as 'physical' | 'digital' | undefined) ?? undefined,
+      });
+    } else {
+      dispatch({ type: 'SET_STEP', step: 'certificate-upload' });
+    }
   };
 
   const handleBack = () => {
@@ -70,16 +79,18 @@ export default function RejectionDetailScreen() {
           <View style={styles.detailCard}>
             <Text style={styles.detailLabel}>Category</Text>
             <Text style={styles.detailValue}>
-              {state.selectedCategories.find(c => c.category_id === record.category_id)?.name || 'Unknown'}
+              {state.selectedCategories.find(c => c.category_id === record.category_id)?.name || record.category || 'Unknown'}
             </Text>
 
-            <Text style={styles.detailLabel}>Skill</Text>
+<Text style={styles.detailLabel}>Skill</Text>
             <Text style={styles.detailValue}>
-              {state.selectedSkillItems.flatMap(s => s.skill_items).find(s => s._id === record.skill_item_id)?.name || 'Unknown'}
+              {record.skill_item_id
+                ? state.selectedSkillItems.flatMap(s => s.skill_items).find(s => s._id === record.skill_item_id)?.name || 'Unknown'
+                : 'Category-level evidence'}
             </Text>
 
             <Text style={styles.detailLabel}>Evidence Type</Text>
-            <Text style={styles.detailValue}>{record.evidence_type.replace('_', ' ')}</Text>
+            <Text style={styles.detailValue}>{record.evidence_type === 'digital' ? 'Digital Evidence' : record.evidence_type === 'physical' ? 'Physical Evidence' : record.evidence_type.replace('_', ' ')}</Text>
 
             <View style={styles.divider} />
 

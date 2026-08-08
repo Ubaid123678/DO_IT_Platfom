@@ -106,8 +106,8 @@ export const verificationValidators = {
     evidence_batch: Joi.array().min(1).items(
       Joi.object({
         category_id: Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required(),
-        skill_item_id: Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required(),
-        evidence_type: Joi.string().valid('certificate', 'prior_work', 'portfolio', 'oauth').required(),
+        skill_item_id: Joi.string().pattern(/^[a-fA-F0-9]{24}$/).optional(),
+        evidence_type: Joi.string().valid('certificate', 'prior_work', 'portfolio', 'oauth', 'digital', 'physical').required(),
         evidence_payload: Joi.object().required(),
       }),
     ).required(),

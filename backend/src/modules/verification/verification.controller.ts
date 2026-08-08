@@ -113,8 +113,9 @@ export const verificationController = {
       'github',
       payload.username,
       payload.skill_keywords,
+      { persist: false },
     );
-    res.status(200).json({ success: true, data: result, meta: { message: 'GitHub account connected successfully' } });
+    res.status(200).json({ success: true, data: result, meta: { message: 'GitHub profile verified' } });
   }),
 
   getConnectedAccounts: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

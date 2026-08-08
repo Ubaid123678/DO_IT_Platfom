@@ -128,8 +128,14 @@ export default function OauthIntegrationStep() {
               <>
                 <Text style={styles.resultDetail}>
                   {result.repo_analysis.match_count} skill-relevant repos found · {result.repo_analysis.languages.length} languages
+                  {result.repo_analysis.excluded_repos ? ` · ${result.repo_analysis.excluded_repos} other-domain repos skipped` : ''}
                 </Text>
-                {result.repo_analysis.languages.length > 0 && (
+                {(result.repo_analysis.languages_by_bytes?.length ?? 0) > 0 && (
+                  <Text style={styles.resultDetail}>
+                    Main languages: {result.repo_analysis.languages_by_bytes!.slice(0, 8).join(', ')}
+                  </Text>
+                )}
+                {!result.repo_analysis.languages_by_bytes?.length && result.repo_analysis.languages.length > 0 && (
                   <Text style={styles.resultDetail}>
                     Languages: {result.repo_analysis.languages.slice(0, 8).join(', ')}
                   </Text>

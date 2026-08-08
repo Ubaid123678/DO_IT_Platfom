@@ -28,8 +28,10 @@ const RecordItem = memo(function RecordItem({ item, catName, skillName, cfg, onR
           <Text style={[styles.statusText, { color: cfg.color }]}>{cfg.label}</Text>
         </View>
       </View>
-      <Text style={styles.skillName}>Skill: {skillName}</Text>
-      <Text style={styles.evidenceType}>Type: {item.evidence_type.replace('_', ' ')}</Text>
+      {item.skill_item_id ? (
+        <Text style={styles.skillName}>Skill: {skillName}</Text>
+      ) : null}
+      <Text style={styles.evidenceType}>Type: {evidenceTypeLabel(item.evidence_type)}</Text>
       {item.status === 'rejected' && item.rejection_reason && (
         <View style={styles.rejectionBox}>
           <Text style={styles.rejectionLabel}>Reason:</Text>
@@ -54,6 +56,9 @@ const statusConfig: Record<string, { label: string; color: string; icon: string;
   rejected: { label: 'Rejected', color: '#E74C3C', icon: 'close-circle', bg: '#FDECEA' },
   expired: { label: 'Expired', color: '#AAAAAA', icon: 'timer-outline', bg: '#E8EDED' },
 };
+
+const evidenceTypeLabel = (t: string): string =>
+  t === 'digital' ? 'Digital Evidence' : t === 'physical' ? 'Physical Evidence' : t.replace('_', ' ');
 
 export default function StatusHubScreen() {
   const scheme = useColorScheme();
@@ -181,7 +186,7 @@ const handleResubmit = useCallback((record: VerificationRecord) => {
           renderItem={({ item }) => {
             const cfg = statusConfig[item.status] || statusConfig.pending_review;
             const catName = catNameMap[item.category_id] || item.category || 'Unknown';
-            const skillName = skillNameMap[item.skill_item_id] || 'Unknown';
+            const skillName = item.skill_item_id ? skillNameMap[item.skill_item_id] || 'Unknown' : evidenceTypeLabel(item.evidence_type);
 
             return (
               <RecordItem

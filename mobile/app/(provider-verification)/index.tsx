@@ -50,7 +50,7 @@ export default function VerificationWizardScreen() {
           dispatch({ type: 'SET_STEP', step: 'pending-review' });
           return;
         }
-        if (status.overall_status === 'verified' || status.overall_status === 'partially_verified') {
+        if (status.overall_status === 'verified') {
           const profile = await verificationService.getProfile().catch(() => null);
           const profileComplete = profile?.headline || profile?.bio;
           if (!profileComplete) {

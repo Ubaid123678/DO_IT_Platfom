@@ -4,7 +4,7 @@ export type JobType = 'physical' | 'digital';
 
 export type VerificationTrack = 'physical' | 'digital';
 
-export type EvidenceType = 'certificate' | 'prior_work' | 'portfolio' | 'oauth';
+export type EvidenceType = 'certificate' | 'prior_work' | 'portfolio' | 'oauth' | 'digital' | 'physical';
 
 export type VerificationStatus = 'draft' | 'pending_review' | 'scheduled' | 'auto_approved' | 'approved' | 'rejected' | 'expired';
 
@@ -35,7 +35,7 @@ export interface ISkillItem extends Document {
 export interface IVerificationRecord extends Document {
   provider_id: mongoose.Types.ObjectId;
   category_id: mongoose.Types.ObjectId;
-  skill_item_id: mongoose.Types.ObjectId;
+  skill_item_id?: mongoose.Types.ObjectId;
   verification_track: VerificationTrack;
   evidence_type: EvidenceType;
   evidence_payload: Record<string, unknown>;
@@ -107,11 +107,11 @@ const verificationRecordSchema = new Schema<IVerificationRecord>(
   {
     provider_id: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     category_id: { type: Schema.Types.ObjectId, ref: 'SkillCategory', required: true, index: true },
-    skill_item_id: { type: Schema.Types.ObjectId, ref: 'SkillItem', required: true, index: true },
+    skill_item_id: { type: Schema.Types.ObjectId, ref: 'SkillItem', required: false, index: true },
     verification_track: { type: String, enum: ['physical', 'digital'], required: true },
     evidence_type: {
       type: String,
-      enum: ['certificate', 'prior_work', 'portfolio', 'oauth'],
+      enum: ['certificate', 'prior_work', 'portfolio', 'oauth', 'digital', 'physical'],
       required: true,
     },
     evidence_payload: { type: Schema.Types.Mixed, required: true },
