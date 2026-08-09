@@ -10,6 +10,9 @@ import CertificateUploadStep from '@/src/components/verification/CertificateUplo
 import PriorWorkPhotosStep from '@/src/components/verification/PriorWorkPhotosStep';
 import PortfolioLinkStep from '@/src/components/verification/PortfolioLinkStep';
 import OauthIntegrationStep from '@/src/components/verification/OauthIntegrationStep';
+import BackgroundCheckStep from '@/src/components/verification/BackgroundCheckStep';
+import VehicleDocsStep from '@/src/components/verification/VehicleDocsStep';
+import ServiceAreaReferencesStep from '@/src/components/verification/ServiceAreaReferencesStep';
 import ResumeBioStep from '@/src/components/verification/ResumeBioStep';
 import StatusHubScreen from '@/src/components/verification/StatusHubScreen';
 import RejectionDetailScreen from '@/src/components/verification/RejectionDetailScreen';
@@ -23,6 +26,9 @@ const stepComponents: Record<string, React.FC> = {
   'prior-work-photos': PriorWorkPhotosStep,
   'portfolio-link': PortfolioLinkStep,
   'oauth-integration': OauthIntegrationStep,
+  'background-check': BackgroundCheckStep,
+  'vehicle-docs': VehicleDocsStep,
+  'service-area-references': ServiceAreaReferencesStep,
   'pending-review': PendingReviewScreen,
   'review-approved': ResumeBioStep,
   'resume-bio': ResumeBioStep,

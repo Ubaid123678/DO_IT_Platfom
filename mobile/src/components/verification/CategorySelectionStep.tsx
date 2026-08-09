@@ -6,6 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWizard } from '@/src/context/VerificationWizardContext';
 import { SkillCategory, verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { jobTypeIcon } from './EvidenceTypeChoiceStep';
+
+type TrackType = 'physical' | 'digital' | 'errand';
+
+const jobTypeLabel = (t: string): string =>
+  t === 'physical' ? 'Physical' : t === 'errand' ? 'Errand' : 'Digital';
 
 export default function CategorySelectionStep() {
   const scheme = useColorScheme();
@@ -29,7 +35,7 @@ export default function CategorySelectionStep() {
   // freshly fetched active list, the wizard's selected categories, or the info
   // carried into START_RESUBMIT by the caller (works even when the category was
   // deactivated and no longer appears in the active list).
-  const resubmitTarget: { category_id: string; name: string; job_type: 'physical' | 'digital' } | null = (() => {
+  const resubmitTarget: { category_id: string; name: string; job_type: TrackType } | null = (() => {
     if (!resubmitCategoryId) return null;
     const fromList = categories.find(c => c.id === resubmitCategoryId);
     if (fromList) return { category_id: fromList.id, name: fromList.name, job_type: fromList.job_type };
@@ -118,7 +124,7 @@ export default function CategorySelectionStep() {
     ? { id: resubmitTarget.category_id, name: resubmitTarget.name, job_type: resubmitTarget.job_type, active: true }
     : null;
 
-  const buildTrackList = (list: SkillCategory[], jobType: 'physical' | 'digital'): SkillCategory[] => {
+  const buildTrackList = (list: SkillCategory[], jobType: TrackType): SkillCategory[] => {
     if (!resubmitCatForRender || resubmitCatForRender.job_type !== jobType) return list;
     if (list.some(c => c.id === resubmitCatForRender.id)) return list;
     return [resubmitCatForRender, ...list];
@@ -126,15 +132,23 @@ export default function CategorySelectionStep() {
 
   const physicalCats = buildTrackList(categories.filter(c => c.job_type === 'physical'), 'physical');
   const digitalCats = buildTrackList(categories.filter(c => c.job_type === 'digital'), 'digital');
+  const errandCats = buildTrackList(categories.filter(c => c.job_type === 'errand'), 'errand');
 
-  const selectedPhysical = isResubmitMode
-    ? resubmitTarget?.job_type === 'physical'
-    : selectedIds.some(id => categories.find(c => c.id === id)?.job_type === 'physical');
-  const selectedDigital = isResubmitMode
-    ? resubmitTarget?.job_type === 'digital'
-    : selectedIds.some(id => categories.find(c => c.id === id)?.job_type === 'digital');
-  const physicalLocked = selectedDigital || (isResubmitMode && resubmitTarget?.job_type !== 'physical');
-  const digitalLocked = selectedPhysical || (isResubmitMode && resubmitTarget?.job_type !== 'digital');
+  const selectedTrack: TrackType | null = isResubmitMode
+    ? resubmitTarget?.job_type ?? null
+    : categories.find(c => selectedIds.includes(c.id))?.job_type ?? null;
+
+  const physicalLocked = selectedTrack !== null && selectedTrack !== 'physical';
+  const digitalLocked = selectedTrack !== null && selectedTrack !== 'digital';
+  const errandLocked = selectedTrack !== null && selectedTrack !== 'errand';
+
+  const trackHintText = (() => {
+    if (isResubmitMode) return 'Only your rejected category can be resubmitted.';
+    if (selectedTrack === 'physical') return 'You can only offer physical services. To switch, remove your current selection first.';
+    if (selectedTrack === 'digital') return 'You can only offer digital services. To switch, remove your current selection first.';
+    if (selectedTrack === 'errand') return 'You can only offer errand & delivery services. To switch, remove your current selection first.';
+    return '';
+  })();
 
   const renderCategoryCard = (cat: SkillCategory, locked: boolean) => {
     const isResubmitTarget = isResubmitMode && resubmitCategoryId === cat.id;
@@ -155,12 +169,12 @@ export default function CategorySelectionStep() {
         disabled={isDisabled}
       >
         <View style={[styles.categoryIcon, isDisabled && styles.categoryIconDisabled]}>
-          <Ionicons name={cat.job_type === 'physical' ? 'construct-outline' : 'laptop-outline'} size={28} color={isDisabled ? C.textHint : C.primary} />
+          <Ionicons name={jobTypeIcon(cat.job_type)} size={28} color={isDisabled ? C.textHint : C.primary} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[styles.categoryName, isDisabled && { color: C.textHint }]}>{cat.name}</Text>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>{cat.job_type === 'physical' ? 'Physical' : 'Digital'}</Text>
+            <Text style={styles.badgeText}>{jobTypeLabel(cat.job_type)}</Text>
           </View>
         </View>
         {isResubmitTarget ? (
@@ -198,15 +212,10 @@ return (
         </>
       )}
 
-      {(physicalLocked || digitalLocked) && (
+      {(physicalLocked || digitalLocked || errandLocked) && (
         <View style={styles.trackHint}>
           <Ionicons name="lock-closed-outline" size={14} color={C.amber} />
-          <Text style={styles.trackHintText}>
-          {isResubmitMode
-            ? 'Only your rejected category can be resubmitted.'
-            : digitalLocked ? 'You can only offer physical services. To switch, remove your current selection first.'
-            : 'You can only offer digital services. To switch, remove your current selection first.'}
-          </Text>
+          <Text style={styles.trackHintText}>{trackHintText}</Text>
         </View>
       )}
 
@@ -226,6 +235,13 @@ return (
               <>
                 <Text style={[styles.sectionLabel, { marginTop: physicalCats.length > 0 ? 24 : 0 }]}>Digital Services</Text>
                 {digitalCats.map(cat => renderCategoryCard(cat, digitalLocked))}
+              </>
+            )}
+
+            {errandCats.length > 0 && (
+              <>
+                <Text style={[styles.sectionLabel, { marginTop: physicalCats.length > 0 || digitalCats.length > 0 ? 24 : 0 }]}>Errands & Delivery</Text>
+                {errandCats.map(cat => renderCategoryCard(cat, errandLocked))}
               </>
             )}
           </>

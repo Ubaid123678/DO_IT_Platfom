@@ -2,15 +2,64 @@ import Joi from 'joi';
 
 const objectId = Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required();
 
+// Bundle evidence types store one record per category with no skill item, so the
+// skill_item_id is only mandatory for per-skill evidence types.
+const skillItemIdForEvidence = Joi.string()
+  .pattern(/^[a-fA-F0-9]{24}$/)
+  .when('evidence_type', {
+    is: Joi.string().valid('digital', 'physical', 'errand'),
+    then: Joi.optional(),
+    otherwise: Joi.required(),
+  });
+
 const evidenceType = Joi.string().valid(
-  'certificate', 'prior_work', 'portfolio', 'oauth',
+  'certificate', 'prior_work', 'portfolio', 'oauth', 'digital', 'physical', 'errand',
 ).required();
 
 const verificationStatus = Joi.string().valid(
   'draft', 'pending_review', 'scheduled', 'auto_approved', 'approved', 'rejected', 'expired',
 );
 
-const jobType = Joi.string().valid('physical', 'digital').required();
+const jobType = Joi.string().valid('physical', 'digital', 'errand').required();
+
+const trustBundlePayload = Joi.object({
+  background_check: Joi.array()
+    .min(1)
+    .items(
+      Joi.object({
+        uri: Joi.string().required(),
+        name: Joi.string().trim().allow('').optional(),
+        issuing_authority: Joi.string().trim().allow('').optional(),
+        record_number: Joi.string().trim().allow('').optional(),
+        issued_on: Joi.string().trim().allow('').optional(),
+      }),
+    )
+    .required(),
+  vehicle_docs: Joi.array()
+    .items(
+      Joi.object({
+        uri: Joi.string().required(),
+        name: Joi.string().trim().allow('').optional(),
+        type: Joi.string().trim().allow('').optional(),
+      }),
+    )
+    .optional(),
+  service_area: Joi.object({
+    city: Joi.string().trim().required(),
+    radius_km: Joi.number().min(0).max(1000).optional(),
+    experience_years: Joi.number().min(0).max(100).optional(),
+  }).required(),
+  references: Joi.array()
+    .max(2)
+    .items(
+      Joi.object({
+        name: Joi.string().trim().required(),
+        contact: Joi.string().trim().allow('').optional(),
+      }),
+    )
+    .optional(),
+  skill_item_ids: Joi.array().items(Joi.string().pattern(/^[a-fA-F0-9]{24}$/)).optional(),
+});
 
 export const verificationValidators = {
   selectCategories: Joi.object({
@@ -20,16 +69,24 @@ export const verificationValidators = {
 
   submitEvidence: Joi.object({
     category_id: objectId,
-    skill_item_id: objectId,
+    skill_item_id: skillItemIdForEvidence,
     evidence_type: evidenceType,
-    evidence_payload: Joi.object().required(),
+    evidence_payload: Joi.alternatives().conditional('evidence_type', {
+      is: 'errand',
+      then: trustBundlePayload,
+      otherwise: Joi.object().required(),
+    }),
   }),
 
   resubmitEvidence: Joi.object({
     category_id: objectId,
-    skill_item_id: objectId,
+    skill_item_id: skillItemIdForEvidence,
     evidence_type: evidenceType,
-    evidence_payload: Joi.object().required(),
+    evidence_payload: Joi.alternatives().conditional('evidence_type', {
+      is: 'errand',
+      then: trustBundlePayload,
+      otherwise: Joi.object().required(),
+    }),
   }),
 
   uploadResume: Joi.object({
@@ -107,8 +164,12 @@ export const verificationValidators = {
       Joi.object({
         category_id: Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required(),
         skill_item_id: Joi.string().pattern(/^[a-fA-F0-9]{24}$/).optional(),
-        evidence_type: Joi.string().valid('certificate', 'prior_work', 'portfolio', 'oauth', 'digital', 'physical').required(),
-        evidence_payload: Joi.object().required(),
+        evidence_type: Joi.string().valid('certificate', 'prior_work', 'portfolio', 'oauth', 'digital', 'physical', 'errand').required(),
+        evidence_payload: Joi.alternatives().conditional('evidence_type', {
+          is: 'errand',
+          then: trustBundlePayload,
+          otherwise: Joi.object().required(),
+        }),
       }),
     ).required(),
   }),

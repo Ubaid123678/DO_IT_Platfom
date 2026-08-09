@@ -1,7 +1,22 @@
 import { connectDatabase } from '../../config/database.js';
 import { SkillCategoryModel, SkillItemModel } from './verification.model.js';
 
-const categories = [
+interface SeedSkill {
+  name: string;
+  requires_certificate: boolean;
+  requires_vehicle?: boolean;
+  supports_auto_test?: boolean;
+}
+
+interface SeedCategory {
+  name: string;
+  job_type: 'physical' | 'digital' | 'errand';
+  risk_tier: 'low' | 'medium' | 'high';
+  sla_hours: number;
+  skills: SeedSkill[];
+}
+
+const categories: SeedCategory[] = [
   // ───────── PHYSICAL (20 categories) ─────────
   {
     name: 'Plumbing',
@@ -517,6 +532,58 @@ const categories = [
       { name: 'Virtual Tour Creation', requires_certificate: false },
     ],
   },
+
+  // ───────── ERRAND (4 categories) ─────────
+  {
+    name: 'Parcel & Document Delivery',
+    job_type: 'errand' as const,
+    risk_tier: 'medium' as const,
+    sla_hours: 24,
+    skills: [
+      { name: 'Document Courier', requires_certificate: false, requires_vehicle: false },
+      { name: 'Parcel Delivery', requires_certificate: false, requires_vehicle: true },
+      { name: 'Same-City Drop-off', requires_certificate: false, requires_vehicle: true },
+      { name: 'Cross-City Pickup & Drop', requires_certificate: false, requires_vehicle: true },
+      { name: 'Post Office / Courier Errands', requires_certificate: false, requires_vehicle: false },
+    ],
+  },
+  {
+    name: 'Personal Errands',
+    job_type: 'errand' as const,
+    risk_tier: 'medium' as const,
+    sla_hours: 24,
+    skills: [
+      { name: 'Errand Runner', requires_certificate: false, requires_vehicle: false },
+      { name: 'Station / Bus-Stand Pickup & Drop', requires_certificate: false, requires_vehicle: true },
+      { name: 'Shopping Assistant', requires_certificate: false, requires_vehicle: false },
+      { name: 'Government Office Errands', requires_certificate: false, requires_vehicle: false },
+      { name: 'Queue & Booking Assistance', requires_certificate: false, requires_vehicle: false },
+    ],
+  },
+  {
+    name: 'Grocery & Shopping Delivery',
+    job_type: 'errand' as const,
+    risk_tier: 'low' as const,
+    sla_hours: 24,
+    skills: [
+      { name: 'Grocery Shopping & Delivery', requires_certificate: false, requires_vehicle: true },
+      { name: 'Pharmacy / Medicine Pickup', requires_certificate: false, requires_vehicle: true },
+      { name: 'Shop & Deliver', requires_certificate: false, requires_vehicle: true },
+      { name: 'Market / Bazaar Runs', requires_certificate: false, requires_vehicle: false },
+    ],
+  },
+  {
+    name: 'Move & Carry (Light)',
+    job_type: 'errand' as const,
+    risk_tier: 'low' as const,
+    sla_hours: 24,
+    skills: [
+      { name: 'Furniture Carry & Setup', requires_certificate: false, requires_vehicle: true },
+      { name: 'Market Shopping Carry', requires_certificate: false, requires_vehicle: false },
+      { name: 'Bulk Parcel Moving', requires_certificate: false, requires_vehicle: true },
+      { name: 'Shift Help (Loading & Unloading)', requires_certificate: false, requires_vehicle: false },
+    ],
+  },
 ];
 
 async function seed() {
@@ -543,6 +610,7 @@ async function seed() {
         category_id: category._id,
         name: skill.name,
         requires_certificate: skill.requires_certificate,
+        requires_vehicle: skill.requires_vehicle ?? false,
         active: true,
       }));
 

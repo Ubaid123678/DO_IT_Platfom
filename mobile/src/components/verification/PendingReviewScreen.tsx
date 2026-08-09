@@ -61,7 +61,7 @@ export default function PendingReviewScreen() {
       type: 'START_RESUBMIT',
       categoryId: cat.category_id,
       categoryName: cat.category_name,
-      jobType: (cat.job_type as 'physical' | 'digital' | undefined) ?? undefined,
+      jobType: (cat.job_type as 'physical' | 'digital' | 'errand' | undefined) ?? undefined,
     });
   };
 
