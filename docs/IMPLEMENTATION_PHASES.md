@@ -223,7 +223,7 @@ Production notes (see `PRODUCTION_MIGRATION.md`):
 Duration: 1-2 sprints
 
 Goals:
-- Build provider skill verification pipeline for physical and digital tracks
+- Build provider skill verification pipeline for physical, digital, and errand tracks
 - Enable category and skill selection as part of provider onboarding
 
 Deliverables:
@@ -231,6 +231,8 @@ Deliverables:
 - Provider category/skill selection endpoints
 - Physical verification: certificate/license upload, prior work photos
 - Digital verification: certificate upload, portfolio links
+- Errands & Delivery verification: Trust Bundle (background/character check, vehicle documents, service area, references) — one record per errand category
+- Skill item flag: requires_vehicle for errand skills (drives the vehicle-document evidence requirement)
 - Admin verification review queue (approve/reject/request-info with audit trail)
 - Provider status aggregator (overall_status: incomplete/pending/partially_verified/verified/rejected)
 - Verification status tracking and resubmission flow
@@ -245,6 +247,7 @@ New collections:
 
 Exit Criteria:
 - Provider can complete full onboarding: signup → KYC → category selection → skill verification → dashboard
+- Errand providers can complete Trust Bundle verification (background check, vehicle docs, service area) and be reviewed by admin
 - Admin can review and approve/reject verification records via API
 - Provider dashboard reflects locked/partial/full access based on verification status
 - Auto-verification workers trigger on eligible submissions (credential URLs, platform OAuth)
@@ -259,7 +262,7 @@ Goals:
 - Implement job lifecycle core up to open state management
 
 Deliverables:
-- Client post job flow (physical/digital)
+- Client post job flow (physical/digital/errand)
 - Provider browse feed with filters
 - Client job list and detail endpoints
 - Geo indexing and query support
@@ -280,7 +283,7 @@ Deliverables:
 - Submit/withdraw proposal
 - Client proposal review and accept/reject actions
 - Auto-reject other proposals when one is accepted
-- Matching algorithm execution for physical and digital jobs
+- Matching algorithm execution for physical, digital, and errand jobs (errand = geo radius + verified errand provider + service-area match)
 - Notification trigger integration for proposal/job events
 
 Exit Criteria:
@@ -476,7 +479,7 @@ Exit Criteria:
 
 ## Milestone View (High Level)
 
-- Milestone M1: Auth + KYC + Provider Onboarding (Phases 0-3)
+- Milestone M1: Auth + KYC + Provider Onboarding incl. Errands & Delivery Trust verification (Phases 0-3)
 - Milestone M2: Jobs Core + Matching + Escrow + Payout (Phases 4-7)
 - Milestone M3: Disputes + Realtime + Fraud (Phases 8-10)
 - Milestone M4: Mobile completion + Website/Admin finalization + Stabilization + Launch (Phases 11-14)
@@ -488,12 +491,14 @@ Top dependencies:
 - FCM, Twilio, SendGrid production credentials
 - MaxMind license and legal region checks
 - Cloud storage compliance for KYC data
+- Background-check provider readiness (third-party screening API in Phase 2; MVP uses manual document upload)
 
 Top risks:
 - Payment reconciliation complexity
 - KYC operational bottlenecks
 - Realtime scaling and notification reliability
 - Geolocation quality and edge-case matching logic
+- Errand trust/regulatory risk: background-check correctness and local courier/rideshare rules (passenger rides excluded from MVP)
 - Contract drift when deferred website/admin implementation begins late
 
 Mitigations:

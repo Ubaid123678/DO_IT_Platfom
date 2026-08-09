@@ -17,7 +17,7 @@ Sources consolidated:
 
 ## 0. One-Paragraph Summary
 
-Do It is a React Native (Expo/TypeScript) global service marketplace connecting Clients, who post jobs and pay via wallet, and Providers, who apply, complete work, and get paid, for both physical/local jobs and digital/remote jobs. The backend is a Node.js + Express modular monolith on MongoDB Atlas with Redis/Bull for queues, Socket.io for realtime, Stripe for top-ups, Wise for payouts, and a ledger-first wallet/escrow system. The current build order is mobile app + backend first, with website and admin portal deferred to the final stage, but the backend must stay forward-compatible for that later web layer.
+Do It is a React Native (Expo/TypeScript) global service marketplace connecting Clients, who post jobs and pay via wallet, and Providers, who apply, complete work, and get paid, for three work types: physical/local jobs, digital/remote jobs, and errands & delivery (parcel/document pick-up & drop, personal errands, grocery/shopping delivery). The backend is a Node.js + Express modular monolith on MongoDB Atlas with Redis/Bull for queues, Socket.io for realtime, Stripe for top-ups, Wise for payouts, and a ledger-first wallet/escrow system. The current build order is mobile app + backend first, with website and admin portal deferred to the final stage, but the backend must stay forward-compatible for that later web layer.
 
 ## 1. High-Level Architecture
 
@@ -165,6 +165,7 @@ Implementation notes:
 - When debug mode is enabled, OTP delivery can be bypassed for development.
 - The mobile app can surface debug OTP values when configured for local development.
 - Identity KYC (who you are) and skill verification (what you can do) are separate pipelines that run in parallel — KYC does not block skill evidence submission.
+- Work-type verification branches into three evidence tracks: physical (certificates/prior work), digital (portfolio/GitHub/certificates), and errand (Trust Bundle: background/character check, vehicle documents, service area, references). Each produces one record per category; the provider's access unlocks only when every selected category is approved.
 - Provider.overall_status is a derived field (incomplete/pending/partially_verified/verified/rejected) recomputed on every KYC or verification record status change.
 
 ### 4.2 Job Lifecycle
@@ -196,7 +197,9 @@ flowchart TD
     Start(["New job posted or\nprovider becomes available"]) --> Type{"Job type?"}
     Type -- Physical --> Geo["Filter: geo radius (2dsphere query)\n+ category match + category skill verified\n+ KYC approved\n+ provider availability = true\n+ rating >= min threshold"]
     Type -- Digital --> Skill["Filter: category/skill match + category skill verified\n+ KYC approved\n+ rating >= min threshold\n+ (no geo constraint)"]
+    Type -- Errand --> Geo2["Filter: geo radius (2dsphere query)\n+ category match + category skill verified\n+ KYC approved + availability\n+ service area covers pickup/drop\n+ rating >= min threshold"]
     Geo --> Rank["Rank candidates:\n1) distance (ascending)\n2) rating (descending)"]
+    Geo2 --> Rank
     Skill --> Rank2["Rank candidates:\nrating (descending),\nrelevance/skill overlap"]
     Rank --> Notify["Notify top-N matching providers\n(push + in-app + socket event job:new_matching)"]
     Rank2 --> Notify
@@ -218,6 +221,17 @@ function rankProviders(job, candidates):
             c.category_verified[job.category_id] == true and
             c.available == true and
             geoDistance(c.location, job.location) <= c.service_radius and
+            c.rating >= MIN_RATING)
+        return sortBy(candidates, [distanceAsc, ratingDesc])
+
+    if job.type == "errand":
+        candidates = filter(candidates, c =>
+            c.overall_status == "verified" and
+            c.kyc_status == "approved" and
+            c.categories includes job.category_id and
+            c.category_verified[job.category_id] == true and
+            c.available == true and
+            pickup/drop locations within c.service_area and
             c.rating >= MIN_RATING)
         return sortBy(candidates, [distanceAsc, ratingDesc])
 
@@ -382,6 +396,7 @@ stateDiagram-v2
 - Provider category/skill selection.
 - Physical verification: certificate/license upload, prior work photos.
 - Digital verification: certificate upload, portfolio links, OAuth platform integration.
+- Errands & Delivery verification: Trust Bundle (background/character check, vehicle documents, service area, references) — one record per errand category.
 - Skill test engine (MCQ MVP).
 - Verification records with status state machine (draft/pending_review/scheduled/auto_approved/approved/rejected/expired).
 - Admin review queue with immutable audit trail.
@@ -425,6 +440,7 @@ stateDiagram-v2
 ### Data model themes
 
 - Users, provider profiles, jobs, proposals, wallets, transactions, reviews, notifications, fraud flags, KYC documents, audit logs, messages, skill_categories, skill_items, verification_records, admin_reviews, resume_parse_results.
+- `skill_categories.job_type` = `physical | digital | errand`; `skill_items` add a `requires_vehicle` flag; errand `verification_records` carry a Trust Bundle payload (`background_check`, `vehicle_docs`, `service_area`, `references`).
 - Financial and status history should be append-only wherever possible.
 - Avoid hard delete for sensitive records.
 
@@ -566,7 +582,7 @@ gantt
     Phase 14 Launch & Post-launch     :p14, after p13, 1
 ```
 
-Current repository truth from [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md): Phases 0, 1, and 2 are completed, and Phase 3 (Provider Onboarding & Verification System) is the active implementation phase.
+Current repository truth from [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md): Phases 0, 1, and 2 are completed, and Phase 3 (Provider Onboarding & Verification System) is the active implementation phase — now including the Errands & Delivery (Trust Bundle) track.
 
 ## 11. Development Mode Behavior
 

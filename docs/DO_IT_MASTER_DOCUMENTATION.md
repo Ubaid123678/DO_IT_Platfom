@@ -9,6 +9,7 @@ Status: Approved for implementation
 Do It is a global service marketplace mobile platform connecting clients and providers for both:
 - Local physical services (transport, cleaning, repairs, etc.)
 - Digital remote services (design, development, writing, etc.)
+- Errands & Delivery services (parcel/document pick-up & drop, personal errands, grocery/shopping delivery)
 
 The product is now moving from planning to implementation.
 
@@ -23,6 +24,7 @@ Current implementation scope:
 - React Native mobile app (client + provider experiences)
 - Authentication and verification
 - KYC lifecycle for providers
+- Errands & Delivery work type: provider Trust verification (background/character check, vehicle documents, service area, references) and client job posting for parcel/document/personal-errand jobs
 - Job posting, proposal lifecycle, matching, and completion
 - Wallet, escrow, payouts, and transaction ledger
 - Notifications (in-app + push + email/SMS events)
@@ -110,6 +112,7 @@ Website module scope in this program:
 2. Email OTP verify
 3. Phone OTP verify
 4. Provider must complete KYC before full provider actions
+5. Provider completes work-type verification (physical: certificates/prior work; digital: portfolio/GitHub; errand: background/character check, vehicle documents, service area, references) — one record per category; all selected categories must be approved for full access
 
 ## 6.2 Job Lifecycle
 States:
@@ -130,6 +133,11 @@ Physical jobs:
 
 Digital jobs:
 - Category/skill matching without geo constraints
+
+Errand jobs:
+- Same as physical (geo radius + category + KYC approved + verified errand provider + availability)
+- Only verified errand providers whose service area covers the pickup/drop locations are eligible
+- Notify top matching providers
 
 ## 6.4 Wallet and Payments
 - Ledger-first model (transactions immutable)
@@ -163,6 +171,8 @@ Collections already defined:
 - kyc_documents
 - audit_logs
 - messages (to be added now as mandatory for chat)
+
+Categories (skill_categories) support three job types: `physical`, `digital`, and `errand`. Errand skill items add a `requires_vehicle` flag; errand verification records carry a Trust Bundle payload (`background_check`, `vehicle_docs`, `service_area`, `references`).
 
 ## 7.1 Mandatory Indexes
 - users: email unique, phone unique, role + kyc_status
