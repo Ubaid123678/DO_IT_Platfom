@@ -103,6 +103,42 @@ const supersedePreviousEvidence = async (
   await VerificationRecordModel.deleteMany(filter);
 };
 
+// Errand Trust Bundle rules: a background/character check is always required and
+// vehicle documents become mandatory whenever any selected skill needs a vehicle.
+const assertErrandBundleRequirements = async (
+  categoryId: string,
+  payload: Record<string, unknown>,
+  skillItemId?: string,
+): Promise<void> => {
+  const backgroundCheck = Array.isArray(payload.background_check) ? payload.background_check : [];
+  if (backgroundCheck.length === 0) {
+    throw new AppError('A background/character check is required for errand verification', 400, 'VALIDATION_ERROR');
+  }
+
+  const serviceArea = payload.service_area as { city?: string } | undefined;
+  if (!serviceArea?.city || !String(serviceArea.city).trim()) {
+    throw new AppError('Service area is required for errand verification', 400, 'VALIDATION_ERROR');
+  }
+
+  const payloadIds = Array.isArray(payload.skill_item_ids)
+    ? (payload.skill_item_ids as string[]).filter((id): id is string => typeof id === 'string')
+    : [];
+  const ids = payloadIds.length > 0 ? payloadIds : skillItemId ? [skillItemId] : [];
+  let requiresVehicle = false;
+  if (ids.length > 0) {
+    const items = await SkillItemModel.find({ _id: { $in: ids } }).lean();
+    requiresVehicle = items.some((i) => i.requires_vehicle);
+  } else {
+    const items = await SkillItemModel.find({ category_id: categoryId }).lean();
+    requiresVehicle = items.some((i) => i.requires_vehicle);
+  }
+
+  const vehicleDocs = Array.isArray(payload.vehicle_docs) ? payload.vehicle_docs : [];
+  if (requiresVehicle && vehicleDocs.length === 0) {
+    throw new AppError('Vehicle documents are required because one of your selected skills requires a vehicle', 400, 'VALIDATION_ERROR');
+  }
+};
+
 export const verificationService = {
   listCategories: async (jobType?: string, activeOnly = true) => {
     const filter: Record<string, unknown> = {};
@@ -127,6 +163,7 @@ export const verificationService = {
       id: item._id.toString(),
       name: item.name,
       requires_certificate: item.requires_certificate,
+      requires_vehicle: item.requires_vehicle,
     }));
   },
 
@@ -182,7 +219,7 @@ export const verificationService = {
 
   submitEvidence: async (
     userId: string,
-    input: { category_id: string; skill_item_id: string; evidence_type: EvidenceType; evidence_payload: Record<string, unknown> },
+    input: { category_id: string; skill_item_id?: string; evidence_type: EvidenceType; evidence_payload: Record<string, unknown> },
   ) => {
     const user = await getUserOrThrow(userId);
     assertProviderOrAdmin(user);
@@ -190,8 +227,16 @@ export const verificationService = {
     const category = await SkillCategoryModel.findById(input.category_id);
     if (!category || !category.active) throw new AppError('Category not found or inactive', 404, 'CATEGORY_NOT_FOUND');
 
-    const skillItem = await SkillItemModel.findById(input.skill_item_id);
-    if (!skillItem || !skillItem.active) throw new AppError('Skill item not found or inactive', 404, 'SKILL_ITEM_NOT_FOUND');
+    const isBundle = input.evidence_type === 'digital' || input.evidence_type === 'physical' || input.evidence_type === 'errand';
+
+    if (input.skill_item_id && !isBundle) {
+      const skillItem = await SkillItemModel.findById(input.skill_item_id);
+      if (!skillItem || !skillItem.active) throw new AppError('Skill item not found or inactive', 404, 'SKILL_ITEM_NOT_FOUND');
+    }
+
+    if (category.job_type === 'errand') {
+      await assertErrandBundleRequirements(input.category_id, input.evidence_payload, input.skill_item_id);
+    }
 
     await supersedePreviousEvidence(userId, input.category_id, input.skill_item_id, input.evidence_type);
 
@@ -201,7 +246,7 @@ export const verificationService = {
     const record = await VerificationRecordModel.create({
       provider_id: userId,
       category_id: input.category_id,
-      skill_item_id: input.skill_item_id,
+      skill_item_id: input.skill_item_id || undefined,
       verification_track: category.job_type,
       evidence_type: input.evidence_type,
       evidence_payload: input.evidence_payload,
@@ -241,13 +286,17 @@ export const verificationService = {
         throw new AppError(`Category ${item.category_id} not found or inactive`, 404, 'CATEGORY_NOT_FOUND');
       }
 
-      const isBundle = item.evidence_type === 'digital' || item.evidence_type === 'physical';
+      const isBundle = item.evidence_type === 'digital' || item.evidence_type === 'physical' || item.evidence_type === 'errand';
 
       if (item.skill_item_id && !isBundle) {
         const skillItem = await SkillItemModel.findById(item.skill_item_id);
         if (!skillItem || !skillItem.active) {
           throw new AppError(`Skill item ${item.skill_item_id} not found or inactive`, 404, 'SKILL_ITEM_NOT_FOUND');
         }
+      }
+
+      if (item.evidence_type === 'errand') {
+        await assertErrandBundleRequirements(item.category_id, item.evidence_payload);
       }
 
       if (isBundle) {
@@ -366,6 +415,14 @@ export const verificationService = {
     }
 
     const category = await SkillCategoryModel.findById(existing.category_id);
+    if (existing.verification_track === 'errand' || existing.evidence_type === 'errand') {
+      await assertErrandBundleRequirements(
+        existing.category_id.toString(),
+        input.evidence_payload,
+        existing.skill_item_id?.toString(),
+      );
+    }
+
     const slaDueAt = new Date();
     slaDueAt.setHours(slaDueAt.getHours() + (category?.sla_hours || 48));
 

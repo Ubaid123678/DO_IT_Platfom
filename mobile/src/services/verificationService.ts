@@ -10,7 +10,7 @@ const skillItemsCache: Record<string, SkillItem[]> = {};
 export interface SkillCategory {
   id: string;
   name: string;
-  job_type: 'physical' | 'digital';
+  job_type: 'physical' | 'digital' | 'errand';
   icon_url?: string;
   active: boolean;
 }
@@ -19,6 +19,7 @@ export interface SkillItem {
   id: string;
   name: string;
   requires_certificate: boolean;
+  requires_vehicle: boolean;
 }
 
 export interface VerificationRecord {

@@ -30,6 +30,9 @@ const SkillCard = memo(function SkillCard({ item, isSelected, onPress, C }: Skil
         {item.requires_certificate && (
           <Text style={styles.certHint}>Certificate required</Text>
         )}
+        {item.requires_vehicle && (
+          <Text style={styles.vehicleHint}>Vehicle required</Text>
+        )}
       </View>
       <Ionicons name="chevron-forward" size={16} color={C.textHint} />
     </TouchableOpacity>
@@ -92,7 +95,7 @@ const toggle = useCallback((catId: string, itemId: string) => {
       category_id: cat.category_id,
       skill_items: (selectedMap[cat.category_id] || []).map(id => {
         const found = skillItemsMap[cat.category_id]?.find(s => s.id === id);
-        return { _id: id, name: found?.name || '', requires_certificate: found?.requires_certificate };
+        return { _id: id, name: found?.name || '', requires_certificate: found?.requires_certificate, requires_vehicle: found?.requires_vehicle };
       }),
     }));
     dispatch({ type: 'SET_SKILL_ITEMS', items });
@@ -152,7 +155,7 @@ const toggle = useCallback((catId: string, itemId: string) => {
           return (
             <View style={{ marginBottom: 24 }}>
               <View style={styles.categoryHeaderRow}>
-                <Ionicons name={cat.job_type === 'physical' ? 'construct-outline' : 'laptop-outline'} size={18} color={C.primary} />
+                <Ionicons name={cat.job_type === 'physical' ? 'construct-outline' : cat.job_type === 'errand' ? 'cube-outline' : 'laptop-outline'} size={18} color={C.primary} />
                 <Text style={styles.categoryTitle}>{cat.name}</Text>
                 <Text style={styles.countText}>{selected.length}/{items.length}</Text>
               </View>
@@ -201,6 +204,7 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: C.cardBorder, alignItems: 'center', justifyContent: 'center', marginRight: 12, backgroundColor: 'transparent' },
   skillName: { fontSize: 14, fontWeight: '500', color: C.textPrimary },
   certHint: { fontSize: 11, color: C.warning, marginTop: 2 },
+  vehicleHint: { fontSize: 11, color: C.primary, marginTop: 2 },
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, paddingBottom: 32, backgroundColor: C.background },
   nextBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, height: 52, borderRadius: 12, gap: 8 },
   nextBtnDisabled: { backgroundColor: C.divider },

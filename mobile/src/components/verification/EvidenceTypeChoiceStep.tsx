@@ -18,6 +18,15 @@ const digitalEvidenceTypes = [
   { key: 'oauth', label: 'Platform Integration', icon: 'logo-github', desc: 'Connect your GitHub or professional account', requires_cert: false },
 ];
 
+const errandEvidenceTypes = [
+  { key: 'background_check', label: 'Background Check', icon: 'shield-checkmark-outline', desc: 'Upload your background/character check or police clearance', requires_vehicle: false },
+  { key: 'vehicle_docs', label: 'Vehicle Documents', icon: 'car-outline', desc: 'Upload driving licence, registration & insurance', requires_vehicle: true },
+  { key: 'service_area', label: 'Service Area & References', icon: 'location-outline', desc: 'Set your service area and add references', requires_vehicle: false },
+];
+
+export const jobTypeIcon = (jobType: 'physical' | 'digital' | 'errand'): keyof typeof Ionicons.glyphMap =>
+  jobType === 'physical' ? 'construct-outline' : jobType === 'errand' ? 'cube-outline' : 'laptop-outline';
+
 export default function EvidenceTypeChoiceStep() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -33,9 +42,18 @@ export default function EvidenceTypeChoiceStep() {
 
   const catItems = state.selectedSkillItems.find(s => s.category_id === currentCat.category_id);
   const anySkillRequiresCert = catItems?.skill_items.some(s => s.requires_certificate) ?? false;
+  const anySkillRequiresVehicle = catItems?.skill_items.some(s => s.requires_vehicle) ?? false;
 
-  const allTypes = currentCat.job_type === 'physical' ? physicalEvidenceTypes : digitalEvidenceTypes;
-  const evidenceTypes = allTypes.filter(t => !t.requires_cert || anySkillRequiresCert);
+  const allTypes = currentCat.job_type === 'physical'
+    ? physicalEvidenceTypes
+    : currentCat.job_type === 'errand'
+      ? errandEvidenceTypes
+      : digitalEvidenceTypes;
+  const evidenceTypes = allTypes.filter(t => {
+    if ((t as any).requires_cert && !anySkillRequiresCert) return false;
+    if ((t as any).requires_vehicle && !anySkillRequiresVehicle) return false;
+    return true;
+  });
 
   const completedKeys = getCategoryCompletedKeys(state, currentCat);
   const allDoneForThisCategory = completedKeys.length >= evidenceTypes.length;
@@ -54,6 +72,9 @@ export default function EvidenceTypeChoiceStep() {
       prior_work: 'prior-work-photos',
       portfolio: 'portfolio-link',
       oauth: 'oauth-integration',
+      background_check: 'background-check',
+      vehicle_docs: 'vehicle-docs',
+      service_area: 'service-area-references',
     };
     dispatch({ type: 'SET_STEP', step: stepMap[typeKey] as any || 'certificate-upload' });
   };
@@ -91,6 +112,36 @@ export default function EvidenceTypeChoiceStep() {
               portfolio: hasPortfolio ? portfolio : { url: '', description: '' },
               oauth: { connected: hasOAuth, username: oauthUsername },
               certificates,
+              skill_item_ids: skillItemIds,
+            },
+          });
+        }
+      } else if (cat.job_type === 'errand') {
+        // Errand: one record per category bundling the Trust Bundle
+        const backgroundChecks = state.backgroundChecks[cat.category_id] || [];
+        const vehicleDocs = state.vehicleDocs[cat.category_id] || [];
+        const serviceArea = state.serviceAreas[cat.category_id];
+        const references = state.references[cat.category_id] || [];
+
+        const hasBackground = backgroundChecks.length > 0;
+        const hasServiceArea = serviceArea?.city && serviceArea.city.trim().length > 0;
+
+        if (hasBackground && hasServiceArea) {
+          batch.push({
+            category_id: cat.category_id,
+            // no skill_item_id for errand bundle
+            evidence_type: 'errand',
+            evidence_payload: {
+              background_check: backgroundChecks,
+              vehicle_docs: vehicleDocs,
+              service_area: serviceArea
+                ? {
+                    city: serviceArea.city,
+                    radius_km: serviceArea.radius_km ? Number(serviceArea.radius_km) : undefined,
+                    experience_years: serviceArea.experience_years ? Number(serviceArea.experience_years) : undefined,
+                  }
+                : null,
+              references,
               skill_item_ids: skillItemIds,
             },
           });
@@ -175,7 +226,7 @@ export default function EvidenceTypeChoiceStep() {
       )}
 
       <View style={styles.categoryLabelRow}>
-        <Ionicons name={currentCat.job_type === 'physical' ? 'construct-outline' : 'laptop-outline'} size={22} color={C.primary} />
+        <Ionicons name={jobTypeIcon(currentCat.job_type)} size={22} color={C.primary} />
         <Text style={styles.categoryLabel}>{currentCat.name}</Text>
       </View>
       <Text style={styles.subtitle}>Choose how to verify your skills for this category</Text>

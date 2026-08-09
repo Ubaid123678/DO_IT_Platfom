@@ -7,6 +7,9 @@ import { useWizard } from '@/src/context/VerificationWizardContext';
 import { VerificationRecord, verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
+const evidenceTypeLabel = (t: string): string =>
+  t === 'digital' ? 'Digital Evidence' : t === 'physical' ? 'Physical Evidence' : t === 'errand' ? 'Errand Trust Bundle' : t.replace('_', ' ');
+
 export default function RejectionDetailScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -37,7 +40,7 @@ const handleResubmit = () => {
         type: 'START_RESUBMIT',
         categoryId: record.category_id,
         categoryName: record.category ?? undefined,
-        jobType: (record.category_job_type as 'physical' | 'digital' | undefined) ?? undefined,
+        jobType: (record.category_job_type as 'physical' | 'digital' | 'errand' | undefined) ?? undefined,
       });
     } else {
       dispatch({ type: 'SET_STEP', step: 'certificate-upload' });
@@ -82,7 +85,7 @@ const handleResubmit = () => {
               {state.selectedCategories.find(c => c.category_id === record.category_id)?.name || record.category || 'Unknown'}
             </Text>
 
-<Text style={styles.detailLabel}>Skill</Text>
+            <Text style={styles.detailLabel}>Skill</Text>
             <Text style={styles.detailValue}>
               {record.skill_item_id
                 ? state.selectedSkillItems.flatMap(s => s.skill_items).find(s => s._id === record.skill_item_id)?.name || 'Unknown'
@@ -90,7 +93,7 @@ const handleResubmit = () => {
             </Text>
 
             <Text style={styles.detailLabel}>Evidence Type</Text>
-            <Text style={styles.detailValue}>{record.evidence_type === 'digital' ? 'Digital Evidence' : record.evidence_type === 'physical' ? 'Physical Evidence' : record.evidence_type.replace('_', ' ')}</Text>
+            <Text style={styles.detailValue}>{evidenceTypeLabel(record.evidence_type)}</Text>
 
             <View style={styles.divider} />
 

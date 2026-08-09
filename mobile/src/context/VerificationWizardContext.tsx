@@ -8,24 +8,34 @@ export type WizardStep =
   | 'prior-work-photos'
   | 'portfolio-link'
   | 'oauth-integration'
+  | 'background-check'
+  | 'vehicle-docs'
+  | 'service-area-references'
   | 'pending-review'
   | 'review-approved'
   | 'resume-bio'
   | 'status-hub'
   | 'rejection-detail';
 
+export type JobType = 'physical' | 'digital' | 'errand';
+
 export interface WizardState {
   currentStep: WizardStep;
-  selectedCategories: { category_id: string; name: string; job_type: 'physical' | 'digital' }[];
-  selectedSkillItems: { category_id: string; skill_items: { _id: string; name: string; requires_certificate?: boolean }[] }[];
+  selectedCategories: { category_id: string; name: string; job_type: JobType }[];
+  selectedSkillItems: { category_id: string; skill_items: { _id: string; name: string; requires_certificate?: boolean; requires_vehicle?: boolean }[] }[];
   evidenceTypeMap: Record<string, string>;
   completedEvidence: Record<string, string[]>;
   uploadedCertificates: Record<string, { uri: string; name: string }[]>;
   priorWorkPhotos: Record<string, { uri: string; caption: string }[]>;
   portfolios: Record<string, { url: string; description: string }>;
+  backgroundChecks: Record<string, { uri: string; name: string; issuing_authority: string; record_number: string; issued_on: string }[]>;
+  vehicleDocs: Record<string, { uri: string; name: string; type: string }[]>;
+  serviceAreas: Record<string, { city: string; radius_km: string; experience_years: string }>;
+  references: Record<string, { name: string; contact: string }[]>;
   currentCategoryIndex: number;
   isPhysicalCategory: boolean;
   isDigitalCategory: boolean;
+  isErrandCategory: boolean;
   resumeBioComplete: boolean;
   wizardComplete: boolean;
   rejectionRecordId: string | null;
@@ -36,7 +46,7 @@ export interface WizardState {
   // Resubmission mode
   resubmitMode: boolean;
   resubmitCategoryId: string | null;
-  resubmitCategoryInfo: { name: string; job_type: 'physical' | 'digital' } | null;
+  resubmitCategoryInfo: { name: string; job_type: JobType } | null;
   resubmitOriginalCategoryIds: string[];
 }
 
@@ -51,6 +61,13 @@ type WizardAction =
   | { type: 'ADD_PHOTO'; skillItemId: string; uri: string; caption: string }
   | { type: 'DELETE_PHOTO'; skillItemId: string; index: number }
   | { type: 'SET_PORTFOLIO'; skillItemId: string; url: string; description: string }
+  | { type: 'ADD_BACKGROUND_CHECK'; skillItemId: string; uri: string; name: string; issuing_authority: string; record_number: string; issued_on: string }
+  | { type: 'DELETE_BACKGROUND_CHECK'; skillItemId: string; index: number }
+  | { type: 'ADD_VEHICLE_DOC'; skillItemId: string; uri: string; name: string; docType: string }
+  | { type: 'DELETE_VEHICLE_DOC'; skillItemId: string; index: number }
+  | { type: 'SET_SERVICE_AREA'; skillItemId: string; city: string; radius_km: string; experience_years: string }
+  | { type: 'ADD_REFERENCE'; skillItemId: string; name: string; contact: string }
+  | { type: 'DELETE_REFERENCE'; skillItemId: string; index: number }
   | { type: 'NEXT_CATEGORY' }
   | { type: 'MARK_EVIDENCE_COMPLETE'; categoryId: string; evidenceKey: string }
   | { type: 'COMPLETE_CATEGORY' }
@@ -63,7 +80,7 @@ type WizardAction =
   | { type: 'SET_SKILL_TEST_RESULT'; skillItemId: string; score: number; passed: boolean }
   | { type: 'SET_IN_PERSON_TEST'; skillItemId: string; date: string; location: string }
   | { type: 'RESET' }
-  | { type: 'START_RESUBMIT'; categoryId: string; categoryName?: string; jobType?: 'physical' | 'digital' }
+  | { type: 'START_RESUBMIT'; categoryId: string; categoryName?: string; jobType?: JobType }
   | { type: 'CLEAR_RESUBMIT' };
 
 const initialState: WizardState = {
@@ -75,9 +92,14 @@ const initialState: WizardState = {
   uploadedCertificates: {},
   priorWorkPhotos: {},
   portfolios: {},
+  backgroundChecks: {},
+  vehicleDocs: {},
+  serviceAreas: {},
+  references: {},
   currentCategoryIndex: 0,
   isPhysicalCategory: false,
   isDigitalCategory: false,
+  isErrandCategory: false,
   resumeBioComplete: false,
   wizardComplete: false,
   rejectionRecordId: null,
@@ -98,6 +120,10 @@ const clearEvidenceState = (state: WizardState): WizardState => ({
   uploadedCertificates: {},
   priorWorkPhotos: {},
   portfolios: {},
+  backgroundChecks: {},
+  vehicleDocs: {},
+  serviceAreas: {},
+  references: {},
   oauthConnected: {},
   githubUsernames: {},
 });
@@ -111,7 +137,7 @@ export function getEvidenceKey(
 
 export function getCategoryCompletedKeys(
   state: WizardState,
-  category: { category_id: string; job_type: 'physical' | 'digital' },
+  category: { category_id: string; job_type: JobType },
 ): string[] {
   const key = getEvidenceKey(state, category);
   const completed = new Set<string>(state.completedEvidence[category.category_id] || []);
@@ -120,6 +146,10 @@ export function getCategoryCompletedKeys(
 
   if (category.job_type === 'physical') {
     if ((state.priorWorkPhotos[key] || []).length >= 3) completed.add('prior_work');
+  } else if (category.job_type === 'errand') {
+    if ((state.backgroundChecks[key] || []).length > 0) completed.add('background_check');
+    if ((state.vehicleDocs[key] || []).length > 0) completed.add('vehicle_docs');
+    if ((state.serviceAreas[key]?.city || '').trim().length > 0) completed.add('service_area');
   } else {
     if (state.portfolios[key]?.url) completed.add('portfolio');
     if (state.oauthConnected[key]) completed.add('oauth');
@@ -145,6 +175,9 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         case 'prior-work-photos':
         case 'portfolio-link':
         case 'oauth-integration':
+        case 'background-check':
+        case 'vehicle-docs':
+        case 'service-area-references':
           return { ...state, currentStep: 'evidence-type-choice' };
         case 'pending-review':
           // Block navigation back to evidence while verification is under review.
@@ -169,11 +202,16 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         uploadedCertificates: {},
         priorWorkPhotos: {},
         portfolios: {},
+        backgroundChecks: {},
+        vehicleDocs: {},
+        serviceAreas: {},
+        references: {},
         oauthConnected: {},
         githubUsernames: {},
         currentCategoryIndex: 0,
         isPhysicalCategory: action.categories.some(c => c.job_type === 'physical'),
         isDigitalCategory: action.categories.some(c => c.job_type === 'digital'),
+        isErrandCategory: action.categories.some(c => c.job_type === 'errand'),
       };
     case 'SET_SKILL_ITEMS':
       return clearEvidenceState({ ...state, selectedSkillItems: action.items });
@@ -199,6 +237,66 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
     }
     case 'SET_PORTFOLIO':
       return { ...state, portfolios: { ...state.portfolios, [action.skillItemId]: { url: action.url, description: action.description } } };
+    case 'ADD_BACKGROUND_CHECK': {
+      const existing = state.backgroundChecks[action.skillItemId] || [];
+      return {
+        ...state,
+        backgroundChecks: {
+          ...state.backgroundChecks,
+          [action.skillItemId]: [
+            ...existing,
+            {
+              uri: action.uri,
+              name: action.name,
+              issuing_authority: action.issuing_authority,
+              record_number: action.record_number,
+              issued_on: action.issued_on,
+            },
+          ],
+        },
+      };
+    }
+    case 'DELETE_BACKGROUND_CHECK': {
+      const existing = state.backgroundChecks[action.skillItemId] || [];
+      const updated = existing.filter((_, i) => i !== action.index);
+      return { ...state, backgroundChecks: { ...state.backgroundChecks, [action.skillItemId]: updated } };
+    }
+    case 'ADD_VEHICLE_DOC': {
+      const existing = state.vehicleDocs[action.skillItemId] || [];
+      return {
+        ...state,
+        vehicleDocs: {
+          ...state.vehicleDocs,
+          [action.skillItemId]: [...existing, { uri: action.uri, name: action.name, type: action.docType }],
+        },
+      };
+    }
+    case 'DELETE_VEHICLE_DOC': {
+      const existing = state.vehicleDocs[action.skillItemId] || [];
+      const updated = existing.filter((_, i) => i !== action.index);
+      return { ...state, vehicleDocs: { ...state.vehicleDocs, [action.skillItemId]: updated } };
+    }
+    case 'SET_SERVICE_AREA':
+      return {
+        ...state,
+        serviceAreas: {
+          ...state.serviceAreas,
+          [action.skillItemId]: { city: action.city, radius_km: action.radius_km, experience_years: action.experience_years },
+        },
+      };
+    case 'ADD_REFERENCE': {
+      const existing = state.references[action.skillItemId] || [];
+      if (existing.length >= 2) return state;
+      return {
+        ...state,
+        references: { ...state.references, [action.skillItemId]: [...existing, { name: action.name, contact: action.contact }] },
+      };
+    }
+    case 'DELETE_REFERENCE': {
+      const existing = state.references[action.skillItemId] || [];
+      const updated = existing.filter((_, i) => i !== action.index);
+      return { ...state, references: { ...state.references, [action.skillItemId]: updated } };
+    }
     case 'NEXT_CATEGORY':
       return { ...state, currentCategoryIndex: state.currentCategoryIndex + 1 };
     case 'MARK_EVIDENCE_COMPLETE': {

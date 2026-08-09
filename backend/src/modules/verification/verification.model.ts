@@ -1,10 +1,10 @@
 import mongoose, { Schema, type Document, type Model } from 'mongoose';
 
-export type JobType = 'physical' | 'digital';
+export type JobType = 'physical' | 'digital' | 'errand';
 
-export type VerificationTrack = 'physical' | 'digital';
+export type VerificationTrack = 'physical' | 'digital' | 'errand';
 
-export type EvidenceType = 'certificate' | 'prior_work' | 'portfolio' | 'oauth' | 'digital' | 'physical';
+export type EvidenceType = 'certificate' | 'prior_work' | 'portfolio' | 'oauth' | 'digital' | 'physical' | 'errand';
 
 export type VerificationStatus = 'draft' | 'pending_review' | 'scheduled' | 'auto_approved' | 'approved' | 'rejected' | 'expired';
 
@@ -27,6 +27,7 @@ export interface ISkillItem extends Document {
   category_id: mongoose.Types.ObjectId;
   name: string;
   requires_certificate: boolean;
+  requires_vehicle: boolean;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -82,7 +83,7 @@ export interface IResumeParseResult extends Document {
 const skillCategorySchema = new Schema<ISkillCategory>(
   {
     name: { type: String, required: true, unique: true, trim: true },
-    job_type: { type: String, enum: ['physical', 'digital'], required: true, index: true },
+    job_type: { type: String, enum: ['physical', 'digital', 'errand'], required: true, index: true },
     icon_url: { type: String, required: false },
     active: { type: Boolean, default: true, index: true },
     risk_tier: { type: String, enum: ['low', 'medium', 'high'], default: 'low' },
@@ -96,6 +97,7 @@ const skillItemSchema = new Schema<ISkillItem>(
     category_id: { type: Schema.Types.ObjectId, ref: 'SkillCategory', required: true, index: true },
     name: { type: String, required: true, trim: true },
     requires_certificate: { type: Boolean, default: false },
+    requires_vehicle: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
   },
   { timestamps: true },
@@ -108,10 +110,10 @@ const verificationRecordSchema = new Schema<IVerificationRecord>(
     provider_id: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     category_id: { type: Schema.Types.ObjectId, ref: 'SkillCategory', required: true, index: true },
     skill_item_id: { type: Schema.Types.ObjectId, ref: 'SkillItem', required: false, index: true },
-    verification_track: { type: String, enum: ['physical', 'digital'], required: true },
+    verification_track: { type: String, enum: ['physical', 'digital', 'errand'], required: true },
     evidence_type: {
       type: String,
-      enum: ['certificate', 'prior_work', 'portfolio', 'oauth', 'digital', 'physical'],
+      enum: ['certificate', 'prior_work', 'portfolio', 'oauth', 'digital', 'physical', 'errand'],
       required: true,
     },
     evidence_payload: { type: Schema.Types.Mixed, required: true },

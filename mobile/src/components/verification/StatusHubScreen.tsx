@@ -58,7 +58,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: string;
 };
 
 const evidenceTypeLabel = (t: string): string =>
-  t === 'digital' ? 'Digital Evidence' : t === 'physical' ? 'Physical Evidence' : t.replace('_', ' ');
+  t === 'digital' ? 'Digital Evidence' : t === 'physical' ? 'Physical Evidence' : t === 'errand' ? 'Errand Trust Bundle' : t.replace('_', ' ');
 
 export default function StatusHubScreen() {
   const scheme = useColorScheme();
