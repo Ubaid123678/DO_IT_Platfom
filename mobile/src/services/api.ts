@@ -42,6 +42,13 @@ export const api = axios.create({
   timeout: 10000,
 });
 
+export const getMediaUrl = (path: string): string => {
+  if (!path) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  const origin = resolveApiBaseUrl().replace(/\/api\/v1$/, '');
+  return `${origin}${path.startsWith('/') ? path : `/${path}`}`;
+};
+
 const isFormData = (data: unknown): boolean =>
   typeof FormData !== 'undefined' &&
   (data instanceof FormData ||

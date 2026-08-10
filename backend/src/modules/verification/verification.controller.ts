@@ -97,12 +97,26 @@ export const verificationController = {
     res.status(200).json({ success: true, data: profile, meta: { message: 'Profile fetched successfully' } });
   }),
 
+  getPublicProfile: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const viewerId = req.auth?.userId;
+    const profile = await verificationService.getPublicProfile(viewerId, req.params.providerId);
+    res.status(200).json({ success: true, data: profile, meta: { message: 'Public profile fetched successfully' } });
+  }),
+
   uploadResume: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = getUserId(req);
     if (!req.file) throw new AppError('Resume file is required', 400, 'VALIDATION_ERROR');
     const fileUrl = `/uploads/resume/${req.file.filename}`;
     const result = await verificationService.uploadResumeFile(userId, fileUrl);
     res.status(201).json({ success: true, data: result, meta: { message: 'Resume uploaded successfully' } });
+  }),
+
+  uploadAvatar: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = getUserId(req);
+    if (!req.file) throw new AppError('Avatar image is required', 400, 'VALIDATION_ERROR');
+    const fileUrl = `/uploads/avatar/${req.file.filename}`;
+    const result = await verificationService.uploadAvatarFile(userId, fileUrl);
+    res.status(200).json({ success: true, data: result, meta: { message: 'Avatar uploaded successfully' } });
   }),
 
   connectGithub: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

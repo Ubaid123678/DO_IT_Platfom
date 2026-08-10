@@ -84,6 +84,95 @@ export interface ResumeBioData {
   education: { degree: string; institution: string; field?: string; start_year?: number; end_year?: number }[];
 }
 
+export type ProviderTrack = 'physical' | 'digital' | 'errand';
+export type LanguageLevel = 'basic' | 'intermediate' | 'fluent';
+
+export interface LanguageItem {
+  code: string;
+  level: LanguageLevel;
+}
+
+export interface AvailabilityWindow {
+  days: string[];
+  shifts: string[];
+  hours_per_week: number;
+}
+
+export interface ProviderProfileData {
+  avatar_url?: string;
+  headline?: string;
+  bio?: string;
+  languages?: LanguageItem[];
+  city?: string;
+  availability?: AvailabilityWindow;
+  public_profile?: boolean;
+}
+
+export interface PhysicalTrackData {
+  years_experience?: number;
+  service_radius_km?: number;
+  tools_equipment?: string[];
+  hourly_rate?: number;
+  on_site_availability?: AvailabilityWindow;
+  can_travel?: boolean;
+  team_size?: 'solo' | 'with_helper' | 'with_team';
+  insurance?: { covered: boolean; doc_uri?: string };
+  has_transport?: { yes: boolean; mode?: 'bicycle' | 'motorbike' | 'car' };
+}
+
+export interface DigitalTrackData {
+  skills?: string[];
+  tech_stack?: string[];
+  hourly_rate?: number;
+  project_rate?: number;
+  timezone?: string;
+  english_proficiency?: LanguageLevel;
+  work_history?: { title: string; company: string; start_date: string; end_date?: string; description?: string }[];
+  education?: { institution: string; degree: string; field?: string; start_year?: number; end_year?: number }[];
+  resume_file_url?: string;
+}
+
+export interface ErrandTrackData {
+  service_area?: { city: string; radius_km: number };
+  transport_mode?: 'on_foot' | 'bicycle' | 'motorbike' | 'car' | 'van';
+  base_fee?: number;
+  per_km_fee?: number;
+  working_hours?: AvailabilityWindow;
+  same_day_express?: boolean;
+  delivery_capabilities?: string[];
+  max_payload_kg?: number;
+  max_package_size?: string;
+  goods_insurance?: { covered: boolean; doc_uri?: string };
+}
+
+export interface TrackData {
+  physical?: PhysicalTrackData;
+  digital?: DigitalTrackData;
+  errand?: ErrandTrackData;
+}
+
+export interface ProviderProfileResponse {
+  provider_profile: ProviderProfileData;
+  track: ProviderTrack | null;
+  track_data: TrackData;
+  completeness: number;
+  missing_fields: string[];
+}
+
+export interface PublicProviderProfile {
+  user_id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  headline: string | null;
+  bio: string | null;
+  languages: LanguageItem[];
+  city: string | null;
+  track: ProviderTrack | null;
+  overall_status: string;
+  categories: { id: string; name: string; job_type: string }[];
+  track_data: TrackData;
+}
+
 export const verificationService = {
   getCategories: async (): Promise<SkillCategory[]> => {
     if (categoriesCache) return categoriesCache;
@@ -138,10 +227,20 @@ export const verificationService = {
     return res.data.data.record;
   },
 
-  uploadResume: async (fileUri: string): Promise<{ parse_result_id: string }> => {
+  uploadResume: async (fileUri: string): Promise<{ resume_file_url: string; parse_result_id: string }> => {
     const formData = new FormData();
     formData.append('resume', { uri: fileUri, name: 'resume.pdf', type: 'application/pdf' } as any);
     const res = await api.post('/providers/resume/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data.data;
+  },
+
+  uploadAvatar: async (fileUri: string, mimeType: string): Promise<ProviderProfileResponse> => {
+    const ext = mimeType.split('/')[1] || 'jpg';
+    const formData = new FormData();
+    formData.append('image', { uri: fileUri, name: `avatar.${ext}`, type: mimeType } as any);
+    const res = await api.post('/providers/profile/avatar', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data.data;
@@ -152,12 +251,21 @@ export const verificationService = {
     return res.data.data;
   },
 
-  updateProfile: async (data: Partial<ResumeBioData>): Promise<void> => {
-    await api.patch('/providers/profile', data);
+  updateProfile: async (data: {
+    provider_profile?: Partial<ProviderProfileData>;
+    track_data?: TrackData;
+  }): Promise<ProviderProfileResponse> => {
+    const res = await api.patch('/providers/profile', data);
+    return res.data.data;
   },
 
-  getProfile: async (): Promise<ResumeBioData> => {
+  getProfile: async (): Promise<ProviderProfileResponse> => {
     const res = await api.get('/providers/profile');
+    return res.data.data;
+  },
+
+  getPublicProfile: async (providerId: string): Promise<PublicProviderProfile> => {
+    const res = await api.get(`/providers/${providerId}/public`);
     return res.data.data;
   },
 

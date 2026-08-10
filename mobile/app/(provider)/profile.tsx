@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authService } from '@/src/services/authService';
+import { verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 type UserState = {
@@ -94,6 +95,8 @@ export default function ProviderProfileScreen() {
   const [providerProfile, setProviderProfile] = useState<ProviderProfileState | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [profileCompleteness, setProfileCompleteness] = useState<number | null>(null);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -102,6 +105,13 @@ export default function ProviderProfileScreen() {
       setIsOnline(true);
       setLoading(false);
     }, 320);
+
+    verificationService.getProfile()
+      .then((p) => {
+        setProfileCompleteness(p.completeness ?? 0);
+        setMissingFields(p.missing_fields ?? []);
+      })
+      .catch(() => {});
 
     return () => clearTimeout(timer);
   }, []);
@@ -206,6 +216,21 @@ export default function ProviderProfileScreen() {
             <Text style={styles.editText}>Edit</Text>
           </TouchableOpacity>
         </View>
+
+        {profileCompleteness != null && profileCompleteness < 100 && (
+          <TouchableOpacity style={styles.completenessCard} onPress={() => router.push('/(provider-verification)')} activeOpacity={0.85}>
+            <View style={styles.completenessRing}>
+              <Text style={styles.completenessPct}>{profileCompleteness}%</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.completenessTitle}>Profile {profileCompleteness}% complete</Text>
+              <Text style={styles.completenessSub}>
+                {missingFields.length > 0 ? `Add ${missingFields.slice(0, 2).join(', ')} to get more jobs` : 'Complete your profile to get more jobs'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={C.primary} />
+          </TouchableOpacity>
+        )}
 
         <View style={styles.profileCard}>
           <View style={styles.avatarWrap}>
@@ -358,6 +383,13 @@ export default function ProviderProfileScreen() {
 
         <View style={styles.sectionCard}>
           <MenuRow
+            label="Edit Provider Profile"
+            icon="person-circle-outline"
+            tone="teal"
+            rightPillText={profileCompleteness != null ? `${profileCompleteness}%` : undefined}
+            onPress={() => router.push('/(provider-verification)')}
+          />
+          <MenuRow
             label="Payout Method"
             icon="card-outline"
             tone="amber"
@@ -440,6 +472,40 @@ const makeStyles = (C: AppColors) =>
       fontSize: 15,
       color: C.primary,
       fontWeight: '600',
+    },
+    completenessCard: {
+      marginTop: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: C.card,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      padding: 16,
+      gap: 12,
+    },
+    completenessRing: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: C.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    completenessPct: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: C.primary,
+    },
+    completenessTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: C.textPrimary,
+    },
+    completenessSub: {
+      fontSize: 11,
+      color: C.textSecondary,
+      marginTop: 2,
     },
     profileCard: {
       marginTop: 16,

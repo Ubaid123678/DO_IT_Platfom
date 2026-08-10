@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { handleResumeUpload } from '../../common/utils/upload.js';
+import { handleAvatarUpload, handleResumeUpload } from '../../common/utils/upload.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { requireRoles } from '../../middleware/authorization.middleware.js';
 import { verificationController } from './verification.controller.js';
@@ -23,7 +23,10 @@ verificationRouter.post('/verification-records/:recordId/resubmit', authenticate
 verificationRouter.get('/profile', authenticate, requireRoles('provider', 'admin'), verificationController.getProfile);
 verificationRouter.patch('/profile', authenticate, requireRoles('provider', 'admin'), verificationController.updateProfile);
 
+verificationRouter.get('/providers/:providerId/public', authenticate, verificationController.getPublicProfile);
+
 verificationRouter.post('/resume/upload', authenticate, requireRoles('provider', 'admin'), handleResumeUpload, verificationController.uploadResume);
+verificationRouter.post('/profile/avatar', authenticate, requireRoles('provider', 'admin'), handleAvatarUpload, verificationController.uploadAvatar);
 verificationRouter.get('/resume/parse-result/:resultId', authenticate, requireRoles('provider', 'admin'), verificationController.getResumeParseResult);
 
 verificationRouter.post('/oauth/github/connect', authenticate, requireRoles('provider', 'admin'), verificationController.connectGithub);

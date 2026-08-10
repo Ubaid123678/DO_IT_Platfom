@@ -70,6 +70,8 @@ export default function StatusHubScreen() {
   const [records, setRecords] = useState<VerificationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [completeness, setCompleteness] = useState<number | null>(null);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
 
   const fetchStatus = async () => {
     setLoading(true);
@@ -84,7 +86,15 @@ export default function StatusHubScreen() {
     }
   };
 
-  useEffect(() => { void fetchStatus(); }, []);
+  useEffect(() => {
+    void fetchStatus();
+    verificationService.getProfile()
+      .then((p) => {
+        setCompleteness(p.completeness ?? 0);
+        setMissingFields(p.missing_fields ?? []);
+      })
+      .catch(() => {});
+  }, []);
 
   const rejectedRecords = records.filter(r => r.status === 'rejected');
 
@@ -159,6 +169,23 @@ const handleResubmit = useCallback((record: VerificationRecord) => {
         )}
       </View>
 
+      {completeness != null && completeness < 100 && (
+        <View style={styles.completenessCard}>
+          <View style={styles.completenessRing}>
+            <Text style={styles.completenessPct}>{completeness}%</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.completenessTitle}>Profile {completeness}% complete</Text>
+            <Text style={styles.completenessSub}>
+              {missingFields.length > 0 ? `Add ${missingFields.slice(0, 3).join(', ')}${missingFields.length > 3 ? '...' : ''}` : 'Add more details to stand out to clients.'}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.completenessBtn} onPress={() => dispatch({ type: 'SET_STEP', step: 'resume-bio' })}>
+            <Text style={styles.completenessBtnText}>Complete</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={C.primary} />
@@ -222,6 +249,13 @@ const makeStyles = (C: AppColors) => StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
   skipText: { fontSize: 14, fontWeight: '600', color: C.primary },
   summaryCard: { alignItems: 'center', backgroundColor: C.card, marginHorizontal: 20, borderRadius: 16, padding: 24, marginBottom: 20, borderWidth: 1, borderColor: C.cardBorder },
+  completenessCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, marginHorizontal: 20, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: C.cardBorder, gap: 12 },
+  completenessRing: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  completenessPct: { fontSize: 14, fontWeight: '800', color: C.primary },
+  completenessTitle: { fontSize: 13, fontWeight: '700', color: C.textPrimary },
+  completenessSub: { fontSize: 11, color: C.textSecondary, marginTop: 2 },
+  completenessBtn: { backgroundColor: C.primary, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
+  completenessBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   summaryTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary, marginBottom: 4 },
   summarySub: { fontSize: 13, color: C.textSecondary, textAlign: 'center', lineHeight: 18 },
   recordCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.cardBorder },

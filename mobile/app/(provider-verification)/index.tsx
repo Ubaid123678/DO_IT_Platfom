@@ -13,7 +13,7 @@ import OauthIntegrationStep from '@/src/components/verification/OauthIntegration
 import BackgroundCheckStep from '@/src/components/verification/BackgroundCheckStep';
 import VehicleDocsStep from '@/src/components/verification/VehicleDocsStep';
 import ServiceAreaReferencesStep from '@/src/components/verification/ServiceAreaReferencesStep';
-import ResumeBioStep from '@/src/components/verification/ResumeBioStep';
+import ProfileCompletionStep from '@/src/components/verification/ProfileCompletionStep';
 import StatusHubScreen from '@/src/components/verification/StatusHubScreen';
 import RejectionDetailScreen from '@/src/components/verification/RejectionDetailScreen';
 import PendingReviewScreen from '@/src/components/verification/PendingReviewScreen';
@@ -30,8 +30,8 @@ const stepComponents: Record<string, React.FC> = {
   'vehicle-docs': VehicleDocsStep,
   'service-area-references': ServiceAreaReferencesStep,
   'pending-review': PendingReviewScreen,
-  'review-approved': ResumeBioStep,
-  'resume-bio': ResumeBioStep,
+  'review-approved': ProfileCompletionStep,
+  'resume-bio': ProfileCompletionStep,
   'status-hub': StatusHubScreen,
   'rejection-detail': RejectionDetailScreen,
 };
@@ -58,7 +58,7 @@ export default function VerificationWizardScreen() {
         }
         if (status.overall_status === 'verified') {
           const profile = await verificationService.getProfile().catch(() => null);
-          const profileComplete = profile?.headline || profile?.bio;
+          const profileComplete = profile?.provider_profile?.headline || profile?.provider_profile?.bio;
           if (!profileComplete) {
             dispatch({ type: 'SET_STEP', step: 'review-approved' });
           } else {

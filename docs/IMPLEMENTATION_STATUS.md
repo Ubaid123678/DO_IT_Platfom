@@ -363,6 +363,34 @@ Infrastructure:
 
 ---
 
+## 3.5 Per-Track Profile Completion (post-Phase-3 enhancement)
+
+Implemented end-to-end per `docs/PROFILE_COMPLETION_PER_TRACK.md`. The generic Resume/Bio editor was replaced with a track-aware profile completion flow: the provider sees only the sections relevant to their verified track (physical / digital / errand), with a live "profile strength" meter.
+
+Backend:
+- `auth.model.ts` — added `ProviderTrack`, `LanguageItem`, `AvailabilityWindow`, `ProviderProfile`, `PhysicalTrackData`, `DigitalTrackData`, `ErrandTrackData`, `TrackData` types and `track` / `provider_profile` / `track_data` fields on the user document
+- `verification.validation.ts` — per-track Joi schemas (`providerProfileSchema`, `physicalTrackDataSchema`, `digitalTrackDataSchema`, `errandTrackDataSchema`); `updateProfile` now accepts nested `{ provider_profile?, track_data? }`
+- `verification.service.ts` — `resolveProviderTrack` (single-track lock), `computeCompleteness` (required ~60% + optional ~40% scoring), `serializeProviderProfile`, `serializePublicProfile`; rewritten `updateProfile` (off-track rejection, errand transport gate via `errandRequiresVehicle`, errand `service_area` mirrored read-only from the verified Trust Bundle); `selectCategories` now rejects multi-track selections; `getPublicProfile` with `public_profile` privacy gate; `uploadResumeFile` mirrors the resume into `track_data.digital.resume_file_url`
+- `verification.controller.ts` / `verification.routes.ts` — added `GET /providers/:providerId/public` and `POST /providers/profile/avatar`
+- `upload.ts` — added avatar upload middleware (images, 10MB, `uploads/avatar`)
+
+Mobile:
+- `verificationService.ts` — added the new profile/track types, nested `updateProfile`/`getProfile` signatures returning `ProviderProfileResponse`, `getPublicProfile(providerId)`, and `uploadAvatar(uri, mimeType)`
+- `ProfileCompletionStep.tsx` (**new**, replaces `ResumeBioStep`) — universal section (photo upload, headline, bio, city, languages, availability, visibility toggle) + per-track sections (physical: experience/radius/tools/rates/travel; digital: skills/stack/rates/timezone/English/work history/education/resume upload; errand: transport/fees/payload/capabilities with read-only verified service area); skip preserved; live completeness meter
+- `(provider-verification)/index.tsx` — `review-approved` and `resume-bio` steps now render `ProfileCompletionStep`
+- `StatusHubScreen.tsx` — added a "Profile X% complete" card with missing-fields hint + CTA back into the wizard
+- `(provider)/profile.tsx` — completion nudge card + "Edit Provider Profile" menu row routing to the wizard
+- `(shared)/public-profile/[id].tsx` — fetches the real `getPublicProfile` endpoint (falls back to mock data on error)
+
+Verification results: backend `npx tsc --noEmit` clean; backend `npx vitest run` — 12/12 tests pass; mobile `npx tsc --noEmit` clean.
+
+Notes / follow-ups:
+- Public profile viewer still relies on mock reviews/portfolio; the real endpoint returns core profile data (reviews/portfolio not yet modeled)
+- `profile.tsx` remains largely mock-driven for stats/reviews; only the completion nudge and Edit Profile row are live
+- Backend `computeCompleteness` default `public_profile = false` on the model — existing providers without the field are treated as private until they set it (handled in the new step, which defaults the toggle to visible)
+
+---
+
 ## 4. Current Repositories and Source Layout
 
 Current workspace uses a single root git repository:

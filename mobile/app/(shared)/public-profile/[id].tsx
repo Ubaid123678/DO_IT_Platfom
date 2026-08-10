@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { verificationService } from '@/src/services/verificationService';
 
 type ProfileType = 'provider' | 'client';
 type ReviewFilter = 'all' | '5' | '4' | '3-1';
@@ -204,7 +205,9 @@ export default function PublicProfileViewerScreen() {
   const resolvedId = Array.isArray(id) ? id[0] : id;
 
   useEffect(() => {
+    let cancelled = false;
     const timer = setTimeout(() => {
+      if (cancelled) return;
       if (resolvedType === 'provider') {
         setProfile({ ...providerProfile, id: resolvedId ?? providerProfile.id });
         setReviews(providerReviews);
@@ -215,7 +218,42 @@ export default function PublicProfileViewerScreen() {
       setLoading(false);
     }, 320);
 
-    return () => clearTimeout(timer);
+    if (resolvedType === 'provider' && resolvedId) {
+      verificationService.getPublicProfile(resolvedId)
+        .then((data) => {
+          if (cancelled) return;
+          clearTimeout(timer);
+          const trackEmoji: Record<string, string> = { physical: '🛠️', digital: '💻', errand: '🚚' };
+          setProfile({
+            id: resolvedId,
+            type: 'provider',
+            verified: data.overall_status === 'verified',
+            name: data.full_name ?? 'Provider',
+            tagline: data.headline ?? 'Verified provider',
+            location: data.city ?? 'Location not set',
+            memberSince: 'Verified member',
+            about: data.bio ?? 'This provider has not added a bio yet.',
+            services: data.categories.map((c) => ({ emoji: trackEmoji[c.job_type] ?? '✓', label: c.name })),
+            serviceArea: undefined,
+            portfolio: undefined,
+            stats: [
+              { value: data.overall_status.replace('_', ' '), label: 'Status', tone: 'primary' as const },
+              { value: data.track ?? '-', label: 'Track', tone: 'primary' as const },
+            ],
+            reviewsCount: 0,
+            rating: 0,
+            ratingBars: [],
+          });
+          setReviews([]);
+          setLoading(false);
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [resolvedId, resolvedType]);
 
   const filteredReviews = useMemo(() => {

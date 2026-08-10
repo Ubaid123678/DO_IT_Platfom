@@ -65,7 +65,7 @@ flowchart TD
     E1 -->|vehicle docs| E3["13g. Vehicle Documents"]
     E1 -->|service area| E4["13h. Service Area + References"]
 
-    S11 -.parallel, non-blocking.-> R1["14. Resume/Bio Editor"]
+    S11 -.parallel, non-blocking.-> R1["14. Per-Track Profile Completion (ProfileCompletionStep)"]
     R1 -.alt path.-> R2["15. Resume Upload -> auto-parse -> pre-fill 14"]
 
     P2 & P3 & D2 & D3 & D4 & E2 & E3 & E4 --> V1["16. Verification Status Hub"]
@@ -87,7 +87,7 @@ flowchart TD
 | 12a–12c | Physical evidence | evidence_type + type-specific fields (see §4) | ≥1 evidence type per physical category | certificate/license/photos → upload |
 | 13a–13d | Digital evidence | evidence_type + type-specific fields (see §5) | ≥1 evidence type per digital category | certificate w/ URL → auto-verify attempt; else → manual review |
 | 13e–13h | Errand evidence (Trust Bundle) | evidence_type + background check + vehicle docs (if required) + service area + references (see §6) | background check required; vehicle docs required if any selected skill requires a vehicle | one bundle record per category → manual admin review |
-| 14 | Resume/Bio Editor | headline, bio (≤500 chars), years_experience, languages, work_history[], education[] | bio required for public profile | save → non-blocking, anytime |
+| 14 | Per-Track Profile Completion | universal (photo, headline, bio ≤500 chars, city, languages, availability, visibility) + per-track: physical (years_experience, service_radius_km, tools_equipment, hourly_rate, team_size, insurance, transport), digital (skills, tech_stack, hourly_rate/project_rate, timezone, english_proficiency, work_history[], education[], resume), errand (transport_mode, base_fee, per_km_fee, working_hours, max_payload_kg, same_day_express, goods_insurance; service_area read-only from verified bundle) | non-blocking, anytime; errand transport must be motorized when any selected skill requires a vehicle | save → completeness meter update (required ~60% + optional ~40%) |
 | 15 | Resume Upload | file (PDF/DOC ≤5MB) | file type/size check | parsed → pre-fills Screen 14, user confirms |
 | 16 | Verification Status Hub | status badges per category/skill | — | tap → detail w/ SLA + resubmit option |
 | 17 | Rejection Detail | rejection_reason, resubmit CTA | must address reason before resubmit enabled | resubmit → new VerificationRecord, status resets |
@@ -492,7 +492,7 @@ sequenceDiagram
 | Physical verification: data, evidence, workflow | §4 |
 | Digital verification: evidence, automation, workflow | §5 |
 | Errands & Delivery verification: evidence, workflow | §6 |
-| Resume/Bio capture and storage | §7 |
+| Resume/Bio capture and storage | §7 — replaced by per-track profile completion (`docs/PROFILE_COMPLETION_PER_TRACK.md`) |
 | UI/UX: accessibility, progressive disclosure, validation, responsiveness, role-based views | §8 |
 | Tech stack | §9 |
 | API endpoints | §9 |

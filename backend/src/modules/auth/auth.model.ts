@@ -2,6 +2,73 @@ import mongoose, { type Document, type Model, Schema } from 'mongoose';
 
 export type UserRole = 'pending' | 'client' | 'provider' | 'admin';
 
+export type ProviderTrack = 'physical' | 'digital' | 'errand';
+export type LanguageLevel = 'basic' | 'intermediate' | 'fluent';
+
+export interface LanguageItem {
+  code: string;
+  level: LanguageLevel;
+}
+
+export interface AvailabilityWindow {
+  days: string[];
+  shifts: string[];
+  hours_per_week: number;
+}
+
+export interface ProviderProfile {
+  avatar_url?: string;
+  headline?: string;
+  bio?: string;
+  languages?: LanguageItem[];
+  city?: string;
+  availability?: AvailabilityWindow;
+  public_profile?: boolean;
+}
+
+export interface PhysicalTrackData {
+  years_experience?: number;
+  service_radius_km?: number;
+  tools_equipment?: string[];
+  hourly_rate?: number;
+  on_site_availability?: AvailabilityWindow;
+  can_travel?: boolean;
+  team_size?: 'solo' | 'with_helper' | 'with_team';
+  insurance?: { covered: boolean; doc_uri?: string };
+  has_transport?: { yes: boolean; mode?: 'bicycle' | 'motorbike' | 'car' };
+}
+
+export interface DigitalTrackData {
+  skills?: string[];
+  tech_stack?: string[];
+  hourly_rate?: number;
+  project_rate?: number;
+  timezone?: string;
+  english_proficiency?: LanguageLevel;
+  work_history?: { title: string; company: string; start_date: string; end_date?: string; description?: string }[];
+  education?: { institution: string; degree: string; field?: string; start_year?: number; end_year?: number }[];
+  resume_file_url?: string;
+}
+
+export interface ErrandTrackData {
+  service_area?: { city: string; radius_km: number };
+  transport_mode?: 'on_foot' | 'bicycle' | 'motorbike' | 'car' | 'van';
+  base_fee?: number;
+  per_km_fee?: number;
+  working_hours?: AvailabilityWindow;
+  same_day_express?: boolean;
+  delivery_capabilities?: string[];
+  max_payload_kg?: number;
+  max_package_size?: string;
+  goods_insurance?: { covered: boolean; doc_uri?: string };
+}
+
+export interface TrackData {
+  physical?: PhysicalTrackData;
+  digital?: DigitalTrackData;
+  errand?: ErrandTrackData;
+}
+
 type OtpState = {
   code: string;
   expiresAt: Date;
@@ -36,6 +103,9 @@ export interface IUser extends Document {
   resume_file_url?: string;
   resume_parsed_at?: Date;
   public_profile?: boolean;
+  track?: ProviderTrack;
+  provider_profile?: ProviderProfile;
+  track_data?: TrackData;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -84,6 +154,9 @@ const userSchema = new Schema<IUser>(
     resume_file_url: { type: String, required: false },
     resume_parsed_at: { type: Date, required: false },
     public_profile: { type: Boolean, default: false },
+    track: { type: String, enum: ['physical', 'digital', 'errand'], required: false, index: true },
+    provider_profile: { type: Schema.Types.Mixed, required: false, default: {} },
+    track_data: { type: Schema.Types.Mixed, required: false, default: {} },
   },
   { timestamps: true },
 );

@@ -1,5 +1,5 @@
 import { AppError } from '../../common/errors/AppError.js';
-import UserModel from '../auth/auth.model.js';
+import UserModel, { type ProviderTrack } from '../auth/auth.model.js';
 import KycDocumentModel from '../kyc/kyc.model.js';
 import { verificationAutoService } from './verification-auto.service.js';
 import {
@@ -12,6 +12,161 @@ import {
   type OverallStatus,
   type VerificationStatus,
 } from './verification.model.js';
+
+// ---------------------------------------------------------------------------
+// Provider profile completion (per track)
+// ---------------------------------------------------------------------------
+
+// A provider is locked to a single track. Resolve it from the persisted category
+// selection, falling back to the categories present in verification records.
+const resolveProviderTrack = async (userId: string): Promise<ProviderTrack | null> => {
+  const user = await UserModel.findById(userId);
+  if (!user) return null;
+  const json = user.toJSON() as Record<string, unknown>;
+  let catIds = (json.categories_selected ?? []) as string[];
+  if (catIds.length === 0) {
+    catIds = (await VerificationRecordModel.distinct('category_id', { provider_id: userId })) as string[];
+  }
+  if (catIds.length === 0) return null;
+  const cats = await SkillCategoryModel.find({ _id: { $in: catIds } }).lean();
+  const tracks = new Set(cats.map((c) => c.job_type));
+  if (tracks.size !== 1) return null;
+  return Array.from(tracks)[0] as ProviderTrack;
+};
+
+// Errand service area is authoritative from the verified Trust Bundle — the
+// profile mirrors it read-only rather than re-collecting it.
+const loadErrandServiceArea = async (userId: string): Promise<{ city: string; radius_km: number } | null> => {
+  const record = await VerificationRecordModel.findOne({
+    provider_id: userId,
+    verification_track: 'errand',
+    status: { $in: ['approved', 'auto_approved', 'pending_review'] },
+  })
+    .sort({ created_at: -1 })
+    .lean();
+  const payload = record?.evidence_payload as { service_area?: { city?: string; radius_km?: number } } | undefined;
+  const area = payload?.service_area;
+  if (!area?.city) return null;
+  return { city: area.city, radius_km: Number(area.radius_km) || 0 };
+};
+
+const errandRequiresVehicle = async (userId: string): Promise<boolean> => {
+  const user = await UserModel.findById(userId);
+  if (!user) return false;
+  const json = user.toJSON() as Record<string, unknown>;
+  const skillItemIds = (json.skill_items_selected ?? []) as string[];
+  if (skillItemIds.length === 0) return false;
+  const items = await SkillItemModel.find({ _id: { $in: skillItemIds } }).lean();
+  return items.some((i) => i.requires_vehicle);
+};
+
+const hasValue = (val: unknown): boolean => {
+  if (Array.isArray(val)) return val.length > 0;
+  if (val && typeof val === 'object') return Object.keys(val as Record<string, unknown>).length > 0;
+  return val !== undefined && val !== null && String(val).trim().length > 0;
+};
+
+const computeCompleteness = (
+  track: ProviderTrack | null,
+  profile: Record<string, unknown>,
+  trackData: Record<string, unknown>,
+): { completeness: number; missing_fields: string[] } => {
+  const required: { label: string; done: boolean }[] = [];
+  const optional: { label: string; done: boolean }[] = [];
+
+  required.push({ label: 'Profile photo', done: hasValue(profile.avatar_url) });
+  required.push({ label: 'Headline', done: hasValue(profile.headline) });
+  required.push({ label: 'Bio', done: hasValue(profile.bio) });
+  required.push({ label: 'Languages', done: hasValue(profile.languages) });
+  required.push({ label: 'City', done: hasValue(profile.city) });
+  required.push({ label: 'Availability', done: hasValue(profile.availability) });
+
+  if (track === 'physical') {
+    const td = (trackData.physical ?? {}) as Record<string, unknown>;
+    required.push({ label: 'Years of experience', done: hasValue(td.years_experience) });
+    required.push({ label: 'Service radius', done: hasValue(td.service_radius_km) });
+    required.push({ label: 'Tools & equipment', done: hasValue(td.tools_equipment) });
+    required.push({ label: 'Hourly rate', done: hasValue(td.hourly_rate) });
+    required.push({ label: 'On-site availability', done: hasValue(td.on_site_availability) });
+    optional.push({ label: 'Team size', done: hasValue(td.team_size) });
+    optional.push({ label: 'Insurance', done: hasValue(td.insurance) });
+    optional.push({ label: 'Transport', done: hasValue(td.has_transport) });
+  } else if (track === 'digital') {
+    const td = (trackData.digital ?? {}) as Record<string, unknown>;
+    required.push({ label: 'Skills', done: hasValue(td.skills) });
+    required.push({ label: 'Tech stack', done: hasValue(td.tech_stack) });
+    required.push({ label: 'Hourly rate', done: hasValue(td.hourly_rate) });
+    required.push({ label: 'Timezone', done: hasValue(td.timezone) });
+    required.push({ label: 'English proficiency', done: hasValue(td.english_proficiency) });
+    required.push({ label: 'Work history', done: hasValue(td.work_history) });
+    optional.push({ label: 'Project rate', done: hasValue(td.project_rate) });
+    optional.push({ label: 'Education', done: hasValue(td.education) });
+    optional.push({ label: 'Resume', done: hasValue(td.resume_file_url) });
+  } else if (track === 'errand') {
+    const td = (trackData.errand ?? {}) as Record<string, unknown>;
+    required.push({ label: 'Service area', done: hasValue(td.service_area) });
+    required.push({ label: 'Transport mode', done: hasValue(td.transport_mode) });
+    required.push({ label: 'Base fee', done: hasValue(td.base_fee) });
+    required.push({ label: 'Per-km fee', done: hasValue(td.per_km_fee) });
+    required.push({ label: 'Working hours', done: hasValue(td.working_hours) });
+    optional.push({ label: 'Max payload', done: hasValue(td.max_payload_kg) });
+    optional.push({ label: 'Same-day express', done: hasValue(td.same_day_express) });
+    optional.push({ label: 'Goods insurance', done: hasValue(td.goods_insurance) });
+  }
+
+  const requiredDone = required.filter((r) => r.done).length;
+  const optionalDone = optional.filter((o) => o.done).length;
+  const requiredTotal = required.length || 1;
+  const optionalTotal = optional.length || 1;
+
+  const completeness = Math.min(
+    100,
+    Math.max(0, Math.round((requiredDone / requiredTotal) * 60 + (optionalDone / optionalTotal) * 40)),
+  );
+
+  return { completeness, missing_fields: required.filter((r) => !r.done).map((r) => r.label) };
+};
+
+const serializeProviderProfile = (user: { toJSON?: () => Record<string, unknown> } | null, track: ProviderTrack | null) => {
+  const json = user?.toJSON?.() ?? {};
+  const profile = (json.provider_profile ?? {}) as Record<string, unknown>;
+  const trackData = (json.track_data ?? {}) as Record<string, unknown>;
+  const { completeness, missing_fields } = computeCompleteness(track, profile, trackData);
+  return {
+    provider_profile: profile,
+    track,
+    track_data: trackData,
+    completeness,
+    missing_fields,
+  };
+};
+
+const serializePublicProfile = async (provider: unknown, providerUserId: string) => {
+  const json = (provider as { toJSON: () => Record<string, unknown> }).toJSON();
+  const profile = (json.provider_profile ?? {}) as Record<string, unknown>;
+  const track = await resolveProviderTrack(providerUserId);
+  const trackData = (json.track_data ?? {}) as Record<string, unknown>;
+  const activeTrackData = track ? { [track]: trackData[track] ?? {} } : {};
+
+  const selectedIds = (json.categories_selected ?? []) as string[];
+  const categories = await SkillCategoryModel.find({ _id: { $in: selectedIds } }).lean();
+
+  return {
+    user_id: providerUserId,
+    full_name: json.fullName ?? null,
+    avatar_url: profile.avatar_url ?? null,
+    headline: profile.headline ?? null,
+    bio: profile.bio ?? null,
+    languages: profile.languages ?? [],
+    city: profile.city ?? null,
+    track,
+    overall_status: json.overall_status ?? 'incomplete',
+    categories: categories.map((c) => ({ id: c._id.toString(), name: c.name, job_type: c.job_type })),
+    track_data: activeTrackData,
+  };
+};
+
+const errandMotorizedModes = ['motorbike', 'car', 'van'];
 
 const getUserOrThrow = async (userId: string) => {
   const user = await UserModel.findById(userId);
@@ -181,6 +336,11 @@ export const verificationService = {
     const existingCats = await SkillCategoryModel.find({ _id: { $in: catIds }, active: true }).lean();
     if (existingCats.length !== catIds.length) {
       throw new AppError('One or more categories are invalid or inactive', 400, 'INVALID_CATEGORY');
+    }
+
+    const trackSet = new Set(existingCats.map((c) => c.job_type));
+    if (trackSet.size > 1) {
+      throw new AppError('Select categories from a single track (physical, digital, or errand)', 400, 'TRACK_MIX_NOT_ALLOWED');
     }
 
     const skillItems = await SkillItemModel.find({ _id: { $in: skillItemIds }, active: true }).lean();
@@ -441,48 +601,96 @@ export const verificationService = {
     return serializeVerificationRecord(newRecord.toJSON() as Record<string, unknown>);
   },
 
-  updateProfile: async (userId: string, profileData: Record<string, unknown>) => {
+  updateProfile: async (
+    userId: string,
+    profileData: { provider_profile?: Record<string, unknown>; track_data?: Record<string, unknown> },
+  ) => {
     const user = await getUserOrThrow(userId);
     assertProviderOrAdmin(user);
 
-    const allowedFields = ['headline', 'bio', 'years_experience', 'languages', 'work_history', 'education', 'public_profile'];
-    for (const key of allowedFields) {
-      if (profileData[key] !== undefined) {
-        user.set(key, profileData[key]);
-      }
-    }
-    await user.save();
+    const track = await resolveProviderTrack(userId);
+    const profileInput = (profileData.provider_profile ?? {}) as Record<string, unknown>;
+    const trackInput = (profileData.track_data ?? {}) as Record<string, unknown>;
 
-    const json = user.toJSON() as Record<string, unknown>;
-    return {
-      headline: json.headline ?? null,
-      bio: json.bio ?? null,
-      years_experience: json.years_experience ?? null,
-      languages: json.languages ?? [],
-      work_history: json.work_history ?? [],
-      education: json.education ?? [],
-      public_profile: json.public_profile ?? false,
-    };
+    // Universal profile fields (identity + presentation layer).
+    const currentProfile = (user.get('provider_profile') ?? {}) as Record<string, unknown>;
+    for (const key of ['avatar_url', 'headline', 'bio', 'languages', 'city', 'availability', 'public_profile']) {
+      if (profileInput[key] !== undefined) currentProfile[key] = profileInput[key];
+    }
+    user.set('provider_profile', currentProfile);
+    if (currentProfile.public_profile !== undefined) {
+      user.set('public_profile', currentProfile.public_profile);
+    }
+
+    // Track-scoped data — only the provider's active track is writable.
+    if (track) {
+      const offTrack = Object.keys(trackInput).filter((k) => k !== track);
+      if (offTrack.length > 0) {
+        throw new AppError(
+          `Profile data for "${offTrack.join(', ')}" is not allowed for your verified track (${track})`,
+          400,
+          'TRACK_MISMATCH',
+        );
+      }
+
+      const currentTrackData = (user.get('track_data') ?? {}) as Record<string, unknown>;
+      const incoming = (trackInput[track] ?? {}) as Record<string, unknown>;
+
+      if (track === 'errand' && incoming.transport_mode !== undefined) {
+        const mode = String(incoming.transport_mode);
+        if ((await errandRequiresVehicle(userId)) && !errandMotorizedModes.includes(mode)) {
+          throw new AppError(
+            'Your selected errand skills require a vehicle. Transport mode must be motorbike, car, or van.',
+            400,
+            'VALIDATION_ERROR',
+          );
+        }
+      }
+
+      const merged = { ...((currentTrackData[track] as Record<string, unknown>) ?? {}), ...incoming };
+      if (track === 'errand') {
+        const verifiedArea = await loadErrandServiceArea(userId);
+        if (verifiedArea) merged.service_area = verifiedArea;
+      }
+      user.set('track_data', { ...currentTrackData, [track]: merged });
+      user.set('track', track);
+    } else if (Object.keys(trackInput).length > 0) {
+      throw new AppError('Select and verify your categories before completing track-specific profile data', 400, 'VALIDATION_ERROR');
+    }
+
+    await user.save();
+    return serializeProviderProfile(user, track);
   },
 
   getProfile: async (userId: string) => {
     const user = await getUserOrThrow(userId);
     assertProviderOrAdmin(user);
-    const json = user.toJSON() as Record<string, unknown>;
-    return {
-      headline: json.headline ?? null,
-      bio: json.bio ?? null,
-      years_experience: json.years_experience ?? null,
-      languages: json.languages ?? [],
-      work_history: json.work_history ?? [],
-      education: json.education ?? [],
-      public_profile: json.public_profile ?? false,
-    };
+    const track = await resolveProviderTrack(userId);
+    return serializeProviderProfile(user, track);
+  },
+
+  getPublicProfile: async (viewerId: string | undefined, providerUserId: string) => {
+    const provider = await UserModel.findById(providerUserId);
+    if (!provider) throw new AppError('Provider not found', 404, 'PROVIDER_NOT_FOUND');
+    if (provider.role !== 'provider') throw new AppError('Profile is not a provider', 400, 'NOT_PROVIDER');
+
+    const json = provider.toJSON() as Record<string, unknown>;
+    const profile = (json.provider_profile ?? {}) as Record<string, unknown>;
+    if (profile.public_profile === false && viewerId !== providerUserId) {
+      throw new AppError('This profile is private', 403, 'PROFILE_PRIVATE');
+    }
+
+    return serializePublicProfile(provider, providerUserId);
   },
 
   uploadResumeFile: async (userId: string, fileUrl: string) => {
     const user = await getUserOrThrow(userId);
     assertProviderOrAdmin(user);
+
+    // Mirror the resume into the digital track data so completeness scoring sees it.
+    const trackData = (user.get('track_data') ?? {}) as Record<string, unknown>;
+    const digital = { ...((trackData.digital as Record<string, unknown>) ?? {}), resume_file_url: fileUrl };
+    user.set('track_data', { ...trackData, digital });
 
     user.set('resume_file_url', fileUrl);
     await user.save();
@@ -494,6 +702,20 @@ export const verificationService = {
     });
 
     return { resume_file_url: fileUrl, parse_result_id: result._id.toString() };
+  },
+
+  uploadAvatarFile: async (userId: string, fileUrl: string) => {
+    const user = await getUserOrThrow(userId);
+    assertProviderOrAdmin(user);
+
+    const profile = (user.get('provider_profile') ?? {}) as Record<string, unknown>;
+    profile.avatar_url = fileUrl;
+    user.set('provider_profile', profile);
+    user.set('avatar_url', fileUrl);
+    await user.save();
+
+    const track = await resolveProviderTrack(userId);
+    return serializeProviderProfile(user, track);
   },
 
   getResumeParseResult: async (userId: string, resultId: string) => {
