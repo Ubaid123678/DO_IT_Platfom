@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -128,6 +129,7 @@ export default function ProfileCompletionStep() {
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
   const { state, dispatch } = useWizard();
+  const router = useRouter();
 
   const track: ProviderTrack | null = state.isPhysicalCategory
     ? 'physical'
@@ -201,6 +203,10 @@ export default function ProfileCompletionStep() {
           ? (pp.languages as { code?: string }[]).map((l) => l.code ?? '').filter(Boolean)
           : [];
         const av = pp.availability as { days?: string[]; shifts?: string[]; hours_per_week?: number } | undefined;
+        const fallbackAv =
+          (td.errand as { working_hours?: { days?: string[]; shifts?: string[]; hours_per_week?: number } } | undefined)?.working_hours ??
+          (td.physical as { on_site_availability?: { days?: string[]; shifts?: string[]; hours_per_week?: number } } | undefined)?.on_site_availability;
+        const effectiveAv = av?.days?.length ? av : fallbackAv;
         setForm({
           headline: pp.headline ?? '',
           bio: pp.bio ?? '',
@@ -208,9 +214,9 @@ export default function ProfileCompletionStep() {
           avatarUrl: pp.avatar_url ?? null,
           publicProfile: pp.public_profile ?? true,
           languages: languageCodes,
-          availabilityDays: av?.days ?? [],
-          availabilityShifts: av?.shifts ?? [],
-          hoursPerWeek: av?.hours_per_week != null ? String(av.hours_per_week) : '',
+          availabilityDays: effectiveAv?.days ?? [],
+          availabilityShifts: effectiveAv?.shifts ?? [],
+          hoursPerWeek: effectiveAv?.hours_per_week != null ? String(effectiveAv.hours_per_week) : '',
           yearsExperience: physical.years_experience != null ? String(physical.years_experience) : '',
           serviceRadiusKm: physical.service_radius_km != null ? String(physical.service_radius_km) : '',
           toolsEquipment: Array.isArray(physical.tools_equipment) ? (physical.tools_equipment as string[]).join(', ') : '',
@@ -414,7 +420,7 @@ export default function ProfileCompletionStep() {
       setMissingFields(profile.missing_fields ?? []);
       await verificationService.markVerificationComplete().catch(() => {});
       dispatch({ type: 'SET_RESUME_BIO_COMPLETE' });
-      dispatch({ type: 'COMPLETE_WIZARD' });
+      router.replace('/(provider)/home');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to save profile.';
       Alert.alert('Save failed', msg);
@@ -425,7 +431,7 @@ export default function ProfileCompletionStep() {
 
   const handleSkip = async () => {
     await verificationService.markVerificationComplete().catch(() => {});
-    dispatch({ type: 'COMPLETE_WIZARD' });
+    router.replace('/(provider)/home');
   };
 
   const toggleChip = (key: 'languages' | 'availabilityDays' | 'availabilityShifts', value: string): void => {
@@ -519,9 +525,7 @@ export default function ProfileCompletionStep() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => dispatch({ type: 'GO_BACK' })} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={C.textPrimary} />
-        </TouchableOpacity>
+        <View style={{ width: 40 }} />
         <Text style={styles.headerTitle}>Complete Your Profile</Text>
         <View style={{ width: 40 }} />
       </View>

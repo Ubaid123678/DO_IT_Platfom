@@ -230,9 +230,7 @@ export const verificationService = {
   uploadResume: async (fileUri: string): Promise<{ resume_file_url: string; parse_result_id: string }> => {
     const formData = new FormData();
     formData.append('resume', { uri: fileUri, name: 'resume.pdf', type: 'application/pdf' } as any);
-    const res = await api.post('/providers/resume/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const res = await api.post('/providers/resume/upload', formData, { timeout: 60000 });
     return res.data.data;
   },
 
@@ -240,9 +238,7 @@ export const verificationService = {
     const ext = mimeType.split('/')[1] || 'jpg';
     const formData = new FormData();
     formData.append('image', { uri: fileUri, name: `avatar.${ext}`, type: mimeType } as any);
-    const res = await api.post('/providers/profile/avatar', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const res = await api.post('/providers/profile/avatar', formData, { timeout: 60000 });
     return res.data.data;
   },
 

@@ -57,15 +57,15 @@ export default function VerificationWizardScreen() {
           return;
         }
         if (status.overall_status === 'verified') {
-          const profile = await verificationService.getProfile().catch(() => null);
-          const profileComplete = profile?.provider_profile?.headline || profile?.provider_profile?.bio;
-          if (!profileComplete) {
-            dispatch({ type: 'SET_STEP', step: 'review-approved' });
-          } else {
-            await verificationService.markVerificationComplete();
-            dispatch({ type: 'COMPLETE_WIZARD' });
-          }
+          // Profile completion is the first screen for a fully verified provider.
+          // Skipping it sets the completion flag, so the dashboard becomes the
+          // home screen on subsequent launches; it remains reachable from the
+          // profile tab.
+          dispatch({ type: 'SET_STEP', step: 'review-approved' });
+          return;
         }
+        // Not verified and nothing pending → start category selection.
+        dispatch({ type: 'SET_STEP', step: 'category-selection' });
       } catch {
         // Start from beginning if error
       } finally {

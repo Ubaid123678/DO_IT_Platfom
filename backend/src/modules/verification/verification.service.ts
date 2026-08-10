@@ -131,6 +131,16 @@ const serializeProviderProfile = (user: { toJSON?: () => Record<string, unknown>
   const json = user?.toJSON?.() ?? {};
   const profile = (json.provider_profile ?? {}) as Record<string, unknown>;
   const trackData = (json.track_data ?? {}) as Record<string, unknown>;
+
+  // Surface availability from the track mirror (working_hours / on_site_availability)
+  // when the universal availability isn't stored yet (legacy/partial saves) so the
+  // client always receives a consistent `provider_profile.availability`.
+  if (!hasValue(profile.availability) && track) {
+    const td = (trackData[track] ?? {}) as Record<string, unknown>;
+    const mirror = track === 'errand' ? td.working_hours : track === 'physical' ? td.on_site_availability : undefined;
+    if (hasValue(mirror)) profile.availability = mirror;
+  }
+
   const { completeness, missing_fields } = computeCompleteness(track, profile, trackData);
   return {
     provider_profile: profile,
@@ -654,6 +664,17 @@ export const verificationService = {
       }
       user.set('track_data', { ...currentTrackData, [track]: merged });
       user.set('track', track);
+
+      // Mirror track availability back into the universal profile field so both
+      // stay in sync even if the client only sent one of them.
+      if (track === 'errand' || track === 'physical') {
+        const mirrorKey = track === 'errand' ? 'working_hours' : 'on_site_availability';
+        const mirror = merged[mirrorKey];
+        if (hasValue(mirror) && !hasValue(currentProfile.availability)) {
+          currentProfile.availability = mirror;
+          user.set('provider_profile', currentProfile);
+        }
+      }
     } else if (Object.keys(trackInput).length > 0) {
       throw new AppError('Select and verify your categories before completing track-specific profile data', 400, 'VALIDATION_ERROR');
     }

@@ -19,6 +19,12 @@ function useAndroidBackHandler() {
         BackHandler.exitApp();
         return true;
       }
+      if (state.currentStep === 'review-approved' || state.currentStep === 'resume-bio') {
+        // Profile completion is a first-class screen (no in-wizard back path);
+        // the back gesture closes the app.
+        BackHandler.exitApp();
+        return true;
+      }
       dispatch({ type: 'GO_BACK' });
       return true;
     });

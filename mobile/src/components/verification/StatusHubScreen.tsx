@@ -134,11 +134,9 @@ const handleResubmit = useCallback((record: VerificationRecord) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Verification Status</Text>
-        {state.wizardComplete && (
-          <TouchableOpacity onPress={handleGoToDashboard}>
-            <Text style={styles.skipText}>Dashboard</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity onPress={handleGoToDashboard}>
+          <Text style={styles.skipText}>Dashboard</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.summaryCard}>
@@ -229,16 +227,14 @@ const handleResubmit = useCallback((record: VerificationRecord) => {
         />
       )}
 
-      {state.wizardComplete && (
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.dashboardBtn} onPress={handleGoToDashboard} activeOpacity={0.8}>
-            <Text style={styles.dashboardBtnText}>
-              {allApproved ? 'Go to Dashboard' : 'Continue to Dashboard'}
-            </Text>
-            <Ionicons name="arrow-forward" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.dashboardBtn} onPress={handleGoToDashboard} activeOpacity={0.8}>
+          <Text style={styles.dashboardBtnText}>
+            {allApproved ? 'Go to Dashboard' : 'Continue to Dashboard'}
+          </Text>
+          <Ionicons name="arrow-forward" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
