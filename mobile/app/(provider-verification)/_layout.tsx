@@ -1,35 +1,42 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { BackHandler, useColorScheme } from 'react-native';
 
 import { Colors } from '@/src/theme/colors';
+import { verificationService } from '@/src/services/verificationService';
 import { useWizard, VerificationWizardProvider } from '@/src/context/VerificationWizardContext';
 
 function useAndroidBackHandler() {
   const { state, dispatch } = useWizard();
+  const router = useRouter();
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (state.currentStep === 'category-selection') {
-        BackHandler.exitApp();
-        return true;
-      }
-      if (state.currentStep === 'pending-review') {
-        // Verification is under review; the back gesture should close the app
-        // rather than navigating back into the wizard.
-        BackHandler.exitApp();
-        return true;
-      }
-      if (state.currentStep === 'review-approved' || state.currentStep === 'resume-bio') {
-        // Profile completion is a first-class screen (no in-wizard back path);
-        // the back gesture closes the app.
-        BackHandler.exitApp();
+      const isCompletionStep =
+        state.currentStep === 'review-approved' || state.currentStep === 'resume-bio';
+      // First-class screens (category pick, pending review, profile completion)
+      // have no in-wizard back path.
+      if (
+        state.currentStep === 'category-selection' ||
+        state.currentStep === 'pending-review' ||
+        isCompletionStep
+      ) {
+        // If the provider has already reached the dashboard, the back gesture
+        // returns there. Only when they have never continued to the dashboard
+        // (first-time flow) does the back gesture close the app.
+        verificationService.isVerificationComplete().then((done) => {
+          if (done) {
+            router.replace('/(provider)/home');
+          } else {
+            BackHandler.exitApp();
+          }
+        });
         return true;
       }
       dispatch({ type: 'GO_BACK' });
       return true;
     });
     return () => sub.remove();
-  }, [state.currentStep, dispatch]);
+  }, [state.currentStep, dispatch, router]);
 }
 
 function ProviderVerificationLayoutInner() {

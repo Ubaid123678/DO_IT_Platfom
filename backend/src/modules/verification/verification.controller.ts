@@ -113,10 +113,25 @@ export const verificationController = {
 
   uploadAvatar: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = getUserId(req);
-    if (!req.file) throw new AppError('Avatar image is required', 400, 'VALIDATION_ERROR');
-    const fileUrl = `/uploads/avatar/${req.file.filename}`;
-    const result = await verificationService.uploadAvatarFile(userId, fileUrl);
-    res.status(200).json({ success: true, data: result, meta: { message: 'Avatar uploaded successfully' } });
+
+    if (req.file) {
+      if (!req.file.mimetype.startsWith('image/')) throw new AppError('Only image files are allowed', 400, 'INVALID_FILE_TYPE');
+      const fileUrl = `/uploads/avatar/${req.file.filename}`;
+      const result = await verificationService.uploadAvatarFile(userId, fileUrl);
+      res.status(200).json({ success: true, data: result, meta: { message: 'Avatar uploaded successfully' } });
+      return;
+    }
+
+    // Base64 data URL variant (matches the mobile KYC upload pattern, which is
+    // reliable on React Native where multipart FormData can drop the boundary).
+    const data = (req.body as Record<string, unknown> | undefined)?.data;
+    if (typeof data === 'string' && data.startsWith('data:image/')) {
+      const result = await verificationService.uploadAvatarFile(userId, data);
+      res.status(200).json({ success: true, data: result, meta: { message: 'Avatar uploaded successfully' } });
+      return;
+    }
+
+    throw new AppError('Avatar image is required', 400, 'VALIDATION_ERROR');
   }),
 
   connectGithub: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

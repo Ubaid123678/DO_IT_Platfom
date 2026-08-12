@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 2.0
-Last updated: 2026-07-27 (Phase 2 KYC completed, Phase 3 active)
+Version: 2.1
+Last updated: 2026-08-11 (Phase 3 + per-track profile completion complete; avatar persistence fix landed)
 Owner: Engineering
 
 ## 1. Purpose
@@ -391,6 +391,41 @@ Notes / follow-ups:
 
 ---
 
+## 3.5.1 Per-Track Profile Completion — follow-up fixes (2026-08-11)
+
+Closed the profile-strength/avatar discrepancies reported on the completion screen.
+
+### Avatar persistence fix (root cause)
+- `provider_profile` and `track_data` are `Schema.Types.Mixed` in `auth.model.ts`. Mutating the object returned by `user.get('provider_profile')` **in place** and `user.set()` it back with the same reference leaves the path undetected by Mongoose change tracking, so `save()` silently skips it. A top-level `user.set('avatar_url', ...)` was also attempted but `avatar_url` is NOT a schema path and is dropped by Mongoose strict mode.
+- Result: the photo showed locally (in-memory serialize) at 100%, but a fresh MongoDB read had no `avatar_url` → the dashboard/profile screens showed 95% and a reopened completion screen showed no photo.
+- Fix in `verification.service.ts`:
+  - `uploadAvatarFile` — added `user.markModified('provider_profile')` after the in-place mutation and removed the dead `user.set('avatar_url', ...)` line.
+  - `updateProfile` — now reassigns `{ ...currentProfileRaw }` into a new object before `user.set('provider_profile', ...)` + `user.markModified('provider_profile')`, so all universal-field writes (including the errand/physical availability mirror) persist.
+- Verified with a Mongoose-level repro (temp script, since removed): after `uploadAvatarFile`, a fresh `findById().lean()` includes `provider_profile.avatar_url`; fresh `getProfile()` returns the photo and stable completeness 100.
+
+### Avatar upload transport (base64)
+- React Native multipart `FormData` avatar uploads kept failing, so the avatar moved to the KYC-proven base64 JSON path:
+  - `mobile/src/services/verificationService.ts` — `uploadAvatar` reads the file via `expo-file-system/legacy` and posts `{ data: 'data:<mime>;base64,...' }`.
+  - `backend/src/modules/verification/verification.controller.ts` — `uploadAvatar` accepts either multipart `req.file` or base64 `req.body.data`.
+  - `mobile/src/services/api.ts` — `getMediaUrl` passes through `data:` / `file:` URIs so the avatar renders after upload.
+
+### Completeness consistency
+- `ProfileCompletionStep.tsx` no longer re-scores client-side (`computeLiveCompleteness`/`liveCompleteness` removed). It displays the server `completeness` from `getProfile()` and refreshes it from each upload/save response, so the completion screen, dashboard "Profile X% complete" card, and profile screen all agree.
+
+### Back navigation
+- `(provider-verification)/_layout.tsx` — Android hardware back returns to the dashboard for verified providers who have reached the completion screen once; otherwise closes the app (prevents landing on a dead screen).
+
+### Verification results
+- Backend `npx tsc --noEmit` clean; backend `npx vitest run` — 12/12 tests pass; mobile `npx tsc --noEmit` clean; avatar persistence confirmed via repro.
+
+### Remaining (testing only — no code expected unless a defect is found)
+- Manually test the profile completion screen for ALL THREE track types (physical / digital / errand): fill every section, upload a photo, save, and confirm completeness % is identical across completion screen / dashboard / profile, the photo persists after Save → dashboard → reopen, the missing-fields hint clears at 100%, and availability stays in sync.
+- Spot-check the errand transport gate (motorized mode required when skills need a vehicle) and the read-only verified service area.
+- Confirm verified providers at 100% can route to the dashboard with correct Android back behavior.
+- Deferred mock areas (not blocking): public profile viewer and `profile.tsx` stats/reviews remain mock-driven; resume upload still uses multipart transport (candidate for the same base64 migration if it fails on device).
+
+---
+
 ## 4. Current Repositories and Source Layout
 
 Current workspace uses a single root git repository:
@@ -400,7 +435,7 @@ No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
 
-Phase 3 (Provider Onboarding & Verification System) is complete.
+Phase 3 (Provider Onboarding & Verification System) is complete, including the per-track profile completion enhancement and the avatar-persistence fix (§3.5.1). The sole remaining Phase 3 item is a manual end-to-end test of the per-track profile completion screen for all three track types — see the checklist in §3.5.1. After that checklist is closed, Phase 4 (Jobs Core) is the next implementation focus.
 
 ## 6. Update Template For Future Phase Completions
 
@@ -437,7 +472,8 @@ Project summary:
 
 Current status:
 - Phases 0, 1, 2, and 3 are all completed and verified.
-- Phase 3 (Provider Onboarding & Verification System) is fully delivered: backend verification module with OAuth/auto-verification + 11 mobile screens + Bull workers.
+- Phase 3 (Provider Onboarding & Verification System) is fully delivered: backend verification module with OAuth/auto-verification + 11 mobile screens + Bull workers, plus the per-track profile completion enhancement.
+- Per-track profile completion follow-up (§3.5.1) is done: base64 avatar upload, Mongoose Mixed-path persistence fix (`markModified`), server-side completeness display, dashboard back-navigation. Remaining Phase 3 work is a manual end-to-end test of the completion screen for the three track types.
 - Phase 4 (Jobs Core) is the next implementation focus.
 - Website and admin portal implementation remain deferred until app completion.
 
@@ -457,11 +493,13 @@ Instruction for this chat:
 - After each fully completed phase, update docs/IMPLEMENTATION_STATUS.md with exact completed scope, created files/endpoints, and verification.
 - Do not create separate phase completion markdown files.
 
-Immediate next work (Phase 4 - Jobs Core):
-- Design and implement job model (physical/digital, location, budget, category, status state machine)
-- Build client job creation flow (post job with details, budget, schedule)
-- Build provider browse feed with location/category filters and geo-query support
-- Implement job status transitions (open → in_progress → completed → cancelled)
-- Design client job list and detail endpoints
-- Build mobile screens: job creation form, browse feed, job detail, client job management
-- Wire mobile screens to live APIs as they are built
+Immediate next work:
+1. Close the Phase 3 manual test checklist in §3.5.1 (complete/submit the profile completion screen for physical, digital, and errand tracks; confirm persisted avatars and consistent completeness %). Fix any defect found and re-run backend `npx tsc --noEmit` + `npx vitest run` and mobile `npx tsc --noEmit`.
+2. Phase 4 - Jobs Core:
+   - Design and implement job model (physical/digital, location, budget, category, status state machine)
+   - Build client job creation flow (post job with details, budget, schedule)
+   - Build provider browse feed with location/category filters and geo-query support
+   - Implement job status transitions (open → in_progress → completed → cancelled)
+   - Design client job list and detail endpoints
+   - Build mobile screens: job creation form, browse feed, job detail, client job management
+   - Wire mobile screens to live APIs as they are built

@@ -78,7 +78,15 @@ const availabilitySchema = Joi.object({
   hours_per_week: Joi.number().integer().min(1).max(168).optional(),
 });
 
-const uriField = Joi.string().uri({ scheme: ['http', 'https'] }).optional().allow('');
+const uriField = Joi.string()
+  .custom((value: string, helpers) => {
+    if (/^https?:\/\//i.test(value)) return value;
+    if (/^\/uploads\//.test(value)) return value;
+    if (/^data:/.test(value)) return value;
+    return helpers.error('string.uriCustomScheme');
+  })
+  .optional()
+  .allow('');
 
 const providerProfileSchema = Joi.object({
   avatar_url: uriField,

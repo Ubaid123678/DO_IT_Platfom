@@ -623,11 +623,15 @@ export const verificationService = {
     const trackInput = (profileData.track_data ?? {}) as Record<string, unknown>;
 
     // Universal profile fields (identity + presentation layer).
-    const currentProfile = (user.get('provider_profile') ?? {}) as Record<string, unknown>;
+    // Reassign the object under provider_profile so the Mixed-path change is
+    // detected (in-place mutation of user.get() output is silently dropped).
+    const currentProfileRaw = (user.get('provider_profile') ?? {}) as Record<string, unknown>;
+    const currentProfile = { ...currentProfileRaw };
     for (const key of ['avatar_url', 'headline', 'bio', 'languages', 'city', 'availability', 'public_profile']) {
       if (profileInput[key] !== undefined) currentProfile[key] = profileInput[key];
     }
     user.set('provider_profile', currentProfile);
+    user.markModified('provider_profile');
     if (currentProfile.public_profile !== undefined) {
       user.set('public_profile', currentProfile.public_profile);
     }
@@ -729,10 +733,13 @@ export const verificationService = {
     const user = await getUserOrThrow(userId);
     assertProviderOrAdmin(user);
 
+    // provider_profile / track_data are Schema.Types.Mixed — Mutating the object
+    // returned by user.get() in place leaves the path undetected by Mongoose's
+    // change tracking, so save() silently skips it. markModified forces the write.
     const profile = (user.get('provider_profile') ?? {}) as Record<string, unknown>;
     profile.avatar_url = fileUrl;
     user.set('provider_profile', profile);
-    user.set('avatar_url', fileUrl);
+    user.markModified('provider_profile');
     await user.save();
 
     const track = await resolveProviderTrack(userId);

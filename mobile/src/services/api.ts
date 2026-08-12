@@ -44,7 +44,7 @@ export const api = axios.create({
 
 export const getMediaUrl = (path: string): string => {
   if (!path) return path;
-  if (/^https?:\/\//i.test(path)) return path;
+  if (/^(?:https?:|data:|file:)/i.test(path)) return path;
   const origin = resolveApiBaseUrl().replace(/\/api\/v1$/, '');
   return `${origin}${path.startsWith('/') ? path : `/${path}`}`;
 };

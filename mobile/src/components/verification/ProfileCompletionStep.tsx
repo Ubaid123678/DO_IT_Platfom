@@ -369,54 +369,12 @@ export default function ProfileCompletionStep() {
     return { provider_profile: providerProfile, track_data: trackData };
   };
 
-  const computeLiveCompleteness = (): number => {
-    const required: boolean[] = [
-      has(form.avatarUrl),
-      has(form.headline),
-      has(form.bio),
-      form.languages.length > 0,
-      has(form.city),
-      form.availabilityDays.length > 0,
-    ];
-    let requiredDone = required.filter(Boolean).length;
-    const requiredTotal = required.length;
-    let optionalDone = 0;
-    let optionalTotal = 1;
-    if (effectiveTrack === 'physical') {
-      const req = [has(form.yearsExperience), has(form.serviceRadiusKm), has(form.toolsEquipment), has(form.hourlyRate), form.availabilityDays.length > 0];
-      requiredDone += req.filter(Boolean).length;
-      optionalTotal = 3;
-      optionalDone = [has(form.teamSize), form.insuranceCovered, form.hasTransport].filter(Boolean).length;
-      const per = (requiredDone / (requiredTotal + req.length)) * 60 + (optionalDone / optionalTotal) * 40;
-      return Math.round(Math.min(100, Math.max(0, per)));
-    }
-    if (track === 'digital') {
-      const req = [has(form.skills), has(form.techStack), has(form.hourlyRate), has(form.timezone), has(form.englishProficiency), form.workHistory.some((w) => w.title.trim() && w.company.trim())];
-      requiredDone += req.filter(Boolean).length;
-      optionalTotal = 3;
-      optionalDone = [has(form.projectRate), form.education.some((e) => e.institution.trim() && e.degree.trim()), has(form.resumeFileUrl)].filter(Boolean).length;
-      const per = (requiredDone / (requiredTotal + req.length)) * 60 + (optionalDone / optionalTotal) * 40;
-      return Math.round(Math.min(100, Math.max(0, per)));
-    }
-    if (track === 'errand') {
-      const req = [has(form.serviceAreaText), has(form.transportMode), has(form.baseFee), has(form.perKmFee), form.availabilityDays.length > 0];
-      requiredDone += req.filter(Boolean).length;
-      optionalTotal = 3;
-      optionalDone = [has(form.maxPayloadKg), form.sameDayExpress, form.goodsInsuranceCovered].filter(Boolean).length;
-      const per = (requiredDone / (requiredTotal + req.length)) * 60 + (optionalDone / optionalTotal) * 40;
-      return Math.round(Math.min(100, Math.max(0, per)));
-    }
-    return Math.round((requiredDone / requiredTotal) * 100);
-  };
-
-  const liveCompleteness = computeLiveCompleteness();
-
   const handleSave = async () => {
     setSaving(true);
     try {
       const payload = buildPayload();
       const profile = await verificationService.updateProfile(payload);
-      setCompleteness(profile.completeness ?? liveCompleteness);
+      setCompleteness(profile.completeness ?? completeness);
       setMissingFields(profile.missing_fields ?? []);
       await verificationService.markVerificationComplete().catch(() => {});
       dispatch({ type: 'SET_RESUME_BIO_COMPLETE' });
@@ -538,11 +496,11 @@ export default function ProfileCompletionStep() {
           <View style={styles.completenessTextWrap}>
             <Text style={styles.completenessTitle}>Profile strength</Text>
             <Text style={styles.completenessSub}>
-              {liveCompleteness >= 100 ? 'Looks great! You are ready to apply.' : `Add ${missingFields.length > 0 ? missingFields.join(', ') : 'more details'} to boost your profile.`}
+              {completeness >= 100 ? 'Looks great! You are ready to apply.' : `Add ${missingFields.length > 0 ? missingFields.join(', ') : 'more details'} to boost your profile.`}
             </Text>
           </View>
           <View style={styles.completenessRing}>
-            <Text style={styles.completenessPct}>{liveCompleteness}%</Text>
+            <Text style={styles.completenessPct}>{completeness}%</Text>
           </View>
         </View>
 

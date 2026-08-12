@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import { api } from './api';
 
@@ -235,10 +236,9 @@ export const verificationService = {
   },
 
   uploadAvatar: async (fileUri: string, mimeType: string): Promise<ProviderProfileResponse> => {
-    const ext = mimeType.split('/')[1] || 'jpg';
-    const formData = new FormData();
-    formData.append('image', { uri: fileUri, name: `avatar.${ext}`, type: mimeType } as any);
-    const res = await api.post('/providers/profile/avatar', formData, { timeout: 60000 });
+    const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
+    const dataUrl = `data:${mimeType || 'image/jpeg'};base64,${base64}`;
+    const res = await api.post('/providers/profile/avatar', { data: dataUrl }, { timeout: 60000 });
     return res.data.data;
   },
 
