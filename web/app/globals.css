@@ -12,6 +12,30 @@
   --font-mono: var(--font-geist-mono);
 }
 
+@theme {
+  --color-primary: #1a9e8f;
+  --color-primary-mid: #7abfb8;
+  --color-primary-light: #e0f4f2;
+  --color-primary-dark: #0d7a6e;
+  --color-amber: #f5a623;
+  --color-amber-light: #fef3dc;
+  --color-success: #27ae60;
+  --color-success-light: #e8f8f2;
+  --color-error: #e74c3c;
+  --color-error-light: #fdecea;
+  --color-warning: #f39c12;
+  --color-warning-light: #fef6e7;
+  --color-bg: #f5f7f7;
+  --color-surface: #ffffff;
+  --color-border: #d8e6e4;
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #5b6664;
+  --color-text-hint: #9aa6a4;
+  --color-sidebar-bg: #0d2624;
+  --color-sidebar-text: #cfeae6;
+  --color-sidebar-active: #1a9e8f;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
