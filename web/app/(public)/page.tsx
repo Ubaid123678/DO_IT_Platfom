@@ -58,7 +58,7 @@ export default function HomePage() {
           <div className="mt-10 flex flex-col sm:flex-row gap-4">
             <Link
               href="/register"
-              className="flex items-center justify-center gap-2 rounded-xl bg-white px-8 py-3.5 text-base font-semibold text-amber transition-colors hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-primary-dark"
+              className="flex items-center justify-center gap-2 rounded-xl bg-white px-8 py-3.5 text-base font-semibold text-primary transition-colors hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-primary-dark"
             >
               Post a Job
             </Link>
@@ -108,7 +108,7 @@ export default function HomePage() {
       {/* VALUE PROPS SECTION */}
       <section className="py-16 md:py-24 bg-mist" aria-labelledby="value-props-heading">
         <div className="mx-auto max-w-7xl px-6">
-          <h2 id="value-props-heading" className="sr-only">Why Choose Do It</h2>
+          <h2 id="value-props-heading" className="mb-10 text-center text-3xl md:text-4xl font-extrabold text-primary!">Why Choose Do It</h2>
           <div className="grid gap-8 md:grid-cols-3">
             {valueProps.map((prop) => (
               <article
@@ -118,7 +118,7 @@ export default function HomePage() {
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-light text-primary">
                   <Icon name={prop.icon as IconName} className="h-7 w-7" />
                 </div>
-                <h3 className="text-xl font-bold text-ink">{prop.title}</h3>
+                <h3 className="text-xl font-bold text-primary!">{prop.title}</h3>
                 <p className="mt-3 text-slate">{prop.description}</p>
               </article>
             ))}
@@ -131,7 +131,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-6">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
             <div>
-              <h2 id="categories-heading" className="text-3xl md:text-4xl font-extrabold text-ink">Browse Categories</h2>
+              <h2 id="categories-heading" className="text-3xl md:text-4xl font-extrabold text-primary!">Browse Categories</h2>
               <p className="mt-2 text-slate">Explore verified providers across physical trades and digital skills.</p>
             </div>
             <Link
@@ -152,7 +152,7 @@ export default function HomePage() {
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary-light text-primary">
                   <Icon name={category.icon as IconName} className="h-7 w-7" />
                 </div>
-                <h3 className="text-lg font-semibold text-ink group-hover:text-primary transition-colors">{category.name}</h3>
+                <h3 className="text-lg font-semibold text-primary! group-hover:text-primary transition-colors">{category.name}</h3>
                 <p className="mt-1 text-sm text-slate">{category.providerCount.toLocaleString()} verified providers</p>
               </Link>
             ))}
@@ -163,7 +163,7 @@ export default function HomePage() {
       {/* HOW IT WORKS SUMMARY */}
       <section className="py-16 md:py-24 bg-mist" aria-labelledby="how-it-works-heading">
         <div className="mx-auto max-w-7xl px-6">
-          <h2 id="how-it-works-heading" className="text-center text-3xl md:text-4xl font-extrabold text-ink mb-4">How Do It Works</h2>
+          <h2 id="how-it-works-heading" className="text-center text-3xl md:text-4xl font-extrabold text-primary! mb-4">How Do It Works</h2>
           <p className="text-center text-slate mb-10 max-w-2xl mx-auto">Two simple journeys — pick the one that&apos;s you.</p>
 
           <div className="mb-10" role="tablist" aria-label="How it works for">
@@ -209,7 +209,7 @@ export default function HomePage() {
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-white font-extrabold text-xl">
                     {step.number}
                   </div>
-                  <h3 className="text-lg font-semibold text-ink mb-2">{step.title}</h3>
+                  <h3 className="text-lg font-semibold text-primary! mb-2">{step.title}</h3>
                   <p className="text-slate text-sm">{step.description}</p>
                 </article>
               ))}
@@ -231,7 +231,7 @@ export default function HomePage() {
       {/* TESTIMONIALS SECTION */}
       <section className="py-16 md:py-24 bg-amber-light" aria-labelledby="testimonials-heading">
         <div className="mx-auto max-w-7xl px-6">
-          <h2 id="testimonials-heading" className="text-center text-3xl md:text-4xl font-extrabold text-ink mb-10">What People Say</h2>
+          <h2 id="testimonials-heading" className="text-center text-3xl md:text-4xl font-extrabold text-primary! mb-10">What People Say</h2>
           <div className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory -mx-6 px-6" role="list">
             {testimonials.map((testimonial, index) => (
               <article
