@@ -63,6 +63,17 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-ink);
 }
 
+.article-body h2,
+.article-body h3,
+.article-body h4,
+.article-body strong {
+  color: var(--color-primary) !important;
+}
+
+.article-body blockquote {
+  color: var(--color-slate) !important;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0d1f1e;
