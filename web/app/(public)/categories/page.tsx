@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { allCategories, icons } from '@/lib/public';
 
-type CategoryType = 'all' | 'physical' | 'digital';
+type CategoryType = 'all' | 'physical' | 'digital' | 'errand';
 
 function Icon({ name, className = 'h-6 w-6' }: { name: keyof typeof icons; className?: string }) {
   const path = icons[name];
@@ -32,6 +32,7 @@ export default function CategoriesPage() {
     { value: 'all', label: 'All' },
     { value: 'physical', label: 'Physical Trades' },
     { value: 'digital', label: 'Digital Skills' },
+    { value: 'errand', label: 'Errands' },
   ];
 
   return (
