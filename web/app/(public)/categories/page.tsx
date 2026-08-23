@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { allCategories, icons } from '@/lib/public';
+import { categorySkills } from '@/lib/category-details';
 
 type CategoryType = 'all' | 'physical' | 'digital' | 'errand';
 
@@ -106,7 +107,7 @@ export default function CategoriesPage() {
                     {category.name}
                   </h3>
                   <p className="mt-1 text-sm text-slate">
-                    {category.subcategoryCount} subcategories
+                    {categorySkills[category.slug]?.length ?? category.subcategoryCount} subcategories
                   </p>
                 </Link>
               ))
