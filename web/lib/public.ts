@@ -34,6 +34,40 @@ export const featuredCategories = [
   { slug: 'photography', name: 'Photography', icon: 'Camera', providerCount: 780 },
 ];
 
+export const allCategories = [
+  // Physical Trades
+  { slug: 'plumbing', name: 'Plumbing', icon: 'Wrench', subcategoryCount: 12, type: 'physical' },
+  { slug: 'electrical', name: 'Electrical', icon: 'Zap', subcategoryCount: 8, type: 'physical' },
+  { slug: 'carpentry', name: 'Carpentry', icon: 'Hammer', subcategoryCount: 10, type: 'physical' },
+  { slug: 'hvac', name: 'HVAC & Climate', icon: 'Fan', subcategoryCount: 6, type: 'physical' },
+  { slug: 'painting', name: 'Painting & Decorating', icon: 'Brush', subcategoryCount: 7, type: 'physical' },
+  { slug: 'flooring', name: 'Flooring & Tiling', icon: 'Grid', subcategoryCount: 5, type: 'physical' },
+  { slug: 'roofing', name: 'Roofing & Gutters', icon: 'Home', subcategoryCount: 4, type: 'physical' },
+  { slug: 'landscaping', name: 'Landscaping & Gardening', icon: 'Leaf', subcategoryCount: 9, type: 'physical' },
+  { slug: 'cleaning', name: 'Cleaning Services', icon: 'Sparkles', subcategoryCount: 8, type: 'physical' },
+  { slug: 'moving', name: 'Moving & Delivery', icon: 'Truck', subcategoryCount: 5, type: 'physical' },
+  { slug: 'pest-control', name: 'Pest Control', icon: 'Bug', subcategoryCount: 4, type: 'physical' },
+  { slug: 'appliance-repair', name: 'Appliance Repair', icon: 'Cpu', subcategoryCount: 6, type: 'physical' },
+  { slug: 'locksmith', name: 'Locksmith & Security', icon: 'Lock', subcategoryCount: 3, type: 'physical' },
+  { slug: 'handyman', name: 'General Handyman', icon: 'Tool', subcategoryCount: 15, type: 'physical' },
+
+  // Digital Skills
+  { slug: 'web-development', name: 'Web Development', icon: 'Code', subcategoryCount: 14, type: 'digital' },
+  { slug: 'mobile-development', name: 'Mobile App Development', icon: 'Smartphone', subcategoryCount: 8, type: 'digital' },
+  { slug: 'graphic-design', name: 'Graphic Design', icon: 'Palette', subcategoryCount: 10, type: 'digital' },
+  { slug: 'ui-ux-design', name: 'UI/UX Design', icon: 'Layout', subcategoryCount: 7, type: 'digital' },
+  { slug: 'video-editing', name: 'Video Editing & Motion', icon: 'Video', subcategoryCount: 6, type: 'digital' },
+  { slug: 'content-writing', name: 'Content Writing & Copy', icon: 'FileText', subcategoryCount: 9, type: 'digital' },
+  { slug: 'digital-marketing', name: 'Digital Marketing', icon: 'Megaphone', subcategoryCount: 11, type: 'digital' },
+  { slug: 'seo', name: 'SEO & Analytics', icon: 'Search', subcategoryCount: 5, type: 'digital' },
+  { slug: 'data-analysis', name: 'Data Analysis & Science', icon: 'BarChart', subcategoryCount: 6, type: 'digital' },
+  { slug: 'translation', name: 'Translation & Localization', icon: 'Languages', subcategoryCount: 4, type: 'digital' },
+  { slug: 'tutoring', name: 'Online Tutoring', icon: 'GraduationCap', subcategoryCount: 12, type: 'digital' },
+  { slug: 'virtual-assistant', name: 'Virtual Assistance', icon: 'UserCog', subcategoryCount: 8, type: 'digital' },
+  { slug: 'photography', name: 'Photography & Retouching', icon: 'Camera', subcategoryCount: 7, type: 'digital' },
+  { slug: 'audio-production', name: 'Audio & Podcast Production', icon: 'Mic', subcategoryCount: 5, type: 'digital' },
+];
+
 export const howItWorksSteps = {
   client: [
     { number: 1, title: 'Post a Job', description: 'Describe what you need — category, budget, timeline, and location.' },
@@ -98,4 +132,24 @@ export const icons = {
   ArrowRight: 'M5 12h14M12 5l7 7-7 7',
   Download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M17 10v10',
   Globe: 'M21 12a9 9 0 0 1-9 9M9 21a9 9 0 0 1-9-9M12 3a9 9 0 0 1 9 9M12 3v9',
+  Fan: 'M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41M6 8a6 6 0 1 1 12 0M18 8a6 6 0 0 1-6 6',
+  Brush: 'M12 19l7-7 3 3-7 7-3-3zM18 13l-1.5-7.5L2 2l3.5 3.5L19 12l-4 4-2.5 2.5L22 18l-1-1L13 14z',
+  Grid: 'M3 9h18M3 15h18M9 3v18M15 3v18',
+  Home: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10',
+  Leaf: 'M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 17 3.8a1 1 0 0 1 2 0c0 1.2-2.8 3.5-5 2-2.2-1.5-4.5-2-6.8-2A7 7 0 1 0 11 20zM12 22c4.5 0 6-1 6-4.5C18 16.5 15.5 16 12 16c-3.5 0-6 0.5-6 1.5C6 21 7.5 22 12 22z',
+  Truck: 'M5 18h14M5 10H2v8h2.5M17 10h2.5v8M10 18v-6h4v6M7 18v-4h2v4M15 18v-8h2v8',
+  Bug: 'M12 3a4 4 0 0 0-4 4v2a1 1 0 0 1-2 0V5a6 6 0 0 1 12 0v2a1 1 0 0 1-2 0V7a4 4 0 0 0-4-4zM8 15h8M6 13v4M16 13v4',
+  Cpu: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM9 9h6v6H9V9zM12 12h.01M9 15h.01M15 9h.01M15 15h.01',
+  Lock: 'M12 17a2 2 0 0 1-2-2V10a2 2 0 0 1 4 0v5a2 2 0 0 1-2 2zM18 8h-3V5a3 3 0 0 0-6 0v3H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2z',
+  Tool: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76zM12 12h.01',
+  Smartphone: 'M5 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H5zM12 18a2 2 0 0 1-2-2V6a2 2 0 0 1 4 0v10a2 2 0 0 1-2 2z',
+  Layout: 'M3 3h18v18H3V3zm8 0v18M16 3v18',
+  FileText: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+  Megaphone: 'M3 11l18-5v12L3 14v-3zM11.5 17.5A2.5 2.5 0 0 1 9 15c0-.9.4-1.7 1-2.2V7.5A2.5 2.5 0 0 1 11.5 5c.9 0 1.7.4 2.2 1v5.5c.6.5 1 1.3 1 2.2 0 1.4-1.1 2.5-2.5 2.5z',
+  Search: 'M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z',
+  BarChart: 'M3 3v18h18M7 16h4M12 12h4M17 8h4',
+  Languages: 'M5 8h14M5 12h14M5 16h14M4 4h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z',
+  UserCog: 'M12 15a3 3 0 0 1-3-3h6a3 3 0 0 1-3 3zM12 3a6 6 0 0 0-6 6v2a2 2 0 0 0 4 0v-2a4 4 0 0 1 8 0v2a2 2 0 0 0 4 0V9a6 6 0 0 0-6-6zM16 19h6v-2a4 4 0 0 0-4-4h-2a4 4 0 0 0-4 4v2z',
+  Video: 'M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6zM8 10l4 4-4 4V10z',
+  Mic: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M9 19v2',
 };
