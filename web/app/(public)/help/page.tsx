@@ -18,6 +18,12 @@ const quickLinks = [
     href: '/help/contact',
   },
   {
+    icon: Briefcase,
+    label: 'About Us',
+    description: 'Learn more about Do It and our mission',
+    href: '/about',
+  },
+  {
     icon: AlertTriangle,
     label: 'Report a Safety Issue',
     description: 'Report concerns confidentially',
@@ -84,7 +90,7 @@ export default function HelpPage() {
       <section className="py-16 md:py-20 bg-mist" aria-labelledby="quick-links-heading">
         <div className="mx-auto max-w-7xl px-6">
           <h2 id="quick-links-heading" className="sr-only">Quick Links</h2>
-          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
             {quickLinks.map((link, index) => (
               <Link
                 key={index}
