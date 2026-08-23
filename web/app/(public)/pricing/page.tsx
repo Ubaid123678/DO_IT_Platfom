@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Wallet, ArrowRight, Globe, HelpCircle, ChevronDown, CreditCard, Lock, CheckCircle2 } from 'lucide-react';
 
 const faqItems = [
@@ -236,13 +237,13 @@ export default function PricingPage() {
             ))}
 
             <div className="mt-8 text-center">
-              <a
+              <Link
                 href="/help/faq"
                 className="inline-flex items-center gap-2 text-primary font-semibold hover:underline"
               >
                 View all FAQs in Help Center
                 <HelpCircle className="h-4 w-4" aria-hidden="true" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>
