@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Star, Globe, ArrowRight, ChevronRight } from 'lucide-react';
 import {
   publicStats,
@@ -41,6 +41,29 @@ function StarRating({ rating = 5, className = 'h-4 w-4' }: { rating?: number; cl
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<'client' | 'provider'>('client');
+  const testimonialsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const carousel = testimonialsRef.current;
+    if (!carousel) return;
+
+    const rotateTestimonials = () => {
+      const firstCard = carousel.firstElementChild as HTMLElement | null;
+      if (!firstCard) return;
+
+      const cardDistance = firstCard.getBoundingClientRect().width + 24;
+      const atEnd = carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 4;
+
+      if (atEnd) {
+        carousel.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        carousel.scrollBy({ left: cardDistance, behavior: 'smooth' });
+      }
+    };
+
+    const rotation = window.setInterval(rotateTestimonials, 4000);
+    return () => window.clearInterval(rotation);
+  }, []);
 
   return (
     <div className="bg-mist">
@@ -229,10 +252,10 @@ export default function HomePage() {
       </section>
 
       {/* TESTIMONIALS SECTION */}
-      <section className="py-16 md:py-24 bg-amber-light" aria-labelledby="testimonials-heading">
+      <section className="py-16 md:py-24 bg-mist" aria-labelledby="testimonials-heading">
         <div className="mx-auto max-w-7xl px-6">
           <h2 id="testimonials-heading" className="text-center text-3xl md:text-4xl font-extrabold text-primary! mb-10">What People Say</h2>
-          <div className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory -mx-6 px-6" role="list">
+          <div ref={testimonialsRef} className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory -mx-6 px-6 scrollbar-hide" role="list" aria-label="Customer testimonials">
             {testimonials.map((testimonial, index) => (
               <article
                 key={index}
