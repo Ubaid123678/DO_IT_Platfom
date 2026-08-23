@@ -22,7 +22,7 @@ export default function FAQArticlePage() {
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             Back to FAQ
           </Link>
-          <h1 className="text-3xl font-bold text-ink mb-4">FAQ Not Found</h1>
+          <h1 className="text-3xl font-bold text-primary! mb-4">FAQ Not Found</h1>
           <Link href="/help/faq" className="text-primary hover:underline">
             Browse all FAQs
           </Link>
@@ -59,7 +59,7 @@ export default function FAQArticlePage() {
               <Link href="/help/faq" className="hover:text-primary transition-colors">FAQ</Link>
             </li>
             <li aria-hidden="true">/</li>
-            <li className="text-ink font-medium truncate max-w-xs" aria-current="page">{faq.question}</li>
+            <li className="text-primary! font-medium truncate max-w-xs" aria-current="page">{faq.question}</li>
           </ol>
         </div>
       </nav>
@@ -74,7 +74,7 @@ export default function FAQArticlePage() {
             </span>
 
             {/* QUESTION AS H1 */}
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold leading-tight text-ink mb-8">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold leading-tight text-primary! mb-8">
               {faq.question}
             </h1>
 
@@ -85,7 +85,7 @@ export default function FAQArticlePage() {
 
             {/* "WAS THIS HELPFUL?" WIDGET */}
             <div className="mt-12 pt-8 border-t border-hairline">
-              <p className="font-medium text-ink mb-4">Was this helpful?</p>
+              <p className="font-medium text-primary! mb-4">Was this helpful?</p>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => handleHelpful('up')}
@@ -125,7 +125,7 @@ export default function FAQArticlePage() {
             {/* RELATED FAQ SECTION */}
             {relatedFaqs.length > 0 && (
               <section className="mt-12 pt-8 border-t border-hairline" aria-labelledby="related-heading">
-                <h2 id="related-heading" className="text-lg font-semibold text-ink mb-6">Related questions</h2>
+                <h2 id="related-heading" className="text-lg font-semibold text-primary! mb-6">Related questions</h2>
                 <ul className="space-y-3" role="list">
                   {relatedFaqs.map((related) => (
                     <li key={related.id}>
@@ -133,7 +133,7 @@ export default function FAQArticlePage() {
                         href={`/help/faq/${related.id}`}
                         className="group flex items-center justify-between gap-4 p-4 rounded-xl bg-mist border border-hairline hover:bg-primary-light hover:border-primary transition-colors"
                       >
-                        <span className="text-slate group-hover:text-ink transition-colors">{related.question}</span>
+                        <span className="text-slate group-hover:text-primary transition-colors">{related.question}</span>
                         <ChevronRight className="flex-shrink-0 h-5 w-5 text-text-hint group-hover:text-primary transition-colors" aria-hidden="true" />
                       </Link>
                     </li>

@@ -135,7 +135,7 @@ export default function CategoryPage() {
               <Link href="/categories" className="hover:text-primary transition-colors">Categories</Link>
             </li>
             <li aria-hidden="true">/</li>
-            <li className="text-ink font-medium truncate max-w-xs" aria-current="page">{category.name}</li>
+            <li className="text-primary! font-medium truncate max-w-xs" aria-current="page">{category.name}</li>
           </ol>
         </div>
       </nav>
@@ -161,15 +161,15 @@ export default function CategoryPage() {
               <div className="mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-4">
                 <div className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 border border-hairline">
                   <Icon name="CheckCircle2" className="h-5 w-5 text-primary" aria-hidden="true" />
-                  <span className="font-semibold text-ink">{stats.providers}+ Verified Providers</span>
+                  <span className="font-semibold text-primary!">{stats.providers}+ Verified Providers</span>
                 </div>
                 <div className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 border border-hairline">
                   <Star className="h-5 w-5 text-amber fill-current" aria-hidden="true" />
-                  <span className="font-semibold text-ink">★ {stats.rating} Avg Rating</span>
+                  <span className="font-semibold text-primary!">★ {stats.rating} Avg Rating</span>
                 </div>
                 <div className="flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 border border-hairline">
                   <Icon name="Wallet" className="h-5 w-5 text-primary" aria-hidden="true" />
-                  <span className="font-semibold text-ink">Starting from ${stats.startingPrice}</span>
+                  <span className="font-semibold text-primary!">Starting from ${stats.startingPrice}</span>
                 </div>
               </div>
             </div>
@@ -250,7 +250,7 @@ export default function CategoryPage() {
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <Star className="h-4 w-4 text-amber fill-current" aria-hidden="true" />
-                      <span className="font-medium text-ink">{provider.rating}</span>
+                      <span className="font-medium text-primary!">{provider.rating}</span>
                       <span className="text-slate text-sm">({provider.reviewCount} reviews)</span>
                     </div>
                     <p className="mt-3 text-sm text-slate line-clamp-2">{provider.headline}</p>

@@ -74,6 +74,30 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-slate) !important;
 }
 
+.legal-document h1,
+.legal-document h2,
+.legal-document h3,
+.legal-document strong {
+  color: var(--color-primary) !important;
+}
+
+.legal-document p,
+.legal-document li,
+.legal-document address {
+  color: var(--color-slate) !important;
+}
+
+.legal-document .prose {
+  --tw-prose-body: var(--color-slate) !important;
+  --tw-prose-headings: var(--color-primary) !important;
+  --tw-prose-bold: var(--color-primary) !important;
+  --tw-prose-links: var(--color-primary) !important;
+}
+
+.legal-document a {
+  color: var(--color-primary) !important;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0d1f1e;
