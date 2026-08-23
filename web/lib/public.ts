@@ -183,6 +183,179 @@ export const testimonials = [
   },
 ];
 
+// Mock provider profiles for public pages
+export const mockProviders: Record<string, {
+  id: string;
+  fullName: string;
+  avatarInitials: string;
+  headline: string;
+  bio: string;
+  location: string;
+  rating: number;
+  reviewCount: number;
+  verified: boolean;
+  verifiedCategories: { name: string; slug: string; skills: string[] }[];
+  portfolio: { image: string; caption: string }[];
+  publicProfile: boolean;
+  reviews: { author: string; rating: number; text: string; date: string }[];
+}> = {
+  '1': {
+    id: '1',
+    fullName: 'Sarah Mitchell',
+    avatarInitials: 'SM',
+    headline: 'Licensed master plumber with 15+ years experience. Specializing in bathroom remodels and emergency repairs.',
+    bio: 'I\'ve been serving the Greater Toronto Area for over 15 years as a licensed master plumber. My focus is on quality workmanship, transparent pricing, and clear communication. Whether it\'s a leaky faucet, a full bathroom renovation, or an emergency pipe burst at 2 AM, I\'m here to help. I take pride in every job I do and treat your home like my own.',
+    location: 'Toronto, Canada',
+    rating: 4.9,
+    reviewCount: 127,
+    verified: true,
+    verifiedCategories: [
+      { name: 'Plumbing', slug: 'plumbing', skills: ['Pipe Repair & Replacement', 'Drain Cleaning', 'Water Heater Install/Repair', 'Bathroom Remodeling'] },
+      { name: 'Home Repair & Maintenance', slug: 'home-repair-maintenance', skills: ['General Handyman Tasks', 'Appliance Installation'] },
+    ],
+    portfolio: [
+      { image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400&h=300&fit=crop', caption: 'Master bathroom remodel with custom tile work' },
+      { image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&h=300&fit=crop', caption: 'Tankless water heater installation' },
+      { image: 'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=400&h=300&fit=crop', caption: 'Kitchen plumbing renovation' },
+      { image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400&h=300&fit=crop', caption: 'Emergency pipe repair' },
+    ],
+    publicProfile: true,
+    reviews: [
+      { author: 'Jennifer', rating: 5, text: 'Sarah was amazing! Fixed our burst pipe within an hour of calling. Professional, clean, and fair pricing. Highly recommend!', date: '2 weeks ago' },
+      { author: 'Michael', rating: 5, text: 'Bathroom remodel turned out beautifully. Sarah communicated every step of the way and finished on time and on budget.', date: '1 month ago' },
+      { author: 'Priya', rating: 5, text: 'Best plumber I\'ve ever hired. Honest, skilled, and doesn\'t upsell unnecessary work. My go-to for all plumbing needs.', date: '2 months ago' },
+      { author: 'David', rating: 4, text: 'Great work on our water heater replacement. Only reason for 4 stars is scheduling took a day longer than expected.', date: '3 months ago' },
+    ],
+  },
+  '2': {
+    id: '2',
+    fullName: 'Marcus Chen',
+    avatarInitials: 'MC',
+    headline: 'Full-stack developer specializing in React, Node.js, and cloud architecture. Building scalable web apps for startups.',
+    bio: 'Senior software engineer with 8+ years building production web applications. I help startups and businesses bring their ideas to life with clean, maintainable code. My expertise spans the full stack — from database design and API architecture to polished frontend experiences. I\'m passionate about performance, accessibility, and developer experience.',
+    location: 'San Francisco, USA',
+    rating: 4.8,
+    reviewCount: 89,
+    verified: true,
+    verifiedCategories: [
+      { name: 'Web Development', slug: 'web-development', skills: ['Frontend Development', 'Backend Development', 'Full-Stack Development', 'API Development'] },
+      { name: 'Cloud & DevOps', slug: 'cloud-devops', skills: ['AWS Architecture', 'CI/CD Pipelines', 'Infrastructure as Code'] },
+    ],
+    portfolio: [
+      { image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop', caption: 'SaaS dashboard with real-time analytics' },
+      { image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=300&fit=crop', caption: 'E-commerce platform with payment integration' },
+      { image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=300&fit=crop', caption: 'Real-time collaboration app' },
+    ],
+    publicProfile: true,
+    reviews: [
+      { author: 'Alex', rating: 5, text: 'Marcus delivered our MVP in record time. Code quality is exceptional and he\'s a great communicator.', date: '3 weeks ago' },
+      { author: 'Sarah', rating: 5, text: 'Best developer I\'ve worked with on this platform. He understood our complex requirements instantly.', date: '2 months ago' },
+      { author: 'James', rating: 4, text: 'Solid work on our API redesign. Would have liked more documentation but the code speaks for itself.', date: '4 months ago' },
+    ],
+  },
+  '3': {
+    id: '3',
+    fullName: 'James Rodriguez',
+    avatarInitials: 'JR',
+    headline: 'Family-owned electrical business since 1985. Licensed, insured, and committed to safety.',
+    bio: 'Rodriguez Electric has been family-owned and operated since 1985. We\'re fully licensed, insured, and committed to the highest safety standards. From panel upgrades and EV charger installations to complete home rewiring, we do it right the first time. No shortcuts, no surprises — just honest electrical work.',
+    location: 'Miami, USA',
+    rating: 4.9,
+    reviewCount: 203,
+    verified: true,
+    verifiedCategories: [
+      { name: 'Electrical Work', slug: 'electrical-work', skills: ['Wiring & Rewiring', 'Panel Upgrades', 'EV Charger Installation', 'Lighting Installation', 'Electrical Safety Inspection'] },
+    ],
+    portfolio: [
+      { image: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=400&h=300&fit=crop', caption: 'Modern panel upgrade with whole-home surge protection' },
+      { image: 'https://images.unsplash.com/photo-1558002038-1055e028d3b3?w=400&h=300&fit=crop', caption: 'EV charger installation in garage' },
+      { image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400&h=300&fit=crop', caption: 'Recessed lighting throughout home' },
+    ],
+    publicProfile: true,
+    reviews: [
+      { author: 'Maria', rating: 5, text: 'James and his team rewired our 1950s home. Professional, clean, and up to code. Peace of mind guaranteed.', date: '1 week ago' },
+      { author: 'Robert', rating: 5, text: 'EV charger installed perfectly. They handled the permit and inspection. Highly recommend for any electrical work.', date: '3 weeks ago' },
+      { author: 'Lisa', rating: 5, text: 'Been using Rodriguez Electric for 10+ years. Consistent quality and fair pricing. Trust them completely.', date: '2 months ago' },
+      { author: 'Tom', rating: 5, text: 'Emergency service on a Sunday — they came out within 2 hours. Fixed our panel issue safely and quickly.', date: '3 months ago' },
+    ],
+  },
+  '4': {
+    id: '4',
+    fullName: 'Aisha Patel',
+    avatarInitials: 'AP',
+    headline: 'Eco-friendly plumbing solutions. Water filtration, low-flow fixtures, and green building certified.',
+    bio: 'Specializing in sustainable plumbing solutions for modern homes. I help homeowners reduce water consumption, improve water quality, and lower utility bills through smart fixture choices and efficient systems. Certified in green building practices and water conservation technologies.',
+    location: 'Vancouver, Canada',
+    rating: 4.7,
+    reviewCount: 156,
+    verified: true,
+    verifiedCategories: [
+      { name: 'Plumbing', slug: 'plumbing', skills: ['Water Filtration Systems', 'Fixture Installation', 'Pipe Repair & Replacement'] },
+      { name: 'Appliance Repair', slug: 'appliance-repair', skills: ['HVAC Appliance Repair'] },
+    ],
+    portfolio: [
+      { image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&h=300&fit=crop', caption: 'Whole-home water filtration system' },
+      { image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400&h=300&fit=crop', caption: 'Low-flow fixture upgrade' },
+    ],
+    publicProfile: true,
+    reviews: [
+      { author: 'Emma', rating: 5, text: 'Aisha transformed our home with a whole-house filtration system. Water tastes amazing and we\'re saving on bottled water.', date: '2 weeks ago' },
+      { author: 'Kevin', rating: 4, text: 'Great knowledge of eco-friendly options. Installed low-flow fixtures throughout. Professional and punctual.', date: '1 month ago' },
+    ],
+  },
+  '5': {
+    id: '5',
+    fullName: 'David Thompson',
+    avatarInitials: 'DT',
+    headline: '24/7 emergency plumber. Burst pipes, water heater failures, and sewer backups. Licensed & insured.',
+    bio: 'When plumbing emergencies strike, you need someone who answers the phone. I provide 24/7 emergency service for burst pipes, water heater failures, sewer backups, and major leaks. Fully licensed, insured, and equipped to handle any crisis. Fast response, fair pricing, and quality repairs that last.',
+    location: 'Chicago, USA',
+    rating: 4.8,
+    reviewCount: 94,
+    verified: true,
+    verifiedCategories: [
+      { name: 'Plumbing', slug: 'plumbing', skills: ['Emergency Plumbing', 'Pipe Repair & Replacement', 'Water Heater Install/Repair', 'Sewer Line Services', 'Drain Cleaning'] },
+    ],
+    portfolio: [
+      { image: 'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=400&h=300&fit=crop', caption: 'Emergency burst pipe repair' },
+      { image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&h=300&fit=crop', caption: 'Sewer line replacement' },
+    ],
+    publicProfile: true,
+    reviews: [
+      { author: 'Amanda', rating: 5, text: 'Called at 3 AM for a burst pipe. David was there in 45 minutes. Saved our basement from major damage.', date: '1 week ago' },
+      { author: 'Chris', rating: 5, text: 'Water heater died on Christmas Eve. David came out same day. Honest pricing, great work.', date: '2 months ago' },
+      { author: 'Nicole', rating: 4, text: 'Fast emergency response. Sewer backup fixed properly. Would use again.', date: '3 months ago' },
+    ],
+  },
+  '6': {
+    id: '6',
+    fullName: 'Lisa Nguyen',
+    avatarInitials: 'LN',
+    headline: 'Bathroom and kitchen remodel specialist. From concept to completion — design, permits, and installation.',
+    bio: 'I specialize in transforming bathrooms and kitchens from outdated to outstanding. With a background in interior design and 12 years in plumbing, I manage the entire process — design consultation, permits, demolition, installation, and final styling. One point of contact, seamless execution.',
+    location: 'Seattle, USA',
+    rating: 4.9,
+    reviewCount: 178,
+    verified: true,
+    verifiedCategories: [
+      { name: 'Plumbing', slug: 'plumbing', skills: ['Bathroom Remodeling', 'Kitchen Plumbing', 'Fixture Installation', 'Pipe Repair & Replacement'] },
+      { name: 'Carpentry & Furniture', slug: 'carpentry-furniture', skills: ['Cabinetry', 'Custom Furniture'] },
+    ],
+    portfolio: [
+      { image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400&h=300&fit=crop', caption: 'Luxury master bath with freestanding tub' },
+      { image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop', caption: 'Modern kitchen with farmhouse sink' },
+      { image: 'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=400&h=300&fit=crop', caption: 'Guest bathroom renovation' },
+      { image: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&h=300&fit=crop', caption: 'Custom vanity build' },
+    ],
+    publicProfile: true,
+    reviews: [
+      { author: 'Rachel', rating: 5, text: 'Lisa managed our entire master bath remodel. Design eye plus technical skills — rare combination. Stunning result.', date: '2 weeks ago' },
+      { author: 'Mark', rating: 5, text: 'Kitchen renovation completed in 3 weeks. Lisa coordinated everything — we just made decisions. Highly recommend.', date: '1 month ago' },
+      { author: 'Sandra', rating: 5, text: 'Best remodeling experience ever. Lisa\'s design sense saved us money and the result is magazine-worthy.', date: '3 months ago' },
+    ],
+  },
+};
+
 export const icons = {
   ShieldCheck: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
   Wallet: 'M21 12V7H5a2 2 0 0 1 0-4h14a2 2 0 0 1 2 2v5M3 3v18a2 2 0 0 0 2 2h14',
