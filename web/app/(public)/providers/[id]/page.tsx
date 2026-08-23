@@ -14,20 +14,12 @@ function StarRating({ rating = 5, className = 'h-4 w-4', count = 0 }: { rating?:
         {Array.from({ length: 5 }, (_, i) => (
           <Star
             key={i}
-            className={className}
-            fill={i < Math.floor(rating) ? 'currentColor' : 'none'}
+            className={`${className} text-amber`}
+            fill={i < rating ? 'currentColor' : 'none'}
             stroke="currentColor"
             aria-hidden="true"
           />
         ))}
-        {rating % 1 >= 0.5 && (
-          <Star
-            className={className}
-            fill="url(#half-star)"
-            stroke="currentColor"
-            aria-hidden="true"
-          />
-        )}
       </div>
       <span className="font-semibold text-ink">{rating.toFixed(1)}</span>
       <span className="text-slate text-sm">({count} reviews)</span>
@@ -72,7 +64,7 @@ export default function ProviderProfilePage() {
       {/* PROFILE HEADER BAND */}
       <section className="bg-mist border-b border-hairline" aria-labelledby="provider-name">
         <div className="mx-auto max-w-7xl px-6 py-8 lg:py-12">
-          <div className="flex flex-col lg:flex-row gap-8">
+          <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
             {/* LEFT: PROFILE PHOTO */}
             <div className="flex-shrink-0 lg:w-40">
               <div className="mx-auto lg:mx-0 h-40 w-40 lg:h-48 lg:w-48 rounded-full bg-primary-light flex items-center justify-center border-4 border-white shadow-lg">
@@ -241,9 +233,9 @@ export default function ProviderProfilePage() {
             <div className="sticky top-24 space-y-6">
               {/* RATING SUMMARY CARD */}
               <div className="p-6 rounded-2xl bg-white border border-hairline shadow-sm">
-                <h3 className="font-semibold text-ink mb-4">Rating Summary</h3>
+                <h3 className="font-semibold text-primary! mb-4">Rating Summary</h3>
                 <div className="text-center">
-                  <div className="text-5xl font-extrabold text-ink">{provider.rating.toFixed(1)}</div>
+                  <div className="text-5xl font-extrabold text-primary!">{provider.rating.toFixed(1)}</div>
                   <StarRating rating={provider.rating} className="h-6 w-6 mx-auto my-2 text-amber" count={provider.reviewCount} />
                   <p className="text-slate text-sm">Based on {provider.reviewCount} reviews</p>
                 </div>
@@ -252,7 +244,7 @@ export default function ProviderProfilePage() {
                 <div className="mt-6 space-y-2">
                   {[5, 4, 3, 2, 1].map((star) => (
                     <div key={star} className="flex items-center gap-2 text-sm">
-                      <span className="w-8 text-text-hint">{star}★</span>
+                      <span className="w-8 font-semibold text-amber">{star}★</span>
                       <div className="flex-1 h-2 bg-mist rounded-full overflow-hidden">
                         <div
                           className="h-full bg-primary"
@@ -280,7 +272,7 @@ export default function ProviderProfilePage() {
 
               {/* DOWNLOAD APP CTA */}
               <div className="p-6 rounded-2xl bg-primary text-white text-center">
-                <h3 className="text-lg font-bold mb-2">Ready to hire?</h3>
+                <h3 className="text-lg font-bold text-white! mb-2">Ready to hire?</h3>
                 <p className="text-white/80 text-sm mb-4">Download the app to message providers and post jobs.</p>
                 <Link
                   href="/download"
