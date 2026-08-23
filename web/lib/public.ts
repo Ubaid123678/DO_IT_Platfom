@@ -485,6 +485,152 @@ export const blogPosts = [
   },
 ];
 
+// FAQ data
+export const faqCategories = [
+  { slug: 'getting-started', name: 'Getting Started', icon: 'Sparkles' },
+  { slug: 'payments-escrow', name: 'Payments & Escrow', icon: 'Wallet' },
+  { slug: 'verification', name: 'Verification', icon: 'ShieldCheck' },
+  { slug: 'disputes', name: 'Disputes & Safety', icon: 'Scale' },
+  { slug: 'account', name: 'Account & Privacy', icon: 'UserCog' },
+];
+
+export const faqs: Array<{
+  id: string;
+  category: string;
+  question: string;
+  answer: string;
+}> = [
+  // Getting Started
+  {
+    id: 'gs-1',
+    category: 'getting-started',
+    question: 'How do I create an account on Do It?',
+    answer: 'You can sign up using your email, phone number, or social accounts (Google, Apple). After verifying your email and phone, you\'ll choose whether you want to post jobs (Client) or offer services (Provider). Providers will then complete identity verification (KYC) and skill verification for their categories.',
+  },
+  {
+    id: 'gs-2',
+    category: 'getting-started',
+    question: 'Do I need to verify my identity to use Do It?',
+    answer: 'Yes. All providers must complete identity verification (government ID + selfie) before they can submit proposals. Clients only need email and phone verification to post jobs. This keeps the marketplace safe for everyone.',
+  },
+  {
+    id: 'gs-3',
+    category: 'getting-started',
+    question: 'How do I post my first job?',
+    answer: 'After signing up as a Client, click "Post a Job" from the homepage or dashboard. Choose a category, write a clear description, set your location (or remote), pick a budget type (fixed or hourly), set a deadline, and attach up to 5 photos or files. Then publish — verified providers will be notified automatically.',
+  },
+  {
+    id: 'gs-4',
+    category: 'getting-started',
+    question: 'How do I start offering services as a Provider?',
+    answer: 'Sign up as a Provider, complete KYC identity verification, choose up to 3 categories and specific skills, then verify each skill (certificates, portfolio, or tests). Once approved, build your profile with bio, experience, and portfolio. You can then submit up to 10 active proposals at a time.',
+  },
+
+  // Payments & Escrow
+  {
+    id: 'pe-1',
+    category: 'payments-escrow',
+    question: 'How does escrow protect me?',
+    answer: 'When you hire a provider, the job amount (plus platform fee) is locked in escrow from your wallet. The provider only gets paid after you confirm the work is complete. If there\'s an issue, you can open a dispute — funds stay locked until resolved.',
+  },
+  {
+    id: 'pe-2',
+    category: 'payments-escrow',
+    question: 'What are the platform fees?',
+    answer: 'Clients pay 5–15% platform fee (varies by category) on top of the job total. Providers pay 10–20% of earnings (varies by category). Payment processing fees (~2.9% + $0.30) are passed through from our payment partner. All fees are shown upfront before you commit.',
+  },
+  {
+    id: 'pe-3',
+    category: 'payments-escrow',
+    question: 'When do providers get paid?',
+    answer: 'Providers are paid after the client confirms completion. Funds release to the provider\'s wallet minus the platform fee. Providers can then withdraw to their bank account, mobile wallet, or other local payout methods in their currency.',
+  },
+  {
+    id: 'pe-4',
+    category: 'payments-escrow',
+    question: 'Can I get a refund if I cancel a job?',
+    answer: 'Yes. If you cancel before a provider is accepted, you receive a full refund including fees. After acceptance, cancellation terms depend on the job stage — if work hasn\'t started, you may still get a partial refund. See our cancellation policy for details.',
+  },
+
+  // Verification
+  {
+    id: 'v-1',
+    category: 'verification',
+    question: 'What documents are needed for identity verification (KYC)?',
+    answer: 'You\'ll need a valid government-issued photo ID (passport, driver\'s license, or national ID) and a live selfie. Our team reviews these manually — typically within 48 hours. All data is encrypted and handled per our privacy policy.',
+  },
+  {
+    id: 'v-2',
+    category: 'verification',
+    question: 'How does skill verification work?',
+    answer: 'For each category you choose, you\'ll verify specific skills. You can upload certificates, share portfolio links, or take practical tests. Some credentials auto-verify (e.g., from partnered cert bodies); others are reviewed by our admin team within 24–48 hours. You only appear in search for a category once both KYC and that category\'s skill verification are approved.',
+  },
+  {
+    id: 'v-3',
+    category: 'verification',
+    question: 'How many categories and skills can I verify?',
+    answer: 'You can verify up to 3 categories total. Within each category, you can verify multiple skills — there\'s no hard limit, but each skill requires its own evidence. Choose the skills that best represent what you actually offer.',
+  },
+  {
+    id: 'v-4',
+    category: 'verification',
+    question: 'What if my skill verification is rejected?',
+    answer: 'You\'ll receive specific feedback on what was missing or insufficient. You can resubmit with additional evidence (better photos, more portfolio items, updated certificates) at any time. There\'s no penalty for reapplying.',
+  },
+
+  // Disputes & Safety
+  {
+    id: 'd-1',
+    category: 'disputes',
+    question: 'How do I open a dispute?',
+    answer: 'If work isn\'t completed as agreed, go to the job page and click "Open Dispute" within the evidence window (typically 7 days after provider marks complete). Both sides upload evidence (messages, photos, files). Our admin team reviews and releases funds according to the verdict.',
+  },
+  {
+    id: 'd-2',
+    category: 'disputes',
+    question: 'What happens during a dispute?',
+    answer: 'Funds remain locked in escrow. Both parties have a set period to submit evidence. Our trained admin team reviews all evidence impartially and makes a binding decision — full release to provider, partial release, or full refund to client. The decision is final.',
+  },
+  {
+    id: 'd-3',
+    category: 'disputes',
+    question: 'How do I report a safety issue or suspicious activity?',
+    answer: 'Use the "Report a Safety Issue" link in the Help Center or app. Reports are confidential. Our Trust & Safety team investigates promptly — we may suspend accounts, remove content, or involve authorities if needed. Your identity is protected throughout.',
+  },
+  {
+    id: 'd-4',
+    category: 'disputes',
+    question: 'Are reviews on Do It genuine?',
+    answer: 'Yes. Reviews can only be left after a job is completed and payment is released. Clients and providers can each leave one review per job. We don\'t allow fake reviews, review swapping, or incentivized ratings. Flagged reviews are investigated and removed if they violate policy.',
+  },
+
+  // Account & Privacy
+  {
+    id: 'a-1',
+    category: 'account',
+    question: 'How do I update my profile or skills?',
+    answer: 'Go to your Profile settings in the app or web dashboard. You can edit your bio, experience, availability, portfolio, and verified skills. Adding new skills requires verification; removing skills is instant.',
+  },
+  {
+    id: 'a-2',
+    category: 'account',
+    question: 'Can I delete my account and data?',
+    answer: 'Yes. In Account Settings, choose "Delete Account." This permanently removes your personal data, job history, reviews, and verifications within 30 days (per legal requirements). Active jobs or disputes must be resolved first.',
+  },
+  {
+    id: 'a-3',
+    category: 'account',
+    question: 'How do I change my notification preferences?',
+    answer: 'In Settings > Notifications, you can toggle email, push, and SMS notifications for job matches, proposals, messages, payments, and marketing. Granular controls let you choose exactly what you want to hear about.',
+  },
+  {
+    id: 'a-4',
+    category: 'account',
+    question: 'Is my data shared with third parties?',
+    answer: 'We only share data necessary for the service to function: payment processors for transactions, verification partners for KYC/skill checks, and legal authorities when required by law. We never sell your data. See our Privacy Policy for full details.',
+  },
+];
+
 export const icons = {
   ShieldCheck: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
   Wallet: 'M21 12V7H5a2 2 0 0 1 0-4h14a2 2 0 0 1 2 2v5M3 3v18a2 2 0 0 0 2 2h14',
