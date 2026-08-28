@@ -381,9 +381,9 @@ export default function ProviderProfileReviewPage() {
                 {providerProfile.city ? ` · ${providerProfile.city}` : ""}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Badge variant="primary">{trackLabel[track]}</Badge>
+                <Badge variant="approved">{trackLabel[track]}</Badge>
                 {providerProfile.public_profile ? (
-                  <Badge variant="success">Public</Badge>
+                  <Badge variant="approved">Public</Badge>
                 ) : (
                   <Badge variant="neutral">Private</Badge>
                 )}

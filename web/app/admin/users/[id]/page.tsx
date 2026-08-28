@@ -17,10 +17,10 @@ import { useAdminUsers } from "@/hooks/useAdminUsers";
 import { formatDate, timeAgo, type AdminUserDetail, type UserRole } from "@/lib/users";
 
 const roleVariant: Record<string, BadgeVariant> = {
-  provider: "primary",
+  provider: "approved",
   client: "neutral",
-  admin: "amber",
-  pending: "warning",
+  admin: "partially_verified",
+  pending: "pending",
 };
 
 const roleOptions = [

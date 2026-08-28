@@ -38,11 +38,11 @@ export function Table<T>({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+    <div className="overflow-hidden rounded-[16px] border border-border bg-surface">
       <div className="overflow-x-auto">
         <table className="w-full min-w-full text-left">
           <thead className="sticky top-0 bg-bg">
-            <tr>
+            <tr className="h-10">
               {columns.map((column) => (
                 <th
                   key={column.key}
@@ -56,7 +56,7 @@ export function Table<T>({
           <tbody className="divide-y divide-border">
             {loading
               ? Array.from({ length: skeletonRows }).map((_, index) => (
-                  <tr key={`skeleton-${index}`}>
+                  <tr key={`skeleton-${index}`} className="h-13">
                     {columns.map((column) => (
                       <td key={column.key} className={`px-4 py-3 ${column.className ?? ""}`}>
                         <Skeleton className="h-4 w-full max-w-[160px]" />
@@ -73,7 +73,7 @@ export function Table<T>({
                 : rows.map((row, index) => (
                     <tr
                       key={rowKey ? rowKey(row) : index}
-                      className={`${onRowClick ? "cursor-pointer" : ""} odd:bg-bg/40 transition-colors hover:bg-primary-light/40`}
+                      className={`${onRowClick ? "cursor-pointer" : ""} hover:bg-primary-light/40 transition-colors`}
                       onClick={onRowClick ? () => onRowClick(row) : undefined}
                     >
                       {columns.map((column) => (

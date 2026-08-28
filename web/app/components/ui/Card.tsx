@@ -6,7 +6,7 @@ export interface CardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "t
 
 export function Card({ title, subtitle, action, className = "", children, ...rest }: CardProps) {
   return (
-    <div className={`rounded-2xl border border-border bg-surface p-5 ${className}`} {...rest}>
+    <div className={`rounded-[16px] border border-border bg-surface p-5 ${className}`} {...rest}>
       {(title || action) && (
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>

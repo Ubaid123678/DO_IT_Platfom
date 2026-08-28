@@ -1,15 +1,21 @@
-export type BadgeVariant = "primary" | "amber" | "success" | "error" | "warning" | "neutral";
+export type BadgeVariant =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "incomplete"
+  | "partially_verified"
+  | "neutral";
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
 }
 
 const variants: Record<BadgeVariant, string> = {
-  primary: "bg-primary-light text-primary-dark",
-  amber: "bg-amber-light text-amber",
-  success: "bg-success-light text-success",
-  error: "bg-error-light text-error",
-  warning: "bg-warning-light text-warning",
+  pending: "bg-amber-light text-amber",
+  approved: "bg-success-light text-success",
+  rejected: "bg-error-light text-error",
+  incomplete: "bg-border/50 text-text-hint",
+  partially_verified: "bg-amber-light text-amber",
   neutral: "bg-border/50 text-text-hint",
 };
 

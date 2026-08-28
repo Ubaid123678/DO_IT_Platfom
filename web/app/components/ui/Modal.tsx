@@ -41,7 +41,7 @@ export function Modal({ open, onClose, title, children, footer, maxWidth = "max-
     >
       <div
         ref={panelRef}
-        className={`w-full ${maxWidth} rounded-2xl border border-border bg-surface shadow-xl`}
+        className={`w-full ${maxWidth} rounded-[16px] border border-border bg-surface shadow-xl`}
       >
         {title && (
           <div className="flex items-center justify-between border-b border-border px-5 py-4">

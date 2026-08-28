@@ -16,10 +16,10 @@ import { timeAgo, type AdminUser, type UsersResponse } from "@/lib/users";
 const LIMIT = 20;
 
 const roleVariant: Record<string, BadgeVariant> = {
-  provider: "primary",
+  provider: "approved",
   client: "neutral",
-  admin: "amber",
-  pending: "warning",
+  admin: "partially_verified",
+  pending: "pending",
 };
 
 const roleOptions = [

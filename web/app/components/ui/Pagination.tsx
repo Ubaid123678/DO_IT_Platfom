@@ -35,7 +35,7 @@ function PageButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex h-8 min-w-8 items-center justify-center rounded-[10px] px-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:pointer-events-none disabled:opacity-40 ${
+      className={`inline-flex h-10 min-w-10 items-center justify-center rounded-[10px] px-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:pointer-events-none disabled:opacity-40 ${
         active ? "bg-primary text-white" : "text-text-secondary hover:bg-primary-light"
       }`}
     >
