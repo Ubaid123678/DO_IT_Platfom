@@ -25,6 +25,10 @@ interface KycSubmission {
   updatedAt?: string;
 }
 
+interface KycListResponse {
+  submissions: KycSubmission[];
+}
+
 type KycTab = "pending" | "approved" | "rejected" | "all";
 
 const tabs: { key: KycTab; label: string }[] = [
@@ -57,8 +61,9 @@ export default function AdminKycQueuePage() {
     const run = async () => {
       try {
         const query = tab === "all" ? "" : `?status=${tab}`;
-        const data = await call<KycSubmission[]>(`/kyc/admin/submissions${query}`);
+        const response = await call<KycListResponse | KycSubmission[]>(`/kyc/admin/submissions${query}`);
         if (cancelled) return;
+        const data = Array.isArray(response) ? response : response.submissions;
         setSubmissions(Array.isArray(data) ? data : []);
         setError(false);
         setLoading(false);

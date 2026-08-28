@@ -18,6 +18,10 @@ interface KycSubmission {
   createdAt?: string;
 }
 
+interface KycListResponse {
+  submissions: KycSubmission[];
+}
+
 interface VerificationRecord {
   id: string;
   provider?: { fullName?: string; email?: string };
@@ -75,8 +79,9 @@ export default function AdminDashboardPage() {
 
   const loadKyc = async () => {
     try {
-      const data = await call<KycSubmission[]>("/kyc/admin/submissions?status=pending");
-      setKyc({ loading: false, error: false, data });
+      const response = await call<KycListResponse | KycSubmission[]>("/kyc/admin/submissions?status=pending");
+      const data = Array.isArray(response) ? response : response.submissions;
+      setKyc({ loading: false, error: false, data: Array.isArray(data) ? data : [] });
     } catch {
       setKyc((prev) => ({ ...prev, loading: false, error: true }));
     }

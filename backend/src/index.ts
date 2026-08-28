@@ -114,7 +114,8 @@ const bootstrap = async (): Promise<void> => {
     await ensureAdminUser();
     console.log('[auth] Admin credentials are ready.');
   } catch (error) {
-    console.error('[database] Connection failed. Server will start, but DB features may fail.', error);
+    console.error('[database] Connection failed. Backend will not start until MongoDB is reachable.', error);
+    process.exit(1);
   }
 
   try {
