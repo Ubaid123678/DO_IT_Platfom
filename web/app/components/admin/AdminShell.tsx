@@ -17,11 +17,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AdminAuthGuard>
-      <div className="min-h-screen bg-bg">
+      <div className="min-h-screen bg-[#F5F7F7]">
         <AdminSidebar />
         <AdminTopbar />
         <main className="ml-[240px] pt-16">
-          <div className="mx-auto w-full max-w-[1280px] px-8 py-6">{children}</div>
+          <div className="mx-auto max-w-[1280px] px-8 py-8">{children}</div>
         </main>
       </div>
     </AdminAuthGuard>

@@ -52,7 +52,7 @@ export function AdminTopbar({ title }: { title?: string }) {
     .toUpperCase();
 
   return (
-    <header className="fixed inset-x-0 top-0 z-20 ml-[240px] flex h-16 items-center justify-between border-b border-border bg-surface px-8">
+    <header className="fixed inset-x-0 top-0 z-20 ml-[240px] flex h-16 items-center justify-between border-b border-border bg-white px-8">
       <h1 className="text-[18px] font-semibold text-text-primary">
         {title ?? titleForPath(pathname)}
       </h1>
@@ -61,7 +61,7 @@ export function AdminTopbar({ title }: { title?: string }) {
         <button
           type="button"
           onClick={() => setMenuOpen((open) => !open)}
-          className="flex items-center gap-3 rounded-[10px] px-2 py-1.5 transition-colors hover:bg-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          className="flex items-center gap-3 rounded-[10px] px-3 py-2 transition-colors hover:bg-[#F5F7F7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-light text-[13px] font-semibold text-primary-dark">
             {initials}
@@ -73,10 +73,10 @@ export function AdminTopbar({ title }: { title?: string }) {
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-2xl border border-border bg-surface shadow-lg">
+          <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
             <button
               type="button"
-              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-text-secondary transition-colors hover:bg-bg"
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-text-secondary transition-colors hover:bg-[#F5F7F7]"
             >
               <UserRound className="h-4 w-4" />
               Profile
@@ -84,10 +84,10 @@ export function AdminTopbar({ title }: { title?: string }) {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-error transition-colors hover:bg-bg"
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] text-error transition-colors hover:bg-[#F5F7F7]"
             >
               <LogOut className="h-4 w-4" />
-              Logout
+              Log Out
             </button>
           </div>
         )}
