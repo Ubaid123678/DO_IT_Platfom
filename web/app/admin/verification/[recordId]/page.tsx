@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/admin/StatusPill";
-import { EvidenceViewer } from "@/components/admin/EvidenceViewer";
+import { StructuredEvidenceViewer } from "@/components/admin/StructuredEvidenceViewer";
 import { AuditTrailList, type AuditEntry } from "@/components/admin/AuditTrailList";
 import { ReviewActionBar, type ReviewAction } from "@/components/admin/ReviewActionBar";
 import { toast } from "@/components/ui/Toast";
@@ -121,7 +121,7 @@ export default function AdminVerificationDetailPage() {
     return (
       <div className="space-y-5">
         <Skeleton className="h-4 w-56" />
-        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-20 w-full" />
         <Skeleton className="h-64 w-full" />
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-32 w-full" />
@@ -199,13 +199,14 @@ export default function AdminVerificationDetailPage() {
         )}
         {isOverdue && (
           <span className="rounded-full bg-error-light px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-error">
-            Overdue
+            OVERDUE
           </span>
         )}
       </div>
 
-      <Card title="Evidence">
-        <EvidenceViewer
+      {/* EVIDENCE CARD - structured with sub-cards for Photos, Certificates, etc. */}
+<Card title="Evidence">
+        <StructuredEvidenceViewer
           evidencePayload={record.evidence_payload}
           evidenceType={record.evidence_type}
           autoCheckResult={record.auto_check_result}
@@ -213,8 +214,20 @@ export default function AdminVerificationDetailPage() {
       </Card>
 
       {record.auto_check_result && Object.keys(record.auto_check_result).length > 0 && (
-        <Card title="Auto-check">
-          <EvidenceViewer evidencePayload={record.auto_check_result} />
+        <Card title="Auto-check Result">
+          <div className="rounded-xl border border-primary/40 bg-primary-light p-4">
+            <p className="mb-2 text-[13px] font-semibold text-primary-dark">Auto-check Result</p>
+            <div className="divide-y divide-primary/20">
+              {Object.entries(record.auto_check_result).map(([key, value]) => (
+                <div key={key} className="flex justify-between gap-4 py-2">
+                  <span className="text-[13px] font-semibold text-primary-dark">{humanize(key)}</span>
+                  <span className="text-[13px] font-medium text-text-primary">
+                    {typeof value === "boolean" ? (value ? "Pass" : "Fail") : String(value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </Card>
       )}
 

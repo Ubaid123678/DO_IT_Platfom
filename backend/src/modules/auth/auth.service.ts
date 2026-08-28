@@ -86,6 +86,13 @@ const buildAuthTokens = (user: IUser): { accessToken: string; refreshToken: stri
 };
 
 export const authService = {
+  getAdminStats: async (userId: string) => {
+    const user = await UserModel.findById(userId);
+    if (!user) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    if (user.role !== 'admin') throw new AppError('Admin access required', 403, 'FORBIDDEN');
+    return { totalUsers: await UserModel.countDocuments() };
+  },
+
   register: async (input: RegisterInput): Promise<{ user: IUser; emailOtp: string; phoneOtp: string }> => {
     const existingUser = await UserModel.findOne({
       $or: [{ email: input.email.toLowerCase() }, { phone: input.phone }],

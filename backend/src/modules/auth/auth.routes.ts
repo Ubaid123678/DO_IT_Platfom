@@ -16,6 +16,7 @@ authRouter.post('/logout', authController.logout);
 authRouter.post('/forgot-password', authController.forgotPassword);
 authRouter.post('/reset-password', authController.resetPassword);
 authRouter.get('/me', authenticate, authController.me);
+authRouter.get('/admin/stats', authenticate, authController.adminStats);
 authRouter.patch('/me', authenticate, authController.updateMe);
 
 export default authRouter;

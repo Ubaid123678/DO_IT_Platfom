@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ShieldCheck, ClipboardCheck, AlertTriangle, Users, ArrowRight, Info } from "lucide-react";
+import { ShieldCheck, ClipboardCheck, AlertTriangle, Users, ArrowRight } from "lucide-react";
 import { useAdminApi } from "@/hooks/useAdminApi";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -46,6 +46,10 @@ interface SectionState<T> {
   data: T | null;
 }
 
+interface AdminStats {
+  totalUsers: number;
+}
+
 const formatRelativeTime = (iso?: string) => {
   if (!iso) return "—";
   const date = new Date(iso);
@@ -82,6 +86,7 @@ export default function AdminDashboardPage() {
     data: null,
   });
   const [sla, setSla] = useState<SectionState<number>>({ loading: true, error: false, data: null });
+  const [stats, setStats] = useState<SectionState<AdminStats>>({ loading: true, error: false, data: null });
 
   const loadKyc = async () => {
     try {
@@ -117,6 +122,15 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const loadStats = async () => {
+    try {
+      const data = await call<AdminStats>("/auth/admin/stats");
+      setStats({ loading: false, error: false, data });
+    } catch {
+      setStats((prev) => ({ ...prev, loading: false, error: true }));
+    }
+  };
+
   const retryKyc = () => {
     setKyc((prev) => ({ ...prev, loading: true, error: false }));
     loadKyc();
@@ -132,6 +146,7 @@ export default function AdminDashboardPage() {
       loadKyc();
       loadVerification();
       loadSla();
+      loadStats();
     };
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -140,6 +155,7 @@ export default function AdminDashboardPage() {
   const pendingKyc = kyc.data?.length ?? null;
   const pendingVerification = verification.data?.total ?? null;
   const slaOverdue = sla.data ?? null;
+  const totalUsers = stats.data?.totalUsers ?? null;
   const recentKyc = kyc.data?.slice(0, 5) ?? [];
   const recentVerification = verification.data?.records.slice(0, 5) ?? [];
 
@@ -173,12 +189,11 @@ export default function AdminDashboardPage() {
     },
     {
       label: "Total Users",
-      value: "—",
-      loading: false,
+      value: totalUsers,
+      loading: stats.loading,
       icon: Users,
       accent: "bg-text-hint",
       href: "/admin/users",
-      comingSoon: true,
     },
   ];
 
@@ -189,7 +204,7 @@ export default function AdminDashboardPage() {
       {/* STAT CARD ROW */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((card) => (
-          <Link key={card.label} href={card.href} title={card.comingSoon ? "Coming soon" : undefined}>
+          <Link key={card.label} href={card.href}>
             <Card className="group transition-colors hover:border-primary hover:shadow-md hover:-translate-y-0.5 transition-all">
               <div className="flex items-center justify-between">
                 <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">
@@ -205,12 +220,6 @@ export default function AdminDashboardPage() {
                 <p className="mt-3 text-[28px] font-bold text-text-primary">
                   {card.value}
                 </p>
-              )}
-              {card.comingSoon && (
-                <div className="mt-2 flex items-center gap-1">
-                  <Info className="h-3.5 w-3.5 text-text-hint" />
-                  <span className="text-[11px] text-text-hint">Coming soon</span>
-                </div>
               )}
             </Card>
           </Link>

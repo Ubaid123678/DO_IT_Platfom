@@ -181,6 +181,15 @@ export const authController = {
     });
   }),
 
+  adminStats: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.auth) {
+      throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+
+    const stats = await authService.getAdminStats(req.auth.userId);
+    res.status(200).json({ success: true, data: stats });
+  }),
+
   updateMe: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     if (!req.auth) {
       throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
