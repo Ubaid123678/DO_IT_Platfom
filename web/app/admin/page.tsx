@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ShieldCheck, ClipboardCheck, AlertTriangle, Users, ArrowRight } from "lucide-react";
+import { ShieldCheck, ClipboardCheck, AlertTriangle, Users, ArrowRight, Info } from "lucide-react";
 import { useAdminApi } from "@/hooks/useAdminApi";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 interface KycSubmission {
   id: string;
   userId: string;
+  userName?: string;
   userRole?: string;
   status: string;
   documentType?: string;
@@ -45,16 +46,21 @@ interface SectionState<T> {
   data: T | null;
 }
 
-const formatDateTime = (iso?: string) => {
+const formatRelativeTime = (iso?: string) => {
   if (!iso) return "—";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 };
 
 const initials = (name: string) =>
@@ -167,7 +173,7 @@ export default function AdminDashboardPage() {
     },
     {
       label: "Total Users",
-      value: null,
+      value: "—",
       loading: false,
       icon: Users,
       accent: "bg-text-hint",
@@ -180,10 +186,11 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <h1 className="text-[24px] font-bold text-text-primary">Dashboard</h1>
 
+      {/* STAT CARD ROW */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((card) => (
           <Link key={card.label} href={card.href} title={card.comingSoon ? "Coming soon" : undefined}>
-            <Card className="group transition-colors hover:border-primary">
+            <Card className="group transition-colors hover:border-primary hover:shadow-md hover:-translate-y-0.5 transition-all">
               <div className="flex items-center justify-between">
                 <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">
                   {card.label}
@@ -196,31 +203,50 @@ export default function AdminDashboardPage() {
                 <Skeleton className="mt-3 h-8 w-16" />
               ) : (
                 <p className="mt-3 text-[28px] font-bold text-text-primary">
-                  {card.value === null ? (card.comingSoon ? "—" : "…") : card.value}
+                  {card.value}
                 </p>
+              )}
+              {card.comingSoon && (
+                <div className="mt-2 flex items-center gap-1">
+                  <Info className="h-3.5 w-3.5 text-text-hint" />
+                  <span className="text-[11px] text-text-hint">Coming soon</span>
+                </div>
               )}
             </Card>
           </Link>
         ))}
       </div>
 
+      {/* TWO-COLUMN QUICK-ACCESS SECTION */}
       <div className="grid gap-4 lg:grid-cols-2">
+        {/* LEFT: Recent KYC Submissions */}
         <Card
           title="Recent KYC Submissions"
           action={
             <Link href="/admin/kyc?status=pending" className="inline-flex items-center gap-1 text-[13px] font-medium text-primary hover:text-primary-dark">
-              View queue <ArrowRight className="h-3.5 w-3.5" />
+              View all <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           }
         >
           {kyc.loading ? (
             <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, index) => (
+              {Array.from({ length: 5 }).map((_, index) => (
                 <Skeleton key={index} className="h-10 w-full" />
               ))}
             </div>
           ) : kyc.error ? (
-            <SectionError label="Failed to load KYC submissions" onRetry={retryKyc} />
+            <div className="py-4">
+              <div className="flex items-center justify-between gap-3 py-4">
+                <p className="text-[13px] text-text-secondary">Failed to load KYC submissions</p>
+                <button
+                  type="button"
+                  onClick={retryKyc}
+                  className="shrink-0 text-[13px] font-medium text-primary hover:text-primary-dark"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
           ) : recentKyc.length === 0 ? (
             <p className="py-6 text-center text-[13px] text-text-hint">
               No pending KYC submissions — all caught up.
@@ -231,22 +257,23 @@ export default function AdminDashboardPage() {
                 <li key={submission.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-light text-[12px] font-semibold text-primary-dark">
-                      {submission.userId.slice(0, 2).toUpperCase()}
+                      {submission.userName ? initials(submission.userName) : submission.userId.slice(0, 2).toUpperCase()}
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-[13px] font-medium text-text-primary">
-                        {submission.userId}
+                        {submission.userName ?? submission.userId}
                       </p>
                       <p className="text-[12px] text-text-hint">
-                        Submitted {formatDateTime(submission.submittedAt)}
+                        Submitted {formatRelativeTime(submission.submittedAt)}
                       </p>
                     </div>
                   </div>
                   <Link
                     href={`/admin/kyc/${submission.userId}`}
-                    className="shrink-0 text-[13px] font-medium text-primary hover:text-primary-dark"
+                    className="shrink-0 inline-flex items-center gap-1 text-[13px] font-medium text-primary hover:text-primary-dark"
                   >
                     Review
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </li>
               ))}
@@ -254,22 +281,34 @@ export default function AdminDashboardPage() {
           )}
         </Card>
 
+        {/* RIGHT: Recent Verification Records */}
         <Card
           title="Recent Verification Records"
           action={
             <Link href="/admin/verification?status=pending_review" className="inline-flex items-center gap-1 text-[13px] font-medium text-primary hover:text-primary-dark">
-              View queue <ArrowRight className="h-3.5 w-3.5" />
+              View all <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           }
         >
           {verification.loading ? (
             <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, index) => (
+              {Array.from({ length: 5 }).map((_, index) => (
                 <Skeleton key={index} className="h-10 w-full" />
               ))}
             </div>
           ) : verification.error ? (
-            <SectionError label="Failed to load verification records" onRetry={retryVerification} />
+            <div className="py-4">
+              <div className="flex items-center justify-between gap-3 py-4">
+                <p className="text-[13px] text-text-secondary">Failed to load verification records</p>
+                <button
+                  type="button"
+                  onClick={retryVerification}
+                  className="shrink-0 text-[13px] font-medium text-primary hover:text-primary-dark"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
           ) : recentVerification.length === 0 ? (
             <p className="py-6 text-center text-[13px] text-text-hint">
               No pending verification records — all caught up.
@@ -290,13 +329,17 @@ export default function AdminDashboardPage() {
                         {record.skill_item?.name ?? record.category?.name ?? "—"}
                         {record.category?.name ? ` · ${record.category.name}` : ""}
                       </p>
+                      <p className="text-[11px] text-text-hint mt-0.5">
+                        Submitted {formatRelativeTime(record.created_at)}
+                      </p>
                     </div>
                   </div>
                   <Link
                     href={`/admin/verification/${record.id}`}
-                    className="shrink-0 text-[13px] font-medium text-primary hover:text-primary-dark"
+                    className="shrink-0 inline-flex items-center gap-1 text-[13px] font-medium text-primary hover:text-primary-dark"
                   >
                     Review
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </li>
               ))}
