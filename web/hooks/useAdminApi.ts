@@ -1,7 +1,9 @@
 "use client";
 
+import { useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { apiRequest, ApiRequestError, type RequestOptions } from "@/lib/api";
-import { useAdminAuth, type AdminUser } from "./useAdminAuth";
+import { useAdminAuthStore, type AdminUser } from "./useAdminAuth";
 
 interface RefreshResponse {
   user: AdminUser;
@@ -10,9 +12,17 @@ interface RefreshResponse {
 }
 
 export function useAdminApi() {
-  const { token, refreshToken, user, login, logout } = useAdminAuth();
+  const { token, refreshToken, user, login, logout } = useAdminAuthStore(
+    useShallow((state) => ({
+      token: state.token,
+      refreshToken: state.refreshToken,
+      user: state.user,
+      login: state.login,
+      logout: state.logout,
+    })),
+  );
 
-  const refresh = async (): Promise<string> => {
+  const refresh = useCallback(async (): Promise<string> => {
     if (!refreshToken) throw new ApiRequestError("No refresh token", 401);
     const data = await apiRequest<RefreshResponse>("/auth/refresh-token", {
       method: "POST",
@@ -20,11 +30,10 @@ export function useAdminApi() {
     });
     login(data.user, data.accessToken, data.refreshToken);
     return data.accessToken;
-  };
+  }, [login, refreshToken]);
 
-  const call = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
-    const attempt = (tok?: string) =>
-      apiRequest<T>(path, { ...options, token: tok ?? options.token ?? token ?? undefined });
+  const call = useCallback(async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
+    const attempt = (tok?: string) => apiRequest<T>(path, { ...options, token: tok ?? options.token ?? token ?? undefined });
 
     try {
       return await attempt();
@@ -43,7 +52,7 @@ export function useAdminApi() {
       }
       throw err;
     }
-  };
+  }, [logout, refresh, token]);
 
   return { call, token, user, logout };
 }

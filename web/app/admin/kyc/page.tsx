@@ -7,8 +7,9 @@ import { useAdminApi } from "@/hooks/useAdminApi";
 import { Table, type Column } from "@/components/ui/Table";
 import { StatusPill } from "@/components/admin/StatusPill";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { timeAgo } from "@/lib/users";
+import { Button } from "@/components/ui/Button";
 
 interface KycSubmission {
   id: string;
@@ -29,6 +30,13 @@ interface KycListResponse {
   submissions: KycSubmission[];
 }
 
+interface KycCounts {
+  pending: number;
+  approved: number;
+  rejected: number;
+  all: number;
+}
+
 type KycTab = "pending" | "approved" | "rejected" | "all";
 
 const tabs: { key: KycTab; label: string }[] = [
@@ -39,6 +47,7 @@ const tabs: { key: KycTab; label: string }[] = [
 ];
 
 const documentLabels: Record<string, string> = {
+  pass: "Passport",
   passport: "Passport",
   driving_license: "Driving License",
   national_id: "National ID",
@@ -46,6 +55,13 @@ const documentLabels: Record<string, string> = {
 
 const humanizeDocumentType = (value?: string) =>
   value ? (documentLabels[value] ?? value.replace(/_/g, " ")) : "—";
+
+const roleVariants: Record<string, "approved" | "neutral" | "pending" | "partially_verified" | "rejected"> = {
+  provider: "approved",
+  client: "neutral",
+  admin: "partially_verified",
+  pending: "pending",
+};
 
 export default function AdminKycQueuePage() {
   const router = useRouter();
@@ -55,11 +71,34 @@ export default function AdminKycQueuePage() {
   const [submissions, setSubmissions] = useState<KycSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [counts, setCounts] = useState<KycCounts>({ pending: 0, approved: 0, rejected: 0, all: 0 });
 
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       try {
+        // Fetch counts for all statuses
+        const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
+          call<KycListResponse>("/kyc/admin/submissions?status=pending"),
+          call<KycListResponse>("/kyc/admin/submissions?status=approved"),
+          call<KycListResponse>("/kyc/admin/submissions?status=rejected"),
+        ]);
+
+        const pendingData = Array.isArray(pendingRes) ? pendingRes : pendingRes.submissions;
+        const approvedData = Array.isArray(approvedRes) ? approvedRes : approvedRes.submissions;
+        const rejectedData = Array.isArray(rejectedRes) ? rejectedRes : rejectedRes.submissions;
+
+        if (cancelled) return;
+
+        setCounts({
+          pending: pendingData.length,
+          approved: approvedData.length,
+          rejected: rejectedData.length,
+          all: pendingData.length + approvedData.length + rejectedData.length,
+        });
+
+        // Load the current tab's submissions
         const query = tab === "all" ? "" : `?status=${tab}`;
         const response = await call<KycListResponse | KycSubmission[]>(`/kyc/admin/submissions${query}`);
         if (cancelled) return;
@@ -77,7 +116,7 @@ export default function AdminKycQueuePage() {
     return () => {
       cancelled = true;
     };
-  }, [tab, call]);
+  }, [tab, call, retryCount]);
 
   const handleTabChange = (nextTab: KycTab) => {
     setTab(nextTab);
@@ -94,9 +133,6 @@ export default function AdminKycQueuePage() {
       render: (submission) => (
         <div className="min-w-[180px]">
           <p className="text-[14px] font-semibold text-text-primary">{submission.userId}</p>
-          {/* The submissions endpoint does not return name/email. A future backend
-              enhancement could include user summary fields here (e.g. fullName,
-              email) to avoid the extra lookup. */}
           <button
             type="button"
             onClick={(event) => {
@@ -114,7 +150,9 @@ export default function AdminKycQueuePage() {
       key: "role",
       header: "Role",
       render: (submission) => (
-        <span className="text-[13px] text-text-secondary">{submission.userRole ?? "—"}</span>
+        <Badge variant={roleVariants[submission.userRole ?? ""] ?? "neutral"}>
+          {submission.userRole ?? "—"}
+        </Badge>
       ),
     },
     {
@@ -164,16 +202,28 @@ export default function AdminKycQueuePage() {
       <div className="flex flex-wrap gap-2 rounded-2xl border border-border bg-surface p-1.5">
         {tabs.map((item) => {
           const active = item.key === tab;
+          const count = counts[item.key] ?? 0;
           return (
             <button
               key={item.key}
               type="button"
               onClick={() => handleTabChange(item.key)}
               className={`rounded-[10px] px-4 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
-                active ? "bg-primary text-white" : "text-text-secondary hover:bg-primary-light"
+                active
+                  ? "bg-primary text-white"
+                  : "text-text-secondary hover:bg-primary-light"
               }`}
             >
-              {item.label}
+              <span className="flex items-center gap-2">
+                {item.label}
+                {count > 0 && (
+                  <span className={`inline-flex items-center justify-center h-5 min-w-5 rounded-full px-1.5 text-[11px] font-medium ${
+                    active ? "bg-white/20 text-white" : "bg-white/10 text-text-secondary"
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </span>
             </button>
           );
         })}
@@ -189,6 +239,7 @@ export default function AdminKycQueuePage() {
             onClick={() => {
               setLoading(true);
               setError(false);
+              setRetryCount((count) => count + 1);
             }}
           >
             Retry
