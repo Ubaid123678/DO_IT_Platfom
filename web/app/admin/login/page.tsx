@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Shield } from "lucide-react";
 import { apiRequest, ApiRequestError } from "@/lib/api";
 import { useAdminAuth, type AdminUser } from "@/hooks/useAdminAuth";
 import { Button } from "@/components/ui/Button";
@@ -65,35 +65,37 @@ export default function AdminLoginPage() {
     }
   };
 
+  const hasError = error === "invalid" || error === "non-admin" || error === "network";
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-bg px-6 py-12">
+    <main className="flex min-h-screen items-center justify-center bg-[#F5F7F7] px-6 py-12">
       <div className="w-full max-w-[400px]">
+        {/* Header: Shield accent + Wordmark + Admin label */}
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white shadow-lg">
-            <span className="text-xl font-bold">D</span>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white">
+            <Shield className="h-5 w-5" aria-hidden="true" />
           </div>
           <div className="text-center">
-            <h1 className="text-[24px] font-bold text-text-primary">Do It</h1>
-            <p className="mt-0.5 text-[13px] font-medium uppercase tracking-[0.18em] text-primary">
+            <h1 className="text-[24px] font-bold text-[#0D1F1E]">Do It</h1>
+            <p className="mt-0.5 text-[13px] font-medium uppercase tracking-[0.18em] text-[#5B6664]">
               Admin
             </p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-          {error === "invalid" && (
-            <div className="mb-4 rounded-xl border border-error-light bg-error-light px-4 py-3 text-[13px] text-error">
-              Invalid email or password
-            </div>
-          )}
-          {error === "non-admin" && (
-            <div className="mb-4 rounded-xl border border-error-light bg-error-light px-4 py-3 text-[13px] text-error">
-              This account does not have admin access
-            </div>
-          )}
-          {error === "network" && (
-            <div className="mb-4 rounded-xl border border-error-light bg-error-light px-4 py-3 text-[13px] text-error">
-              Something went wrong, please try again
+        {/* Card */}
+        <div className="rounded-2xl border border-hairline bg-white p-6 shadow-sm">
+          {/* Error Banner */}
+          {hasError && (
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-error-light bg-error-light px-4 py-3 text-[13px] text-error">
+              <svg className="h-4 w-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+              <span className="flex-1">
+                {error === "invalid" && "Invalid email or password"}
+                {error === "non-admin" && "This account does not have admin access"}
+                {error === "network" && "Something went wrong, please try again"}
+              </span>
             </div>
           )}
 
@@ -137,8 +139,8 @@ export default function AdminLoginPage() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-[12px] text-text-hint">
-          Internal access only — accounts are provisioned by the platform team.
+        <p className="mt-6 text-center text-[12px] text-[#9AA6A4]">
+          Admin accounts are provisioned by your team.
         </p>
       </div>
     </main>
