@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 
+import config from '../../config/env.js';
 import { AppError } from '../../common/errors/AppError.js';
 import { logAuthAudit } from '../../common/utils/audit.js';
 import { sendEmailOtp, sendPhoneOtp } from '../../common/utils/otpDelivery.js';
@@ -36,6 +37,37 @@ const PASSWORD_RESET_EXPIRY_MS = 60 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 3;
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCK_DURATION_MS = 15 * 60 * 1000;
+
+export const ensureAdminUser = async (): Promise<void> => {
+  const email = config.admin_email.trim().toLowerCase();
+  const passwordHash = await bcrypt.hash(config.admin_password, 12);
+  const existingAdmin = await UserModel.findOne({ email });
+
+  if (existingAdmin) {
+    existingAdmin.fullName = 'Admin User';
+    existingAdmin.passwordHash = passwordHash;
+    existingAdmin.role = 'admin';
+    existingAdmin.phone = config.admin_phone;
+    existingAdmin.countryCode = config.admin_country_code;
+    existingAdmin.emailVerified = true;
+    existingAdmin.phoneVerified = true;
+    existingAdmin.failedLoginAttempts = 0;
+    existingAdmin.lockUntil = undefined;
+    await existingAdmin.save();
+    return;
+  }
+
+  await UserModel.create({
+    fullName: 'Admin User',
+    email,
+    phone: config.admin_phone,
+    passwordHash,
+    role: 'admin',
+    countryCode: config.admin_country_code,
+    emailVerified: true,
+    phoneVerified: true,
+  });
+};
 
 const buildAuthTokens = (user: IUser): { accessToken: string; refreshToken: string } => {
   const accessToken = generateAccessToken({

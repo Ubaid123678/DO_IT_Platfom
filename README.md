@@ -54,6 +54,13 @@ As of 2026-04-10, active implementation is app-first:
 
 ### Backend Setup
 
+Before starting the backend, set `backend/.env` with your MongoDB Atlas connection string:
+
+```bash
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-name>.mongodb.net/do-it-platform?retryWrites=true&w=majority
+MONGODB_DB_NAME=do-it-platform
+```
+
 ```bash
 cd backend
 npm install
@@ -147,7 +154,8 @@ Website paths (scaffold only for now):
 See `.env.example` files in each project directory for required configuration.
 
 For development:
-- Backend uses default MongoDB at localhost:27017
+- Backend uses `MONGODB_URI` from `backend/.env`.
+- For Atlas, use the `mongodb+srv://...` format and whitelist your current IP in MongoDB Atlas Network Access.
 - Redis at localhost:6379
 - All third-party services use dummy keys (replace in staging/production)
 

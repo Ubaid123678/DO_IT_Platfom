@@ -31,6 +31,10 @@ interface Config {
   platform_fee_percent: number;
   cors_origin: string;
   admin_jwt_secret: string;
+  admin_email: string;
+  admin_password: string;
+  admin_phone: string;
+  admin_country_code: string;
   admin_ip_whitelist: string;
   log_level: string;
   otp_debug_mode: boolean;
@@ -65,6 +69,10 @@ const config: Config = {
   platform_fee_percent: parseFloat(process.env.PLATFORM_FEE_PERCENT || '12'),
   cors_origin: process.env.CORS_ORIGIN || '*',
   admin_jwt_secret: process.env.ADMIN_JWT_SECRET || 'change-me',
+  admin_email: process.env.ADMIN_EMAIL || 'admin@do-it.app',
+  admin_password: process.env.ADMIN_PASSWORD || 'Admin@123',
+  admin_phone: process.env.ADMIN_PHONE || '+10000000000',
+  admin_country_code: process.env.ADMIN_COUNTRY_CODE || 'US',
   admin_ip_whitelist: process.env.ADMIN_IP_WHITELIST || '127.0.0.1,::1',
   log_level: process.env.LOG_LEVEL || 'info',
   otp_debug_mode:

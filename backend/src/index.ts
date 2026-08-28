@@ -8,6 +8,7 @@ import { AppError } from './common/errors/AppError.js';
 import { connectDatabase } from './config/database.js';
 import apiRouter from './routes/index.js';
 import { initializeVerificationWorker } from './modules/verification/verification.worker.js';
+import { ensureAdminUser } from './modules/auth/auth.service.js';
 
 // Load environment variables
 dotenv.config();
@@ -110,6 +111,8 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 const bootstrap = async (): Promise<void> => {
   try {
     await connectDatabase();
+    await ensureAdminUser();
+    console.log('[auth] Admin credentials are ready.');
   } catch (error) {
     console.error('[database] Connection failed. Server will start, but DB features may fail.', error);
   }
