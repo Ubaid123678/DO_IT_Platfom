@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Phases
 
-Version: 2.0
-Last updated: 2026-07-24
+Version: 2.1
+Last updated: 2026-08-11 (Phase 3 "What was actually implemented" section added with full detail matching Phase 1 & 2)
 Purpose: Delivery roadmap to build the complete mobile app and shared backend first, then finalize website and admin portal in the final stage.
 
 For a condensed system architecture overview before reading this roadmap, see [LLM_ARCHITECTURE_PACK.md](LLM_ARCHITECTURE_PACK.md).
@@ -251,6 +251,106 @@ Exit Criteria:
 - Admin can review and approve/reject verification records via API
 - Provider dashboard reflects locked/partial/full access based on verification status
 - Auto-verification workers trigger on eligible submissions (credential URLs, platform OAuth)
+
+### What was actually implemented (Phase 3)
+
+Backend (`backend/src/modules/verification/`):
+- **Models** (6): `SkillCategory`, `SkillItem`, `VerificationRecord`, `AdminReview`, `ConnectedAccount`, `ResumeParseResult` with proper indexes, enums, `toJSON` transforms
+- **Validation** (`verification.validation.ts`): Joi schemas for `selectCategories`, `submitEvidence`, `resubmitEvidence`, `updateProfile`, `connectOAuth`, `adminReview`, `adminListQuery`, `queryCategories`, `uploadResume`
+- **Service** (`verification.service.ts`):
+  - Category/skill item listing and selection (flat `{ categories[], skill_items[] }` from mobile)
+  - Evidence submission with SLA calculation and `overall_status` recomputation
+  - Record listing/detail/resubmission
+  - Profile get/update (headline, bio, experience, languages, work_history, education)
+  - Resume upload with parse result tracking
+  - Verification status aggregation (per-category status derivation)
+  - Admin queue listing/review/audit trail with immutable `AdminReview` records
+- **Auto-verification service** (`verification-auto.service.ts`):
+  - `verifyGitHubUsername` — fetches public GitHub profile + repos, analyzes for skill-relevant keywords, computes verification score (0-1), auto-approves at ≥0.7
+  - `verifyCredentialUrl` — HEAD request to verify URL validity (200-399)
+  - `applyAutoVerification` — updates record status + `auto_check_result` based on score
+  - `connectOAuthPlatform` — creates/updates connected accounts, runs GitHub verification inline
+  - `getConnectedAccounts` — lists all connected platform accounts
+- **Bull worker** (`verification.worker.ts`):
+  - `verification` queue with 2 job types: `oauth-verify` and `credential-url-verify`
+  - Graceful fallback: if Redis unavailable, runs inline verification synchronously
+  - Initialized in server bootstrap (`initializeVerificationWorker`)
+- **Controller** (`verification.controller.ts`) — 15 handlers:
+  - `listCategories`, `listSkillItems`, `selectCategories`, `getSelectedCategories`
+  - `submitEvidence`, `listMyRecords`, `getRecordDetail`, `resubmitEvidence`
+  - `getVerificationStatus`, `getProfile`, `updateProfile`, `uploadResume`, `getResumeParseResult`
+  - `connectGithub` (real GitHub verification), `getConnectedAccounts`, `submitEvidenceWithAutoVerify`
+- **Routes** (`verification.routes.ts`) — 16 routes:
+  - Public: `GET /categories`, `GET /categories/:categoryId/skill-items`
+  - Provider: `POST /categories`, `GET /categories`, `GET /verification-status`, `GET/POST /verification-records`, `POST /verification-records/:id/resubmit`, `POST /verification-records/auto-verify`, `GET/PATCH /profile`, `POST /resume/upload`, `GET /resume/parse-result/:id`, `POST /oauth/github/connect`, `GET /oauth/accounts`
+  - Admin: `GET /admin/records`, `GET /admin/records/:id`, `GET /admin/records/:id/audit-trail`, `POST /admin/records/:id/review`
+- **Seed data** (`seed.ts`): 40 categories (20 physical, 20 digital) with 185 skills; run with `npm run seed`
+
+Modified existing backend files:
+- `auth.model.ts` — added provider fields: `categories_selected`, `skill_items_selected`, `overall_status`, headline, bio, languages, work_history, education, resume_file_url, public_profile, `track`, `provider_profile`, `track_data`
+- `upload.ts` — added `handleResumeUpload` middleware (PDF/DOC, 5MB limit); fixed pre-existing TS cast errors
+- `routes/index.ts` — mounted verificationRouter at `/api/v1/providers`
+- `index.ts` — initialized verification worker in bootstrap
+- `kyc.controller.ts` — fixed `return res.json(...)` → `res.json(...); return` for TS asyncHandler compat
+
+Mobile frontend (`mobile/src/components/verification/`, `mobile/app/(provider-verification)/`):
+- **All 11 wizard step components** + navigation infrastructure:
+  1. `CategorySelectionStep` — pick 1-3 categories (no close/back button — user must complete wizard)
+  2. `SkillSelectionStep` — multi-select skills per category
+  3. `EvidenceTypeChoiceStep` — choose cert/prior_work/portfolio/OAuth (skill_test and in_person_test removed)
+  4. `CertificateUploadStep` — camera/gallery + issuing body + credential ID
+  5. `PriorWorkPhotosStep` — 3-10 photos with captions
+  6. `PortfolioLinkStep` — URL + description
+  7. `OauthIntegrationStep` — username input → calls `verificationService.connectGithub()` → shows verification score → continue
+  8. `ResumeBioStep` — PDF upload + manual editor + skip
+  9. `StatusHubScreen` — per-category status badges
+  10. `RejectionDetailScreen` — rejection reason + resubmit CTA
+  11. `BackgroundCheckStep`, `VehicleDocsStep`, `ServiceAreaReferencesStep` — errand Trust Bundle evidence
+- **Infrastructure**:
+  - `VerificationWizardContext.tsx` — 14-action reducer, removed `skill-test` from WizardStep
+  - `verificationService.ts` — `connectGithub(username, skillKeywords)` → `OAuthConnectResult`; `getConnectedAccounts()`; `submitEvidenceWithAutoVerify()`
+  - `(provider-verification)/_layout.tsx` — KYC gate → verification check → AsyncStorage
+  - `(provider-verification)/index.tsx` — step component router
+- **Deleted**: `mobile/src/components/verification/SkillTestStep.tsx`
+
+**Wiring fixes applied**:
+- Fixed URL double-prefix (`/api/v1` in both baseURL and paths)
+- Fixed backend route paths to match mobile URLs
+- Fixed request body shape for selectCategories (mobile sends flat arrays)
+- Fixed response extraction (`.data.categories`, `.data.records`, `.data.record`)
+- Fixed field names (`_id` → `id` across all mobile interfaces, `category_id`/`category_name` in status)
+- Added `active` field to `listCategories` backend response
+- Fixed duplicate route registration (moved selected-categories path)
+- Fixed BackHandler to prevent Android back from navigating to dead screen
+
+Per-track Profile Completion (post-Phase-3 enhancement, `docs/PROFILE_COMPLETION_PER_TRACK.md`):
+- **Backend**:
+  - `auth.model.ts` — added `ProviderTrack`, `LanguageItem`, `AvailabilityWindow`, `ProviderProfile`, `PhysicalTrackData`, `DigitalTrackData`, `ErrandTrackData`, `TrackData` types and `track`/`provider_profile`/`track_data` fields on user document
+  - `verification.validation.ts` — per-track Joi schemas; `updateProfile` accepts nested `{ provider_profile?, track_data? }`
+  - `verification.service.ts` — `resolveProviderTrack` (single-track lock), `computeCompleteness` (required ~60% + optional ~40% scoring), `serializeProviderProfile`, `serializePublicProfile`; rewritten `updateProfile` (off-track rejection, errand transport gate via `errandRequiresVehicle`, errand `service_area` mirrored read-only from verified Trust Bundle); `selectCategories` rejects multi-track selections; `getPublicProfile` with `public_profile` privacy gate; `uploadResumeFile` mirrors resume into `track_data.digital.resume_file_url`
+  - `verification.controller.ts`/`verification.routes.ts` — added `GET /providers/:providerId/public` and `POST /providers/profile/avatar`
+  - `upload.ts` — added avatar upload middleware (images, 10MB, `uploads/avatar`)
+- **Mobile**:
+  - `verificationService.ts` — added new profile/track types, nested `updateProfile`/`getProfile` signatures returning `ProviderProfileResponse`, `getPublicProfile(providerId)`, `uploadAvatar(uri, mimeType)`
+  - `ProfileCompletionStep.tsx` (**new**, replaces `ResumeBioStep`) — universal section (photo upload, headline, bio, city, languages, availability, visibility toggle) + per-track sections (physical: experience/radius/tools/rates/travel; digital: skills/stack/rates/timezone/English/work history/education/resume upload; errand: transport/fees/payload/capabilities with read-only verified service area); skip preserved; live completeness meter
+  - `(provider-verification)/index.tsx` — `review-approved` and `resume-bio` steps now render `ProfileCompletionStep`
+  - `StatusHubScreen.tsx` — added "Profile X% complete" card with missing-fields hint + CTA back into wizard
+  - `(provider)/profile.tsx` — completion nudge card + "Edit Provider Profile" menu row routing to wizard
+  - `(shared)/public-profile/[id].tsx` — fetches real `getPublicProfile` endpoint (falls back to mock data on error)
+- **UI Improvements** (2026-08-11):
+  - Multi-select dropdown modals with search for Languages, Availability days/shifts, Transport mode, Team size, Timezone, English proficiency (replaced chip buttons)
+  - City field made optional for digital track (remote work), required for physical/errand
+
+Verification results:
+- Backend `npx tsc --noEmit` clean
+- Backend `npx vitest run` — 12/12 tests pass
+- Mobile `npx tsc --noEmit` clean
+
+Notes:
+- Public profile viewer still relies on mock reviews/portfolio; real endpoint returns core profile data
+- `profile.tsx` remains largely mock-driven for stats/reviews; only completion nudge and Edit Profile row are live
+- Backend `computeCompleteness` defaults `public_profile = false` — existing providers treated as private until they set it
+- Resume upload still uses multipart transport (candidate for base64 migration if it fails on device)
 
 ---
 
