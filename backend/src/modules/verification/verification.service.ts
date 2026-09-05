@@ -78,7 +78,12 @@ const computeCompleteness = (
   required.push({ label: 'Headline', done: hasValue(profile.headline) });
   required.push({ label: 'Bio', done: hasValue(profile.bio) });
   required.push({ label: 'Languages', done: hasValue(profile.languages) });
-  required.push({ label: 'City', done: hasValue(profile.city) });
+  // City is required for physical (on-site) and errand (service area), but optional for digital (remote work)
+  if (track === 'physical' || track === 'errand') {
+    required.push({ label: 'City', done: hasValue(profile.city) });
+  } else {
+    optional.push({ label: 'City', done: hasValue(profile.city) });
+  }
   required.push({ label: 'Availability', done: hasValue(profile.availability) });
 
   if (track === 'physical') {

@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 2.1
-Last updated: 2026-08-11 (Phase 3 + per-track profile completion complete; avatar persistence fix landed)
+Version: 2.2
+Last updated: 2026-08-11 (Phase 3 + per-track profile completion complete; avatar persistence fix landed; UI improvements: multi-select dropdowns for languages/availability, city optional for digital track)
 Owner: Engineering
 
 ## 1. Purpose
@@ -388,6 +388,8 @@ Notes / follow-ups:
 - Public profile viewer still relies on mock reviews/portfolio; the real endpoint returns core profile data (reviews/portfolio not yet modeled)
 - `profile.tsx` remains largely mock-driven for stats/reviews; only the completion nudge and Edit Profile row are live
 - Backend `computeCompleteness` default `public_profile = false` on the model — existing providers without the field are treated as private until they set it (handled in the new step, which defaults the toggle to visible)
+- **City is now optional for digital track** (remote work doesn't require location), required for physical (on-site) and errand (service area).
+- **Improved UI**: Languages and availability days/shifts now use multi-select dropdown modals with search instead of chip buttons for better UX.
 
 ---
 
@@ -414,6 +416,11 @@ Closed the profile-strength/avatar discrepancies reported on the completion scre
 
 ### Back navigation
 - `(provider-verification)/_layout.tsx` — Android hardware back returns to the dashboard for verified providers who have reached the completion screen once; otherwise closes the app (prevents landing on a dead screen).
+
+### UI improvements (2026-08-11)
+- **Multi-select dropdowns**: Replaced chip-button UI for Languages and Availability days/shifts with searchable modal dropdowns for better UX and scalability.
+- **City optional for digital track**: City field is now optional for digital (remote work) providers, required for physical (on-site) and errand (service area) providers.
+- **Transport mode dropdowns**: Errands & Delivery transport mode and Physical team size now use dropdown selectors.
 
 ### Verification results
 - Backend `npx tsc --noEmit` clean; backend `npx vitest run` — 12/12 tests pass; mobile `npx tsc --noEmit` clean; avatar persistence confirmed via repro.

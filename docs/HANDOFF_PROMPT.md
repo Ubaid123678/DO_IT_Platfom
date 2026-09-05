@@ -39,7 +39,9 @@ What has already been done in this repo:
 - Per-track profile completion (see docs/PROFILE_COMPLETION_PER_TRACK.md):
   - Provider is locked to a single verified track (physical / digital / errand); `updateProfile` rejects off-track data.
   - `computeCompleteness` returns a single server-side completeness % (required ~60% + optional ~40%) that the mobile completion screen displays directly (client-side re-scoring removed).
-  - Universal section (photo, headline, bio, city, languages, availability, visibility toggle) + per-track sections; errand service area is mirrored read-only from the verified Trust Bundle; digital resume upload mirrors into `track_data.digital.resume_file_url`.
+  - **City is now optional for digital track** (remote work doesn't require location), required for physical (on-site) and errand (service area).
+  - Universal section (photo, headline, bio, languages, availability, visibility toggle) + per-track sections; errand service area is mirrored read-only from the verified Trust Bundle; digital resume upload mirrors into `track_data.digital.resume_file_url`.
+  - **Improved UI**: Languages and availability days/shifts now use multi-select dropdown modals with search instead of chip buttons for better UX.
   - Avatar upload is base64 JSON (`mobile/src/services/verificationService.ts` `uploadAvatar` via `expo-file-system/legacy`); backend `uploadAvatar` accepts either multipart or base64 (`req.body.data`); `getMediaUrl` in `mobile/src/services/api.ts` passes through `data:`/`file:` URIs so the avatar renders.
   - Avatar persistence fix (backend verification.service.ts): added `user.markModified('provider_profile')` after in-place mutation of the Mixed path and removed a dead `user.set('avatar_url', ...)` call (not a schema path, silently dropped). Verified with a Mongoose-level repro that a fresh `findById().lean()` now includes `provider_profile.avatar_url`.
   - Android hardware-back on the completion screen returns to the dashboard for verified providers who have reached the completion screen once, otherwise closes the app.

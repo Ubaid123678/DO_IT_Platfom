@@ -2,11 +2,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -42,6 +45,8 @@ const LANGUAGE_NAMES: Record<string, string> = {
   pt: 'Portuguese',
   other: 'Other',
 };
+
+const LANGUAGE_CODES = Object.keys(LANGUAGE_NAMES);
 
 const LABELS: Record<string, string> = {
   on_foot: 'On foot',
@@ -79,7 +84,7 @@ interface FormState {
   city: string;
   avatarUrl: string | null;
   publicProfile: boolean;
-  languages: string[];
+  languages: { code: string; level: 'basic' | 'intermediate' | 'fluent' }[];
   availabilityDays: string[];
   availabilityShifts: string[];
   hoursPerWeek: string;
@@ -112,6 +117,8 @@ interface FormState {
 const emptyWorkHistory = (): WorkHistoryEntry => ({ title: '', company: '', start_date: '', end_date: '', description: '' });
 const emptyEducation = (): EducationEntry => ({ institution: '', degree: '', field: '', start_year: undefined, end_year: undefined });
 
+const emptyLanguage = () => ({ code: '', level: 'fluent' as const });
+
 const toNumber = (v: string): number | undefined => {
   const n = Number(v);
   return Number.isFinite(n) && v.trim().length > 0 ? n : undefined;
@@ -130,6 +137,117 @@ export default function ProfileCompletionStep() {
   const styles = makeStyles(C);
   const { state, dispatch } = useWizard();
   const router = useRouter();
+
+  // Multi-select dropdown component for better UX
+  interface MultiSelectDropdownProps {
+    label: string;
+    options: string[];
+    selected: string[];
+    onSelect: (values: string[]) => void;
+    placeholder?: string;
+    required?: boolean;
+    renderOption?: (option: string) => string;
+  }
+
+  const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
+    label,
+    options,
+    selected,
+    onSelect,
+    placeholder = 'Select...',
+    required = false,
+    renderOption,
+  }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    
+    const filteredOptions = options.filter(opt => 
+      (renderOption ? renderOption(opt) : opt).toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const toggleOption = (option: string) => {
+      const newSelected = selected.includes(option)
+        ? selected.filter(o => o !== option)
+        : [...selected, option];
+      onSelect(newSelected);
+    };
+
+    const selectedLabels = selected.map(opt => renderOption ? renderOption(opt) : opt).join(', ');
+
+    return (
+      <View style={styles.dropdownContainer}>
+        <Text style={styles.fieldLabel}>
+          {label}
+          {required ? <Text style={styles.fieldRequired}> *</Text> : null}
+        </Text>
+        <TouchableOpacity 
+          style={[styles.dropdownTrigger, isOpen && styles.dropdownTriggerOpen]}
+          onPress={() => setIsOpen(!isOpen)}
+        >
+          <View style={styles.dropdownTriggerContent}>
+            <Text style={selected.length > 0 ? styles.dropdownSelectedText : styles.dropdownPlaceholderText}>
+              {selected.length > 0 ? selectedLabels : placeholder}
+            </Text>
+          </View>
+          <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={20} color={C.textSecondary} />
+        </TouchableOpacity>
+        
+        {isOpen && (
+          <Modal 
+            animationType="slide" 
+            transparent 
+            visible={true}
+            onRequestClose={() => setIsOpen(false)}
+          >
+            <View style={styles.modalOverlay} onTouchStart={() => setIsOpen(false)}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{label}</Text>
+                  <TouchableOpacity onPress={() => setIsOpen(false)}>
+                    <Ionicons name="close" size={24} color={C.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.modalSearch}
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus
+                />
+                <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent}>
+                  {filteredOptions.map((option) => (
+                    <TouchableOpacity 
+                      key={option}
+                      style={[styles.modalOption, selected.includes(option) && styles.modalOptionSelected]}
+                      onPress={() => {
+                        toggleOption(option);
+                      }}
+                    >
+                    <View style={styles.modalOptionContent}>
+                      <Text style={styles.modalOptionText}>{renderOption ? renderOption(option) : option}</Text>
+                    </View>
+                    {selected.includes(option) && (
+                      <Ionicons name="checkmark-circle" size={20} color={C.primary} />
+                    )}
+                    </TouchableOpacity>
+                  ))}
+                  {filteredOptions.length === 0 && (
+                    <Text style={styles.modalEmptyText}>No options found</Text>
+                  )}
+                </ScrollView>
+                <TouchableOpacity 
+                  style={styles.modalDoneButton}
+                  onPress={() => setIsOpen(false)}
+                >
+                  <Text style={styles.modalDoneButtonText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
+      </View>
+    );
+  };
 
   const track: ProviderTrack | null = state.isPhysicalCategory
     ? 'physical'
@@ -155,7 +273,7 @@ export default function ProfileCompletionStep() {
     city: '',
     avatarUrl: null,
     publicProfile: true,
-    languages: [],
+    languages: [{ code: 'en', level: 'fluent' }],
     availabilityDays: [],
     availabilityShifts: [],
     hoursPerWeek: '',
@@ -199,9 +317,15 @@ export default function ProfileCompletionStep() {
         const digital = td.digital ?? {};
         const errand = td.errand ?? {};
         if (profile.track) setResolvedTrack(profile.track);
-        const languageCodes = Array.isArray(pp.languages)
-          ? (pp.languages as { code?: string }[]).map((l) => l.code ?? '').filter(Boolean)
-          : [];
+        
+        // Handle languages with levels
+        const savedLanguages = Array.isArray(pp.languages)
+          ? (pp.languages as { code?: string; level?: string }[]).map((l) => ({ 
+              code: l.code ?? '', 
+              level: (l.level as 'basic' | 'intermediate' | 'fluent') ?? 'fluent' 
+            })).filter(l => l.code)
+          : [{ code: 'en', level: 'fluent' } as const];
+        
         const av = pp.availability as { days?: string[]; shifts?: string[]; hours_per_week?: number } | undefined;
         const fallbackAv =
           (td.errand as { working_hours?: { days?: string[]; shifts?: string[]; hours_per_week?: number } } | undefined)?.working_hours ??
@@ -213,7 +337,7 @@ export default function ProfileCompletionStep() {
           city: pp.city ?? '',
           avatarUrl: pp.avatar_url ?? null,
           publicProfile: pp.public_profile ?? true,
-          languages: languageCodes,
+          languages: savedLanguages.length > 0 ? savedLanguages : [{ code: 'en', level: 'fluent' }],
           availabilityDays: effectiveAv?.days ?? [],
           availabilityShifts: effectiveAv?.shifts ?? [],
           hoursPerWeek: effectiveAv?.hours_per_week != null ? String(effectiveAv.hours_per_week) : '',
@@ -301,12 +425,15 @@ export default function ProfileCompletionStep() {
     const providerProfile: Record<string, unknown> = {
       headline: form.headline.trim(),
       bio: form.bio.trim(),
-      city: form.city.trim(),
       public_profile: form.publicProfile,
     };
+    // City is required for physical (on-site) and errand (service area), optional for digital
+    if (form.city.trim() && (effectiveTrack === 'physical' || effectiveTrack === 'errand' || form.city.trim())) {
+      providerProfile.city = form.city.trim();
+    }
     if (form.avatarUrl) providerProfile.avatar_url = form.avatarUrl;
     if (form.languages.length > 0) {
-      providerProfile.languages = form.languages.map((code) => ({ code, level: 'fluent' }));
+      providerProfile.languages = form.languages.map((l) => ({ code: l.code, level: l.level }));
     }
     if (form.availabilityDays.length > 0) {
       providerProfile.availability = {
@@ -392,14 +519,6 @@ export default function ProfileCompletionStep() {
     router.replace('/(provider)/home');
   };
 
-  const toggleChip = (key: 'languages' | 'availabilityDays' | 'availabilityShifts', value: string): void => {
-    setForm((prev) => {
-      const current = prev[key] as string[];
-      const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
-      return { ...prev, [key]: next };
-    });
-  };
-
   const updateWorkHistory = (index: number, field: keyof WorkHistoryEntry, value: string): void => {
     setForm((prev) => {
       const next = prev.workHistory.map((w, i) => (i === index ? { ...w, [field]: value } : w));
@@ -413,19 +532,6 @@ export default function ProfileCompletionStep() {
       return { ...prev, education: next };
     });
   };
-
-  const renderChips = (options: string[], selected: string[], onToggle: (v: string) => void): React.ReactNode => (
-    <View style={styles.chipWrap}>
-      {options.map((opt) => {
-        const active = selected.includes(opt);
-        return (
-          <TouchableOpacity key={opt} onPress={() => onToggle(opt)} style={[styles.chip, active && styles.chipActive]}>
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>{LABELS[opt] ?? opt}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
 
   const renderSectionHeader = (icon: keyof typeof Ionicons.glyphMap, title: string, hint?: string): React.ReactNode => (
     <View style={styles.sectionHeader}>
@@ -529,22 +635,39 @@ export default function ProfileCompletionStep() {
             {renderField('Bio', form.bio, (v) => setField('bio', v), { placeholder: 'Tell clients about your experience and expertise...', multiline: true, required: true, maxLength: 500 })}
           </View>
           <View style={styles.fieldGap}>
-            {renderField('City', form.city, (v) => setField('city', v), { placeholder: 'e.g. Lahore', required: true })}
+            {renderField('City', form.city, (v) => setField('city', v), { 
+              placeholder: 'e.g. Lahore', 
+              required: effectiveTrack === 'physical' || effectiveTrack === 'errand' 
+            })}
           </View>
 
-          <View style={styles.fieldGap}>
-            <Text style={styles.fieldLabel}>Languages <Text style={styles.fieldRequired}>*</Text></Text>
-            {renderChips(Object.keys(LANGUAGE_NAMES), form.languages, (v) => toggleChip('languages', v))}
-          </View>
+          <MultiSelectDropdown
+            label="Languages"
+            options={LANGUAGE_CODES}
+            selected={form.languages.map(l => l.code)}
+            onSelect={(values) => setField('languages', values.map(v => ({ code: v, level: 'fluent' })))}
+            placeholder="Select languages..."
+            required={true}
+            renderOption={(code) => LANGUAGE_NAMES[code] || code}
+          />
 
-          <View style={styles.fieldGap}>
-            <Text style={styles.fieldLabel}>Availability days <Text style={styles.fieldRequired}>*</Text></Text>
-            {renderChips(ALL_DAYS, form.availabilityDays, (v) => toggleChip('availabilityDays', v))}
-          </View>
-          <View style={styles.fieldGap}>
-            <Text style={styles.fieldLabel}>Shifts</Text>
-            {renderChips(ALL_SHIFTS, form.availabilityShifts, (v) => toggleChip('availabilityShifts', v))}
-          </View>
+          <MultiSelectDropdown
+            label="Availability days"
+            options={ALL_DAYS}
+            selected={form.availabilityDays}
+            onSelect={(values) => setField('availabilityDays', values)}
+            placeholder="Select available days..."
+            required={true}
+          />
+
+          <MultiSelectDropdown
+            label="Shifts"
+            options={ALL_SHIFTS}
+            selected={form.availabilityShifts}
+            onSelect={(values) => setField('availabilityShifts', values)}
+            placeholder="Select shifts..."
+            required={false}
+          />
           <View style={styles.fieldGap}>
             {renderField('Hours per week', form.hoursPerWeek, (v) => setField('hoursPerWeek', v), { placeholder: 'e.g. 40', number: true })}
           </View>
@@ -575,19 +698,29 @@ export default function ProfileCompletionStep() {
               {renderField('Hourly rate ($)', form.hourlyRate, (v) => setField('hourlyRate', v), { placeholder: 'e.g. 25', number: true, required: true })}
             </View>
 
-            <View style={styles.fieldGap}>
-              <Text style={styles.fieldLabel}>Team size</Text>
-              {renderChips(TEAM_SIZES, form.teamSize ? [form.teamSize] : [], (v) => setField('teamSize', v))}
-            </View>
+            <MultiSelectDropdown
+              label="Team size"
+              options={TEAM_SIZES}
+              selected={form.teamSize ? [form.teamSize] : []}
+              onSelect={(values) => setField('teamSize', values[0] || '')}
+              placeholder="Select team size..."
+              required={false}
+              renderOption={(size) => LABELS[size] || size}
+            />
 
             {renderBool('Can travel to client', 'Willing to visit client locations within your radius', form.canTravel, (v) => setField('canTravel', v))}
             {renderBool('Have insurance', 'Public liability or work coverage', form.insuranceCovered, (v) => setField('insuranceCovered', v))}
             {renderBool('Have transport', 'You can carry equipment yourself', form.hasTransport, (v) => setField('hasTransport', v))}
             {form.hasTransport && (
-              <View style={styles.fieldGap}>
-                <Text style={styles.fieldLabel}>Transport mode</Text>
-                {renderChips(['bicycle', 'motorbike', 'car'], form.transportMode ? [form.transportMode] : [], (v) => setField('transportMode', v))}
-              </View>
+              <MultiSelectDropdown
+                label="Transport mode"
+                options={['bicycle', 'motorbike', 'car']}
+                selected={form.transportMode ? [form.transportMode] : []}
+                onSelect={(values) => setField('transportMode', values[0] || '')}
+                placeholder="Select transport mode..."
+                required={false}
+                renderOption={(mode) => LABELS[mode] || mode}
+              />
             )}
           </View>
         )}
@@ -609,14 +742,24 @@ export default function ProfileCompletionStep() {
               {renderField('Project rate ($, optional)', form.projectRate, (v) => setField('projectRate', v), { placeholder: 'e.g. 500', number: true })}
             </View>
 
-            <View style={styles.fieldGap}>
-              <Text style={styles.fieldLabel}>Timezone <Text style={styles.fieldRequired}>*</Text></Text>
-              {renderChips(TIMEZONES, form.timezone ? [form.timezone] : [], (v) => setField('timezone', v))}
-            </View>
-            <View style={styles.fieldGap}>
-              <Text style={styles.fieldLabel}>English proficiency <Text style={styles.fieldRequired}>*</Text></Text>
-              {renderChips(ENGLISH_LEVELS, form.englishProficiency ? [form.englishProficiency] : [], (v) => setField('englishProficiency', v))}
-            </View>
+            <MultiSelectDropdown
+              label="Timezone"
+              options={TIMEZONES}
+              selected={form.timezone ? [form.timezone] : []}
+              onSelect={(values) => setField('timezone', values[0] || '')}
+              placeholder="Select timezone..."
+              required={true}
+            />
+
+            <MultiSelectDropdown
+              label="English proficiency"
+              options={ENGLISH_LEVELS}
+              selected={form.englishProficiency ? [form.englishProficiency] : []}
+              onSelect={(values) => setField('englishProficiency', values[0] || '')}
+              placeholder="Select English proficiency..."
+              required={true}
+              renderOption={(level) => LABELS[level] || level}
+            />
 
             <View style={styles.resumeRow}>
               <View style={{ flex: 1 }}>
@@ -701,10 +844,15 @@ export default function ProfileCompletionStep() {
               </View>
             )}
 
-            <View style={styles.fieldGap}>
-              <Text style={styles.fieldLabel}>Transport mode <Text style={styles.fieldRequired}>*</Text></Text>
-              {renderChips(TRANSPORT_MODES, form.transportMode ? [form.transportMode] : [], (v) => setField('transportMode', v))}
-            </View>
+            <MultiSelectDropdown
+              label="Transport mode"
+              options={TRANSPORT_MODES}
+              selected={form.transportMode ? [form.transportMode] : []}
+              onSelect={(values) => setField('transportMode', values[0] || '')}
+              placeholder="Select transport mode..."
+              required={true}
+              renderOption={(mode) => LABELS[mode] || mode}
+            />
             <View style={styles.fieldGap}>
               {renderField('Base fee ($)', form.baseFee, (v) => setField('baseFee', v), { placeholder: 'e.g. 2', number: true, required: true })}
             </View>
@@ -773,6 +921,106 @@ const makeStyles = (C: AppColors) =>
     avatarPlaceholder: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
     avatarTitle: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
     avatarHint: { fontSize: 11, color: C.textHint, marginTop: 2 },
+    dropdownContainer: { marginBottom: 12 },
+    dropdownTrigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: C.inputBg,
+      borderWidth: 1,
+      borderColor: C.inputBorder,
+      borderRadius: 10,
+      height: 48,
+      paddingHorizontal: 12,
+    },
+    dropdownTriggerOpen: {
+      borderColor: C.primary,
+    },
+    dropdownTriggerContent: {
+      flex: 1,
+    },
+    dropdownSelectedText: {
+      fontSize: 14,
+      color: C.textPrimary,
+    },
+    dropdownPlaceholderText: {
+      fontSize: 14,
+      color: C.textHint,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+    },
+    modalContent: {
+      backgroundColor: C.card,
+      borderRadius: 16,
+      maxHeight: '80%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: C.cardBorder,
+    },
+    modalTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: C.textPrimary,
+    },
+    modalSearch: {
+      padding: 16,
+      backgroundColor: C.inputBg,
+      borderRadius: 10,
+      margin: 16,
+      fontSize: 14,
+      color: C.textPrimary,
+    },
+    modalList: {
+      maxHeight: 300,
+    },
+    modalListContent: {
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+    },
+    modalOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: C.cardBorder,
+    },
+    modalOptionSelected: {
+      backgroundColor: C.primaryLight,
+    },
+    modalOptionContent: {
+      flex: 1,
+    },
+    modalOptionText: {
+      fontSize: 14,
+      color: C.textPrimary,
+    },
+    modalEmptyText: {
+      textAlign: 'center',
+      padding: 20,
+      color: C.textHint,
+    },
+    modalDoneButton: {
+      padding: 16,
+      alignItems: 'center',
+      backgroundColor: C.primary,
+      borderBottomLeftRadius: 16,
+      borderBottomRightRadius: 16,
+    },
+    modalDoneButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#fff',
+    },
     resumeRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.inputBg, borderRadius: 12, borderWidth: 1, borderColor: C.inputBorder, padding: 12, marginTop: 14 },
     uploadTitle: { fontSize: 13, fontWeight: '600', color: C.textPrimary },
     uploadHint: { fontSize: 11, color: C.textHint, marginTop: 2 },
