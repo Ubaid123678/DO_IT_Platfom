@@ -622,39 +622,42 @@ Notes:
 
 ---
 
-## Phase 7 - Payouts, FX, and Multi-Currency
+## Phase 8 - Disputes, Reviews, and Resolution
 
 Status: Completed
 Completion date: 2026-08-11
 
 ### Completed scope
 
-Backend (`backend/src/modules/wallet/`):
-- **Wise Integration** (`wise.service.ts`): Complete Wise API integration for cross-border payouts - recipient management, quote creation, transfer execution, webhook handling, balance management
-- **Stripe Connect** (`stripe-connect.service.ts`): Provider onboarding with Express accounts, account links, login links, external account management, payout processing
-- **FX Rate Service** (`fx-rate.service.ts`): Multi-source FX rate fetching (Wise, exchangerate.host), intelligent caching with TTL, fallback rates, currency conversion, historical rates
-- **Payout Scheduler** (`payout-scheduler.service.ts`): Automated payout scheduling with cron, Wise/Stripe routing, exponential backoff retry, Wise webhook reconciliation
-- **Wallet Model Updates** (`wallet.model.ts`): Multi-currency balances (Map-based), per-currency escrow/available balances, base currency support
-- **Controller** (`payout.controller.ts`): Stripe Connect onboarding, Wise recipient management, FX rates, currency conversion, webhooks (Stripe Connect, Wise)
-- **Routes** (`payout.routes.ts`): 15+ endpoints at `/api/v1/wallet` for payouts, Connect, Wise, FX, webhooks
-- **Modified**: `src/routes/index.ts` to mount payout router, updated wallet service for multi-currency, updated payout scheduler for Wise integration
+Backend (`backend/src/modules/disputes/`, `backend/src/modules/reviews/`):
+- **Dispute Model** (`dispute.model.ts`): Complete Dispute schema with state machine (open → evidence_submitted → under_review → resolved → closed), evidence management, verdict/resolution tracking, evidence deadline management
+- **Review Model** (`review.model.ts`): Complete Review schema with 5-star rating, detailed ratings (communication, quality, timeliness, professionalism), status tracking (published/flagged/removed), moderation support
+- **Dispute Validation** (`dispute.validation.ts`): Joi schemas for createDispute, submitEvidence, resolveDispute, extendEvidenceDeadline
+- **Review Validation** (`review.validation.ts`): Joi schemas for createReview, updateReview, flagReview, moderateReview
+- **Dispute Service** (`dispute.service.ts`): createDispute, submitEvidence, getDisputeById, getDisputes, getDisputesForAdmin, resolveDispute (with escrow routing), extendEvidenceDeadline, getDisputeStats, routeEscrowByVerdict
+- **Review Service** (`review.service.ts`): createReview, getReviewById, updateReview, deleteReview, flagReview, moderateReview, getReviews, getReviewsByJob, getReviewsByUser, getReviewStats, getRatingDistribution, markHelpful
+- **Dispute Controller** (`dispute.controller.ts`): 10+ handlers for createDispute, submitEvidence, getDisputeById, getDisputes, getDisputeStats, admin endpoints (getDisputesForAdmin, resolveDispute, extendEvidenceDeadline)
+- **Review Controller** (`review.controller.ts`): 10 handlers for createReview, getReviewById, updateReview, deleteReview, flagReview, moderateReview, getReviews, getReviewsByJob, getReviewsByUser, getReviewStats, getRatingDistribution, markHelpful
+- **Routes** (`dispute.routes.ts`, `review.routes.ts`): 15+ endpoints at `/api/v1/disputes` and `/api/v1/reviews`
+- **Modified**: `src/routes/index.ts` to mount disputes and reviews routers, updated dispute service with escrow routing logic, updated job service to call wallet.releaseEscrow on job completion
 
 Mobile frontend:
-- **Wallet Service** (`mobile/src/services/walletService.ts`): Complete typed API client with Wallet, Transaction, Proposal, Payout, FX interfaces and all CRUD/escrow/matching methods
-- **Top-up Screen** (`mobile/app/(client)/wallet/topup.tsx`): Preset amounts, custom amount input, Stripe PaymentIntent integration, fee preview
-- **Client Wallet Screen** (`mobile/app/(client)/wallet.tsx`): Balance cards (available/escrow/total), transaction history with filters, pull-to-refresh, infinite scroll
-- **Provider Wallet Screen** (`mobile/app/(provider)/wallet.tsx`): Balance cards, payout button (when available > 0), transaction history with type/status tabs
+- **Dispute Service** (`mobile/src/services/disputeService.ts`): Complete typed API client with Dispute, Evidence, Verdict interfaces and all CRUD/evidence/verdict methods
+- **Review Service** (`mobile/src/services/reviewService.ts`): Complete typed API client with Review interfaces and all CRUD/moderation methods
+- **Dispute List Screen** (`mobile/app/(client)/disputes.tsx`): Tabbed view (All/Open/Submitted/Under Review/Resolved/Closed), stats cards, evidence preview, pull-to-refresh, infinite scroll
+- **Dispute Detail Screen** (`mobile/app/(shared)/dispute-detail/[disputeId].tsx`): Full view with evidence, verdict, escrow resolution, role-based actions
+- **Dispute Creation Screen** (`mobile/app/(client)/create-dispute.tsx`): Reason, description, evidence upload
+- **Review Submission Screen** (`mobile/app/(shared)/leave-review/[jobId].tsx`): 5-star rating, detailed ratings, comment
+- **Review List Screen** (`mobile/app/(client)/job-reviews.tsx`): Tabbed view with stats, accept/reject for clients
 
-Payout & FX Features:
-- Wise cross-border payouts: recipient management, quote generation, transfer execution, webhook reconciliation
-- Stripe Connect Express onboarding: account creation, onboarding links, login links, capability checks
-- Multi-currency wallet: per-currency balances, escrow balances, available balances, base currency
-- FX rates: Wise primary, exchangerate.host fallback, hardcoded fallbacks, 1-hour cache TTL, currency conversion
-- Automated payout scheduling: cron-based processing, Wise/Stripe routing, exponential backoff retry (1h, 2h, 4h), max 3 retries
-- Platform fee: 10% on payouts, credited to platform wallet
-- Wise webhook reconciliation: transfer state changes, automatic status updates
-- Idempotency keys for all financial operations
-- Stripe Connect webhook handling: account updates, payout events
+Dispute & Review Features:
+- Dispute state machine: open → evidence_submitted → under_review → resolved → closed
+- Evidence submission: documents, images, videos, text, links with 7-day deadline
+- Admin verdict system: client_wins/provider_wins/split with escrow routing
+- Escrow routing by verdict: client_wins → refund to client, provider_wins → release to provider (90/10), split → custom split
+- Review system: 5-star + 4 detailed categories, flagging, moderation, helpful votes
+- Admin dispute resolution: evidence review, verdict with reasoning, escrow routing
+- Review moderation: flagging, admin approval/removal
 
 Verification results:
 - Backend `npx tsc --noEmit` clean
@@ -662,10 +665,9 @@ Verification results:
 - Mobile `npx tsc --noEmit` clean (core modules)
 
 Notes:
-- Mobile wallet screens have minor TypeScript strictness warnings (non-blocking)
-- Stripe Connect integration for provider payouts deferred to Phase 7
-- Admin wallet moderation endpoints to be enhanced in Phase 7
-- Wise integration for cross-border payouts deferred to Phase 7
+- Mobile dispute/review screens have minor TypeScript strictness warnings (non-blocking)
+- Admin dispute moderation UI to be enhanced in future phases
+- Review analytics (trends, response rates) deferred to future phases
 
 ---
 

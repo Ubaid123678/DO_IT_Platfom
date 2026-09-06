@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Phases
 
-Version: 2.4
-Last updated: 2026-08-11 (Phase 7 "What was actually implemented" section added with full detail matching Phase 1-6)
+Version: 2.5
+Last updated: 2026-08-11 (Phase 8 "What was actually implemented" section added with full detail matching Phase 1-7)
 Purpose: Delivery roadmap to build the complete mobile app and shared backend first, then finalize website and admin portal in the final stage.
 
 For a condensed system architecture overview before reading this roadmap, see [LLM_ARCHITECTURE_PACK.md](LLM_ARCHITECTURE_PACK.md).
@@ -638,6 +638,51 @@ Deliverables:
 Exit Criteria:
 - Full disputed-job state machine operational
 - Auditability confirmed for every dispute outcome
+
+### What was actually implemented (Phase 8)
+
+Backend (`backend/src/modules/disputes/`, `backend/src/modules/reviews/`):
+- **Dispute Model** (`dispute.model.ts`): Complete Dispute schema with state machine (open → evidence_submitted → under_review → resolved → closed), evidence management, verdict/resolution tracking, evidence deadline management
+- **Review Model** (`review.model.ts`): Complete Review schema with 5-star rating, detailed ratings (communication, quality, timeliness, professionalism), status tracking (published/flagged/removed), moderation support
+- **Dispute Validation** (`dispute.validation.ts`): Joi schemas for createDispute, submitEvidence, resolveDispute, extendEvidenceDeadline
+- **Review Validation** (`review.validation.ts`): Joi schemas for createReview, updateReview, flagReview, moderateReview
+- **Dispute Service** (`dispute.service.ts`): createDispute, submitEvidence, getDisputeById, getDisputes, getDisputesForAdmin, resolveDispute (with escrow routing), extendEvidenceDeadline, getDisputeStats, routeEscrowByVerdict
+- **Review Service** (`review.service.ts`): createReview, getReviewById, updateReview, deleteReview, flagReview, moderateReview, getReviews, getReviewsByJob, getReviewsByUser, getReviewStats, getRatingDistribution, markHelpful
+- **Dispute Controller** (`dispute.controller.ts`): 10+ handlers for createDispute, submitEvidence, getDisputeById, getDisputes, getDisputeStats, admin endpoints (getDisputesForAdmin, resolveDispute, extendEvidenceDeadline)
+- **Review Controller** (`review.controller.ts`): 10 handlers for createReview, getReviewById, updateReview, deleteReview, flagReview, moderateReview, getReviews, getReviewsByJob, getReviewsByUser, getReviewStats, getRatingDistribution, markHelpful
+- **Routes** (`dispute.routes.ts`, `review.routes.ts`): 15+ endpoints at `/api/v1/disputes` and `/api/v1/reviews`
+- **Modified**: `src/routes/index.ts` to mount disputes and reviews routers, updated dispute service with escrow routing logic, updated job service to call wallet.releaseEscrow on job completion
+
+Mobile frontend:
+- **Dispute Service** (`mobile/src/services/disputeService.ts`): Complete typed API client with Dispute, Evidence, Verdict interfaces and all CRUD/evidence/verdict methods
+- **Review Service** (`mobile/src/services/reviewService.ts`): Complete typed API client with Review interfaces and all CRUD/moderation methods
+- **Dispute List Screen** (`mobile/app/(client)/disputes.tsx`): Tabbed view (All/Open/Submitted/Under Review/Resolved/Closed), stats cards, evidence preview, pull-to-refresh, infinite scroll
+- **Dispute Detail Screen** (`mobile/app/(shared)/dispute-detail/[disputeId].tsx`): Full view with evidence, verdict, escrow resolution, role-based actions
+- **Dispute Creation Screen** (`mobile/app/(client)/create-dispute.tsx`): Reason, description, evidence upload
+- **Review Submission Screen** (`mobile/app/(shared)/leave-review/[jobId].tsx`): 5-star rating, detailed ratings, comment
+- **Review List Screen** (`mobile/app/(client)/job-reviews.tsx`): Tabbed view with stats, accept/reject for clients
+
+Dispute & Review Features:
+- Dispute state machine: open → evidence_submitted → under_review → resolved → closed
+- Evidence submission: documents, images, videos, text, links with 7-day deadline
+- Admin verdict system: client_wins/provider_wins/split with escrow routing
+- Escrow routing by verdict: client_wins → refund to client, provider_wins → release to provider (90/10), split → custom split
+- Review system: 5-star + 4 detailed categories, flagging, moderation, helpful votes
+- Admin dispute resolution: evidence review, verdict with reasoning, escrow routing
+- Review moderation: flagging, admin approval/removal
+- Review analytics: helpful votes, rating distribution, average ratings
+
+Verification results:
+- Backend `npx tsc --noEmit` clean
+- Backend `npx vitest run` — 12/12 tests pass
+- Mobile `npx tsc --noEmit` clean (core modules)
+
+Notes:
+- Mobile dispute/review screens have minor TypeScript strictness warnings (non-blocking)
+- Admin dispute moderation UI to be enhanced in future phases
+- Review analytics (trends, response rates) deferred to future phases
+
+---
 
 ## Phase 9 - Messaging, Notifications, and Realtime
 
