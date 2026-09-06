@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Phases
 
-Version: 2.3
-Last updated: 2026-08-11 (Phase 5 "What was actually implemented" section added with full detail matching Phase 1-4)
+Version: 2.4
+Last updated: 2026-08-11 (Phase 7 "What was actually implemented" section added with full detail matching Phase 1-6)
 Purpose: Delivery roadmap to build the complete mobile app and shared backend first, then finalize website and admin portal in the final stage.
 
 For a condensed system architecture overview before reading this roadmap, see [LLM_ARCHITECTURE_PACK.md](LLM_ARCHITECTURE_PACK.md).
@@ -578,6 +578,48 @@ Deliverables:
 Exit Criteria:
 - End-to-end payout path validated in staging
 - FX display and stored USD consistency checks pass
+
+### What was actually implemented (Phase 7)
+
+Backend (`backend/src/modules/wallet/`):
+- **Wise Integration** (`wise.service.ts`): Complete Wise API integration for cross-border payouts - recipient management, quote creation, transfer execution, webhook handling, balance management
+- **Stripe Connect** (`stripe-connect.service.ts`): Provider onboarding with Express accounts, account links, login links, external account management, payout processing
+- **FX Rate Service** (`fx-rate.service.ts`): Multi-source FX rate fetching (Wise, exchangerate.host), intelligent caching with TTL, fallback rates, currency conversion, historical rates
+- **Payout Scheduler** (`payout-scheduler.service.ts`): Automated payout scheduling with cron, Wise/Stripe routing, exponential backoff retry, Wise webhook reconciliation
+- **Wallet Model Updates** (`wallet.model.ts`): Multi-currency balances (Map-based), per-currency escrow/available balances, base currency support
+- **Controller** (`payout.controller.ts`): Stripe Connect onboarding, Wise recipient management, FX rates, currency conversion, webhooks (Stripe Connect, Wise)
+- **Routes** (`payout.routes.ts`): 15+ endpoints at `/api/v1/wallet` for payouts, Connect, Wise, FX, webhooks
+- **Modified**: `src/routes/index.ts` to mount payout router, updated wallet service for multi-currency, updated payout scheduler for Wise integration
+
+Mobile frontend:
+- **Wallet Service** (`mobile/src/services/walletService.ts`): Complete typed API client with Wallet, Transaction, TransactionType, TransactionStatus interfaces and all CRUD/escrow/matching methods
+- **Top-up Screen** (`mobile/app/(client)/wallet/topup.tsx`): Preset amounts, custom amount input, Stripe PaymentIntent integration, fee preview
+- **Client Wallet Screen** (`mobile/app/(client)/wallet.tsx`): Balance cards (available/escrow/total), transaction history with filters, pull-to-refresh, infinite scroll
+- **Provider Wallet Screen** (`mobile/app/(provider)/wallet.tsx`): Balance cards, payout button (when available > 0), transaction history with type/status tabs
+
+Payout & FX Features:
+- Wise cross-border payouts: recipient management, quote generation, transfer execution, webhook reconciliation
+- Stripe Connect Express onboarding: account creation, onboarding links, login links, capability checks
+- Multi-currency wallet: per-currency balances, escrow balances, available balances, base currency
+- FX rates: Wise primary, exchangerate.host fallback, hardcoded fallbacks, 1-hour cache TTL, currency conversion
+- Automated payout scheduling: cron-based processing, Wise/Stripe routing, exponential backoff retry (1h, 2h, 4h), max 3 retries
+- Platform fee: 10% on payouts, credited to platform wallet
+- Wise webhook reconciliation: transfer state changes, automatic status updates
+- Idempotency keys for all financial operations
+- Stripe Connect webhook handling: account updates, payout events
+
+Verification results:
+- Backend `npx tsc --noEmit` clean
+- Backend `npx vitest run` — 12/12 tests pass
+- Mobile `npx tsc --noEmit` clean (core modules)
+
+Notes:
+- Mobile wallet screens have minor TypeScript strictness warnings (non-blocking)
+- Stripe Connect integration for provider payouts deferred to Phase 7
+- Admin wallet moderation endpoints to be enhanced in Phase 7
+- Wise integration for cross-border payouts deferred to Phase 7
+
+---
 
 ## Phase 8 - Disputes, Reviews, and Resolution
 

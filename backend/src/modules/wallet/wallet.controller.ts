@@ -141,10 +141,11 @@ export const walletController = {
   // Get payout history
   getPayoutHistory: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = getUserId(req);
-    // This would be implemented similar to getTransactionHistory
+    const query = validate(walletValidators.getTransactionHistory, req.query);
+    const result = await walletService.getPayoutHistory(userId, query);
     res.status(200).json({
       success: true,
-      data: { payouts: [], total: 0 },
+      data: result,
       meta: { message: 'Payout history fetched successfully' },
     });
   }),

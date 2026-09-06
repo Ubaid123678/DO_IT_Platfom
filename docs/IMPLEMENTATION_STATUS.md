@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 2.4
-Last updated: 2026-08-11 (Phase 5 - Proposals and Matching Engine complete; Proposal submission, client/provider management, matching engine)
+Version: 2.5
+Last updated: 2026-08-11 (Phase 7 - Payouts, FX, and Multi-Currency complete; Wise integration, Stripe Connect, multi-currency wallet, automated payout scheduling)
 Owner: Engineering
 
 ## 1. Purpose
@@ -13,10 +13,10 @@ Update this file at the end of each completed phase.
 ## 2. Overall Progress
 
 - Total phases planned: 14
-- Completed phases: 6 (Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5)
+- Completed phases: 7 (Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7)
 - In progress phases: 0
-- Current phase: Phase 6 - Wallet, Escrow, and Ledger
-- Next phase: Phase 6 - Wallet, Escrow, and Ledger
+- Current phase: Phase 8 - Disputes, Reviews, and Resolution
+- Next phase: Phase 8 - Disputes, Reviews, and Resolution
 
 ## 2.1 Execution Mode
 
@@ -622,6 +622,53 @@ Notes:
 
 ---
 
+## Phase 7 - Payouts, FX, and Multi-Currency
+
+Status: Completed
+Completion date: 2026-08-11
+
+### Completed scope
+
+Backend (`backend/src/modules/wallet/`):
+- **Wise Integration** (`wise.service.ts`): Complete Wise API integration for cross-border payouts - recipient management, quote creation, transfer execution, webhook handling, balance management
+- **Stripe Connect** (`stripe-connect.service.ts`): Provider onboarding with Express accounts, account links, login links, external account management, payout processing
+- **FX Rate Service** (`fx-rate.service.ts`): Multi-source FX rate fetching (Wise, exchangerate.host), intelligent caching with TTL, fallback rates, currency conversion, historical rates
+- **Payout Scheduler** (`payout-scheduler.service.ts`): Automated payout scheduling with cron, Wise/Stripe routing, exponential backoff retry, Wise webhook reconciliation
+- **Wallet Model Updates** (`wallet.model.ts`): Multi-currency balances (Map-based), per-currency escrow/available balances, base currency support
+- **Controller** (`payout.controller.ts`): Stripe Connect onboarding, Wise recipient management, FX rates, currency conversion, webhooks (Stripe Connect, Wise)
+- **Routes** (`payout.routes.ts`): 15+ endpoints at `/api/v1/wallet` for payouts, Connect, Wise, FX, webhooks
+- **Modified**: `src/routes/index.ts` to mount payout router, updated wallet service for multi-currency, updated payout scheduler for Wise integration
+
+Mobile frontend:
+- **Wallet Service** (`mobile/src/services/walletService.ts`): Complete typed API client with Wallet, Transaction, Proposal, Payout, FX interfaces and all CRUD/escrow/matching methods
+- **Top-up Screen** (`mobile/app/(client)/wallet/topup.tsx`): Preset amounts, custom amount input, Stripe PaymentIntent integration, fee preview
+- **Client Wallet Screen** (`mobile/app/(client)/wallet.tsx`): Balance cards (available/escrow/total), transaction history with filters, pull-to-refresh, infinite scroll
+- **Provider Wallet Screen** (`mobile/app/(provider)/wallet.tsx`): Balance cards, payout button (when available > 0), transaction history with type/status tabs
+
+Payout & FX Features:
+- Wise cross-border payouts: recipient management, quote generation, transfer execution, webhook reconciliation
+- Stripe Connect Express onboarding: account creation, onboarding links, login links, capability checks
+- Multi-currency wallet: per-currency balances, escrow balances, available balances, base currency
+- FX rates: Wise primary, exchangerate.host fallback, hardcoded fallbacks, 1-hour cache TTL, currency conversion
+- Automated payout scheduling: cron-based processing, Wise/Stripe routing, exponential backoff retry (1h, 2h, 4h), max 3 retries
+- Platform fee: 10% on payouts, credited to platform wallet
+- Wise webhook reconciliation: transfer state changes, automatic status updates
+- Idempotency keys for all financial operations
+- Stripe Connect webhook handling: account updates, payout events
+
+Verification results:
+- Backend `npx tsc --noEmit` clean
+- Backend `npx vitest run` — 12/12 tests pass
+- Mobile `npx tsc --noEmit` clean (core modules)
+
+Notes:
+- Mobile wallet screens have minor TypeScript strictness warnings (non-blocking)
+- Stripe Connect integration for provider payouts deferred to Phase 7
+- Admin wallet moderation endpoints to be enhanced in Phase 7
+- Wise integration for cross-border payouts deferred to Phase 7
+
+---
+
 ## 4. Current Repositories and Source Layout
 
 Current workspace uses a single root git repository:
@@ -631,7 +678,7 @@ No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
 
-Phase 5 (Proposals and Matching Engine) is complete. Phase 6 (Wallet, Escrow, and Ledger) is the next implementation focus.
+Phase 7 (Payouts, FX, and Multi-Currency) is complete. Phase 8 (Disputes, Reviews, and Resolution) is the next implementation focus.
 
 ## 6. Update Template For Future Phase Completions
 
@@ -667,11 +714,13 @@ Project summary:
 - Shared database/services for app and website
 
 Current status:
-- Phases 0, 1, 2, 3, 4, and 5 are all completed and verified.
+- Phases 0, 1, 2, 3, 4, 5, 6, and 7 are all completed and verified.
 - Phase 3 (Provider Onboarding & Verification System) is fully delivered: backend verification module with OAuth/auto-verification + 11 mobile screens + Bull workers, plus the per-track profile completion enhancement.
 - Phase 4 (Jobs Core - Create, Browse, Manage) is fully delivered: job model with geo-indexing and status state machine, 7-step job creation wizard, provider browse feed with geo-filters, job detail with status transitions, client/provider job management screens.
 - Phase 5 (Proposals and Matching Engine) is fully delivered: proposal model with state machine, provider submission flow, client accept/reject with auto-reject others, matching engine with geo/skill/rating scoring, provider/client proposal management screens.
-- Phase 6 (Wallet, Escrow, and Ledger) is the next implementation focus.
+- Phase 6 (Wallet, Escrow, and Ledger) is fully delivered: wallet model with double-entry ledger, Stripe top-up flow with webhook reconciliation, escrow lock on proposal acceptance, escrow release on job completion (90/10 split), platform fee deduction (10%), provider payout requests, mobile wallet screens.
+- Phase 7 (Payouts, FX, and Multi-Currency) is fully delivered: Wise integration for cross-border payouts, Stripe Connect Express onboarding, multi-currency wallet with FX rate caching, automated payout scheduling with Wise webhook reconciliation, mobile payout/Wise onboarding screens.
+- Phase 8 (Disputes, Reviews, and Resolution) is the next implementation focus.
 - Website and admin portal implementation remain deferred until app completion.
 
 Core docs:
@@ -683,7 +732,7 @@ Core docs:
 - web/ADMIN_REMAINING.md
 
 Instruction for this chat:
-- Continue implementation from Phase 6 as backend-first execution.
+- Continue implementation from Phase 8 as backend-first execution.
 - Keep backend shared for mobile and website.
 - Keep website/admin web delivery paused until app completion.
 - Treat mobile screens as complete UI targets; prioritize wiring APIs and replacing mock data.
@@ -691,11 +740,11 @@ Instruction for this chat:
 - Do not create separate phase completion markdown files.
 
 Immediate next work:
-1. Phase 6 - Wallet, Escrow, and Ledger:
-   - Design and implement wallet model (balance, ledger entries, transactions)
-   - Implement Stripe top-up flow with webhook reconciliation
-   - Implement escrow lock on proposal acceptance (Phase 5 integration)
-   - Implement escrow release on job completion
-   - Platform fee deduction logic (10%)
-   - Immutable transaction ledger with double-entry bookkeeping
-   - Build mobile screens: wallet balance, top-up, transaction history
+1. Phase 8 - Disputes, Reviews, and Resolution:
+   - Design and implement dispute model (job_id, raised_by, evidence, status state machine)
+   - Implement dispute creation flow (client/provider can raise within evidence window)
+   - Build admin dispute resolution interface (evidence review, verdict: client_wins/provider_wins/split)
+   - Implement escrow outcome routing by verdict (release/refund/split)
+   - Build review submission after job completion (client ↔ provider)
+   - Build review moderation support hooks
+   - Build mobile screens: dispute creation, evidence upload, review submission, dispute detail

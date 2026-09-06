@@ -778,4 +778,27 @@ try {
       throw error;
     }
   },
+
+  // Get payout history
+  getPayoutHistory: async (userId: string, options: {
+    status?: string;
+    limit?: number;
+    skip?: number;
+  } = {}) => {
+    const filter: any = { providerId: userId };
+    if (options.status) filter.status = options.status;
+
+    const payouts = await PayoutModel.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(options.skip || 0)
+      .limit(options.limit || 20)
+      .lean();
+
+    const total = await PayoutModel.countDocuments(filter);
+
+    return {
+      payouts: payouts.map(serializePayout),
+      total,
+    };
+  },
 };

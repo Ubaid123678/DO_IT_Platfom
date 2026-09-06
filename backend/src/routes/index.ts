@@ -6,6 +6,7 @@ import verificationRouter from '../modules/verification/verification.routes.js';
 import jobsRouter from '../modules/jobs/job.routes.js';
 import proposalsRouter from '../modules/proposals/proposal.routes.js';
 import walletRouter from '../modules/wallet/wallet.routes.js';
+import payoutRouter from '../modules/wallet/payout.routes.js';
 
 const apiRouter = Router();
 
@@ -15,5 +16,6 @@ apiRouter.use('/providers', verificationRouter);
 apiRouter.use('/jobs', jobsRouter);
 apiRouter.use('/proposals', proposalsRouter);
 apiRouter.use('/wallet', walletRouter);
+apiRouter.use('/wallet', payoutRouter);
 
 export default apiRouter;

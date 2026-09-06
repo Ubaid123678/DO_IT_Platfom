@@ -21,14 +21,31 @@ export type LedgerEntryType = 'debit' | 'credit';
 export interface IWallet extends Document {
   userId: mongoose.Types.ObjectId;
   type: WalletType;
-  balance: number; // in USD cents
-  currency: string; // ISO 4217, default 'USD'
-  escrowBalance: number; // funds locked in escrow
-  availableBalance: number; // balance - escrowBalance
+  // Multi-currency balances (stored in cents)
+  balances: Map<string, number>; // currency -> amount in cents
+  // Default/base currency for the wallet
+  baseCurrency: string; // ISO 4217, default 'USD'
+  // Escrow balances per currency
+  escrowBalances: Map<string, number>; // currency -> amount in cents locked in escrow
+  // Available balances per currency (balance - escrow)
+  availableBalances: Map<string, number>; // currency -> amount in cents
   isActive: boolean;
   lastTransactionAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Helper methods for wallet operations
+export interface IWalletMethods {
+  getBalance(currency: string): number;
+  getEscrowBalance(currency: string): number;
+  getAvailableBalance(currency: string): number;
+  setBalance(currency: string, amount: number): void;
+  addBalance(currency: string, amount: number): void;
+  deductBalance(currency: string, amount: number): void;
+  lockEscrow(currency: string, amount: number): void;
+  releaseEscrow(currency: string, amount: number): void;
+  getTotalBalanceInUSD(fxRateService: any): Promise<number>;
 }
 
 export interface ILedgerEntry extends Document {
@@ -50,10 +67,10 @@ export interface ITransaction extends Document {
   walletId: mongoose.Types.ObjectId;
   type: TransactionType;
   status: TransactionStatus;
-  amount: number; // in USD cents (positive for credit, negative for debit from user perspective)
-  currency: string;
-  netAmount: number; // amount after fees
-  feeAmount: number; // platform fee in cents
+  amount: number; // in source currency cents (positive for credit, negative for debit from user perspective)
+  currency: string; // ISO 4217
+  netAmount: number; // amount after fees (in currency cents)
+  feeAmount: number; // platform fee in cents (in currency)
   description: string;
   metadata: {
     stripePaymentIntentId?: string;
@@ -64,6 +81,9 @@ export interface ITransaction extends Document {
     payoutId?: string;
     idempotencyKey?: string;
     failureReason?: string;
+    fxRate?: number; // FX rate used for conversion
+    targetCurrency?: string; // Target currency for cross-currency transactions
+    targetAmount?: number; // Target amount in target currency cents
     [key: string]: any;
   };
   ledgerEntries: mongoose.Types.ObjectId[]; // references to ledger entries
@@ -77,10 +97,10 @@ export interface IPayout extends Document {
   payoutId: string; // unique human-readable ID
   providerId: mongoose.Types.ObjectId;
   walletId: mongoose.Types.ObjectId;
-  amount: number; // in USD cents
-  currency: string;
-  netAmount: number; // after platform fee
-  feeAmount: number;
+  amount: number; // in source currency cents
+  currency: string; // ISO 4217
+  netAmount: number; // after platform fee (in currency cents)
+  feeAmount: number; // platform fee in cents (in currency)
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   wiseTransferId?: string;
   wiseQuoteId?: string;
@@ -106,13 +126,13 @@ const walletSchema = new Schema<IWallet>(
       required: true,
       default: 'user',
     },
-    balance: {
-      type: Number,
-      required: true,
-      default: 0,
-      min: 0,
+    // Multi-currency balances (stored as Map)
+    balances: {
+      type: Map,
+      of: Number,
+      default: {},
     },
-    currency: {
+    baseCurrency: {
       type: String,
       required: true,
       default: 'USD',
@@ -120,16 +140,15 @@ const walletSchema = new Schema<IWallet>(
       minlength: 3,
       maxlength: 3,
     },
-    escrowBalance: {
-      type: Number,
-      required: true,
-      default: 0,
-      min: 0,
+    escrowBalances: {
+      type: Map,
+      of: Number,
+      default: {},
     },
-    availableBalance: {
-      type: Number,
-      required: true,
-      default: 0,
+    availableBalances: {
+      type: Map,
+      of: Number,
+      default: {},
     },
     isActive: {
       type: Boolean,
@@ -139,6 +158,75 @@ const walletSchema = new Schema<IWallet>(
   },
   { timestamps: true }
 );
+
+// Static methods for multi-currency operations
+walletSchema.static('getBalance', async function (this: any, userId: string, currency: string): Promise<number> {
+  const wallet = await this.findOne({ userId });
+  if (!wallet) return 0;
+  return wallet.balances.get(currency) || 0;
+});
+
+walletSchema.static('getEscrowBalance', async function (this: any, userId: string, currency: string): Promise<number> {
+  const wallet = await this.findOne({ userId });
+  if (!wallet) return 0;
+  return wallet.escrowBalances.get(currency) || 0;
+});
+
+walletSchema.static('getAvailableBalance', async function (this: any, userId: string, currency: string): Promise<number> {
+  const wallet = await this.findOne({ userId });
+  if (!wallet) return 0;
+  return wallet.availableBalances.get(currency) || 0;
+});
+
+walletSchema.static('addBalance', async function (this: any, userId: string, currency: string, amount: number): Promise<void> {
+  const wallet = await this.findOne({ userId });
+  if (!wallet) throw new Error('Wallet not found');
+  
+  const current = wallet.balances.get(currency) || 0;
+  wallet.balances.set(currency, current + amount);
+  wallet.availableBalances.set(currency, (wallet.availableBalances.get(currency) || 0) + amount);
+  wallet.lastTransactionAt = new Date();
+  await wallet.save();
+});
+
+walletSchema.static('deductBalance', async function (this: any, userId: string, currency: string, amount: number): Promise<void> {
+  const wallet = await this.findOne({ userId });
+  if (!wallet) throw new Error('Wallet not found');
+  
+  const current = wallet.balances.get(currency) || 0;
+  if (current < amount) throw new Error('Insufficient balance');
+  
+  wallet.balances.set(currency, current - amount);
+  wallet.availableBalances.set(currency, (wallet.availableBalances.get(currency) || 0) - amount);
+  wallet.lastTransactionAt = new Date();
+  await wallet.save();
+});
+
+walletSchema.static('lockEscrow', async function (this: any, userId: string, currency: string, amount: number): Promise<void> {
+  const wallet = await this.findOne({ userId });
+  if (!wallet) throw new Error('Wallet not found');
+  
+  const available = wallet.availableBalances.get(currency) || 0;
+  if (available < amount) throw new Error('Insufficient available balance');
+  
+  wallet.escrowBalances.set(currency, (wallet.escrowBalances.get(currency) || 0) + amount);
+  wallet.availableBalances.set(currency, available - amount);
+  wallet.lastTransactionAt = new Date();
+  await wallet.save();
+});
+
+walletSchema.static('releaseEscrow', async function (this: any, userId: string, currency: string, amount: number): Promise<void> {
+  const wallet = await this.findOne({ userId });
+  if (!wallet) throw new Error('Wallet not found');
+  
+  const escrow = wallet.escrowBalances.get(currency) || 0;
+  if (escrow < amount) throw new Error('Insufficient escrow balance');
+  
+  wallet.escrowBalances.set(currency, escrow - amount);
+  wallet.availableBalances.set(currency, (wallet.availableBalances.get(currency) || 0) + amount);
+  wallet.lastTransactionAt = new Date();
+  await wallet.save();
+});
 
 walletSchema.index({ userId: 1, type: 1 });
 
