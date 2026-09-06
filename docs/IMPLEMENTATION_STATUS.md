@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 2.2
-Last updated: 2026-08-11 (Phase 3 + per-track profile completion complete; avatar persistence fix landed; UI improvements: multi-select dropdowns for languages/availability, city optional for digital track)
+Version: 2.3
+Last updated: 2026-08-11 (Phase 4 - Jobs Core complete; Create, Browse, Manage jobs for client and provider)
 Owner: Engineering
 
 ## 1. Purpose
@@ -13,10 +13,10 @@ Update this file at the end of each completed phase.
 ## 2. Overall Progress
 
 - Total phases planned: 14
-- Completed phases: 4 (Phase 0, Phase 1, Phase 2, Phase 3)
+- Completed phases: 5 (Phase 0, Phase 1, Phase 2, Phase 3, Phase 4)
 - In progress phases: 0
-- Current phase: Phase 4 - Jobs Core (Create, Browse, Manage)
-- Next phase: Phase 4 - Jobs Core (Create, Browse, Manage)
+- Current phase: Phase 5 - Proposals and Matching Engine
+- Next phase: Phase 5 - Proposals and Matching Engine
 
 ## 2.1 Execution Mode
 
@@ -477,11 +477,105 @@ Project summary:
 - Shared backend: Node.js + Express + MongoDB + Redis
 - Shared database/services for app and website
 
+## Phase 4 - Jobs Core (Create, Browse, Manage)
+
+Status: Completed
+Completion date: 2026-08-11
+
+### Completed scope
+
+Backend (`backend/src/modules/jobs/`):
+- **Model** (`job.model.ts`): Complete Job schema with 2dsphere geo-indexing, status state machine (open → in_progress → completed → cancelled → disputed → resolved), budget (fixed/hourly), schedule, requirements, escrow, dispute, review tracking
+- **Validation** (`job.validation.ts`): Joi schemas for createJob, updateJob, browseJobsQuery, jobStatusTransition, clientJobQuery, providerJobQuery
+- **Service** (`job.service.ts`): createJob, getJobById, updateJob, browseJobs (with geo-query, filters, sorting), getClientJobs, getProviderJobs, transitionStatus (with permission checks), assignProvider, incrementApplications, deleteJob, getJobStats, searchJobs
+- **Controller** (`job.controller.ts`): 10 handlers for all endpoints
+- **Routes** (`job.routes.ts`): Mounted at `/api/v1/jobs` with 11 endpoints
+- **Modified**: `src/routes/index.ts` to mount jobs router
+
+Mobile frontend:
+- **Job Service** (`mobile/src/services/jobService.ts`): Complete API client with types for Job, JobType, JobStatus, BudgetType, and all browse/create/manage methods
+- **Job Creation Wizard** (`mobile/src/context/JobCreationContext.tsx` + 7 step components): Multi-step flow (job-type → details → location → budget → schedule → requirements → review) with validation
+- **Job Browse Feed** (`mobile/app/(provider)/browse-jobs.tsx`): Geo-aware feed with filters (type, category, budget, radius, experience), sort options, pull-to-refresh, infinite scroll, stats tabs
+- **Job Detail** (`mobile/app/(shared)/job-detail/[jobId].tsx`): Full job view with status transitions (client/provider actions based on role), provider/client info, schedule, requirements
+- **Client Job Management** (`mobile/app/(client)/my-jobs.tsx`): Tabbed view (All/Open/In Progress/Completed/Cancelled), stats cards, applicant counts, navigation to job detail
+- **Provider Job Management** (`mobile/app/(provider)/browse-jobs.tsx`): Type filter + status tabs, assigned jobs with completion actions
+- **Expo-location** integration for auto-detecting user location in job creation
+
+Job Status State Machine:
+- open → in_progress (provider assigned) → completed (client confirms) | cancelled (client/provider) | disputed
+- completed → disputed (within evidence window)
+- disputed → resolved (admin verdict)
+- Permission-based transitions enforced server-side
+
+Geo Features:
+- 2dsphere index on job location
+- `$near` queries with configurable radius (default 50km)
+- Auto-detect user location via expo-location
+- City/country fallback for non-GPS searches
+
+Verification results:
+- Backend `npx tsc --noEmit` clean
+- Backend `npx vitest run` — 12/12 tests pass
+- Mobile `npx tsc --noEmit` clean
+- Expo-location installed and integrated
+
+Notes:
+- Escrow locking/release delegated to Wallet module (Phase 6)
+- Proposals/Applications module to be built in Phase 5
+- Review submission endpoint to be added in Phase 5
+- Admin job moderation endpoints to be added in Phase 5
+
+---
+
+## 4. Current Repositories and Source Layout
+
+Current workspace uses a single root git repository:
+- DO_IT_Platfom/.git
+
+No nested repositories are used in mobile or web folders.
+
+## 5. Next Planned Work
+
+Phase 4 (Jobs Core - Create, Browse, Manage) is complete. Phase 5 (Proposals and Matching Engine) is the next implementation focus.
+
+## 6. Update Template For Future Phase Completions
+
+Copy this section and append for each completed phase.
+
+Phase X - Name
+- Status: Completed
+- Completion date: YYYY-MM-DD
+- Completed scope:
+  - item 1
+  - item 2
+- What was created:
+  - files
+  - endpoints
+  - components
+- Verification results:
+  - build/test/runtime checks
+- Risks/notes:
+  - open concerns
+- Next phase:
+  - name
+
+## 7. Handoff Prompt (Copy into a new chat)
+
+Use the text below as your complete context handoff prompt for a new chat:
+
+I am continuing the Do It Platform implementation in backend-first mode. Use docs/IMPLEMENTATION_STATUS.md as the source of truth for progress and only append updates there when a phase is completed.
+
+Project summary:
+- Product: global service marketplace connecting clients and providers
+- Frontends: mobile (Expo React Native) and web (Next.js)
+- Shared backend: Node.js + Express + MongoDB + Redis
+- Shared database/services for app and website
+
 Current status:
-- Phases 0, 1, 2, and 3 are all completed and verified.
+- Phases 0, 1, 2, 3, and 4 are all completed and verified.
 - Phase 3 (Provider Onboarding & Verification System) is fully delivered: backend verification module with OAuth/auto-verification + 11 mobile screens + Bull workers, plus the per-track profile completion enhancement.
-- Per-track profile completion follow-up (§3.5.1) is done: base64 avatar upload, Mongoose Mixed-path persistence fix (`markModified`), server-side completeness display, dashboard back-navigation. Remaining Phase 3 work is a manual end-to-end test of the completion screen for the three track types.
-- Phase 4 (Jobs Core) is the next implementation focus.
+- Phase 4 (Jobs Core - Create, Browse, Manage) is fully delivered: job model with geo-indexing and status state machine, 7-step job creation wizard, provider browse feed with geo-filters, job detail with status transitions, client/provider job management screens.
+- Phase 5 (Proposals and Matching Engine) is the next implementation focus.
 - Website and admin portal implementation remain deferred until app completion.
 
 Core docs:
@@ -493,7 +587,7 @@ Core docs:
 - web/ADMIN_REMAINING.md
 
 Instruction for this chat:
-- Continue implementation from Phase 3 as backend-first execution.
+- Continue implementation from Phase 5 as backend-first execution.
 - Keep backend shared for mobile and website.
 - Keep website/admin web delivery paused until app completion.
 - Treat mobile screens as complete UI targets; prioritize wiring APIs and replacing mock data.
@@ -501,12 +595,10 @@ Instruction for this chat:
 - Do not create separate phase completion markdown files.
 
 Immediate next work:
-1. Close the Phase 3 manual test checklist in §3.5.1 (complete/submit the profile completion screen for physical, digital, and errand tracks; confirm persisted avatars and consistent completeness %). Fix any defect found and re-run backend `npx tsc --noEmit` + `npx vitest run` and mobile `npx tsc --noEmit`.
-2. Phase 4 - Jobs Core:
-   - Design and implement job model (physical/digital, location, budget, category, status state machine)
-   - Build client job creation flow (post job with details, budget, schedule)
-   - Build provider browse feed with location/category filters and geo-query support
-   - Implement job status transitions (open → in_progress → completed → cancelled)
-   - Design client job list and detail endpoints
-   - Build mobile screens: job creation form, browse feed, job detail, client job management
+1. Phase 5 - Proposals and Matching Engine:
+   - Design and implement proposal model (job_id, provider_id, bid_amount, cover_letter, status)
+   - Build provider apply flow (submit proposal with bid, cover letter, estimated timeline)
+   - Build client proposal review (view all proposals for a job, accept/reject)
+   - Implement matching algorithm execution (geo + skill + rating + availability)
+   - Build mobile screens: proposal submission, client proposal list, proposal detail, acceptance flow
    - Wire mobile screens to live APIs as they are built

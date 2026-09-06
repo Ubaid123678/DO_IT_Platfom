@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Phases
 
-Version: 2.1
-Last updated: 2026-08-11 (Phase 3 "What was actually implemented" section added with full detail matching Phase 1 & 2)
+Version: 2.2
+Last updated: 2026-08-11 (Phase 4 "What was actually implemented" section added with full detail matching Phase 1-3)
 Purpose: Delivery roadmap to build the complete mobile app and shared backend first, then finalize website and admin portal in the final stage.
 
 For a condensed system architecture overview before reading this roadmap, see [LLM_ARCHITECTURE_PACK.md](LLM_ARCHITECTURE_PACK.md).
@@ -371,6 +371,73 @@ Deliverables:
 Exit Criteria:
 - Jobs can be created, discovered, and managed reliably
 - Location and category filtering validated
+
+### What was actually implemented (Phase 4)
+
+Backend (`backend/src/modules/jobs/`):
+- **Model** (`job.model.ts`): Complete Job schema with 2dsphere geo-indexing, status state machine (open → in_progress → completed → cancelled → disputed → resolved), budget (fixed/hourly), schedule, requirements, escrow, dispute, review tracking, virtual fields for timeUntilStart and duration, instance methods for canBeCancelled and canTransitionTo
+- **Validation** (`job.validation.ts`): Joi schemas for createJob, updateJob, browseJobsQuery, jobStatusTransition, clientJobQuery, providerJobQuery with proper conditional logic
+- **Service** (`job.service.ts`): createJob (with category/skill validation), getJobById (with view count increment), updateJob (open only), browseJobs (geo $near queries, filters, sorting, text search), getClientJobs, getProviderJobs, transitionStatus (permission-based), assignProvider, incrementApplications, deleteJob, getJobStats, searchJobs
+- **Controller** (`job.controller.ts`): 10 handlers — createJob, getJobById, updateJob, browseJobs, getClientJobs, getProviderJobs, transitionStatus, assignProvider, deleteJob, getJobStats, searchJobs
+- **Routes** (`job.routes.ts`): 11 endpoints mounted at `/api/v1/jobs`:
+  - `POST /jobs` — Create job (client only)
+  - `GET /jobs/:jobId` — Get job detail
+  - `PATCH /jobs/:jobId` — Update job (client, open only)
+  - `DELETE /jobs/:jobId` — Delete job (client, open/cancelled only)
+  - `GET /jobs/browse` — Browse with filters (type, category, budget, geo, experience, sort)
+  - `GET /jobs/search` — Text search with filters
+  - `GET /jobs/client` — Client's jobs with status filter
+  - `GET /jobs/provider` — Provider's assigned jobs with type filter
+  - `GET /jobs/client/stats` — Client job statistics
+  - `GET /jobs/provider/stats` — Provider job statistics
+  - `POST /jobs/:jobId/status` — Transition status (permission-based)
+  - `POST /jobs/:jobId/assign-provider` — Assign provider (client/admin)
+- **Modified**: `src/routes/index.ts` to mount jobs router at `/api/v1/jobs`
+
+Mobile frontend:
+- **Job Service** (`mobile/src/services/jobService.ts`): Complete typed API client with Job, JobType, JobStatus, BudgetType interfaces and methods for createJob, getJobById, updateJob, deleteJob, browseJobs, searchJobs, getClientJobs, getProviderJobs, transitionStatus, assignProvider, getJobStats, getProviderJobStats
+- **Job Creation Context** (`mobile/src/context/JobCreationContext.tsx`): Reducer-based state management for 7-step wizard with validation
+- **Job Creation Wizard** (7 step components in `mobile/src/components/jobs/`):
+  1. `JobTypeStep` — Physical/Digital/Errand selection with icons
+  2. `JobDetailsStep` — Title (min 5 chars) + Description (min 20 chars) with char counts
+  3. `JobLocationStep` — Auto-detect via expo-location + manual city/address/country
+  4. `JobBudgetStep` — Fixed vs Hourly toggle, amount/rate/hours inputs with platform fee preview
+  5. `JobScheduleStep` — Flexible toggle, start/end dates, timezone dropdown, preferred days/shifts chips
+  6. `JobRequirementsStep` — Category chips (1-3), experience level, language chips, certification/vehicle checkboxes
+  7. `JobReviewStep` — Full summary with fee breakdown, terms acceptance, submit
+- **Job Browse Feed** (`mobile/app/(provider)/browse-jobs.tsx`): Geo-aware feed with type/category/budget/radius/experience filters, sort (newest/budget/distance/urgency), stats tabs (All/Open/In Progress/Completed/Cancelled), pull-to-refresh, infinite scroll, empty states
+- **Job Detail** (`mobile/app/(shared)/job-detail/[jobId].tsx`): Full view with status badges, budget/schedule/requirements/client/provider info, role-based status actions (client: complete/cancel/dispute; provider: complete/cancel/dispute), bottom action bar
+- **Client Job Management** (`mobile/app/(client)/my-jobs.tsx`): Status tabs with counts, job cards with applicant counts, navigation to detail
+- **Provider Job Management** (`mobile/app/(provider)/browse-jobs.tsx`): Type filter + status tabs, assigned jobs with completion actions
+- **Expo-location** integration for auto-detecting user location in job creation wizard
+
+Job Status State Machine (server-enforced):
+- `open` → `in_progress` (provider assigned) → `completed` (client confirms) | `cancelled` (client/provider) | `disputed`
+- `completed` → `disputed` (within evidence window)
+- `disputed` → `resolved` (admin verdict: client_wins/provider_wins/split)
+- Permission-based transitions: only job owner can cancel open jobs; only assigned provider can start/complete; client confirms completion
+
+Geo Features:
+- 2dsphere index on `job.location` for MongoDB geo queries
+- `$near` queries with configurable radius (default 50km, max 500km)
+- Auto-detect user location via expo-location (high accuracy)
+- City/country fallback for non-GPS searches
+- Distance display in job cards
+
+Verification results:
+- Backend `npx tsc --noEmit` clean
+- Backend `npx vitest run` — 12/12 tests pass
+- Mobile `npx tsc --noEmit` clean
+- Expo-location installed and integrated
+
+Notes:
+- Escrow locking/release delegated to Wallet module (Phase 6)
+- Proposals/Applications module to be built in Phase 5
+- Review submission endpoint to be added in Phase 5
+- Admin job moderation endpoints to be added in Phase 5
+- Matching engine execution triggered on job creation (Phase 5)
+
+---
 
 ## Phase 5 - Proposals and Matching Engine
 

@@ -1,508 +1,346 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   useColorScheme,
+  Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
-import StarRating from '@/src/components/common/StarRating';
-import JobStatusBadge from '@/src/components/job/JobStatusBadge';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { jobService, type Job, type JobStatus } from '@/src/services/jobService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
-type JobStatus = 'open' | 'in_progress' | 'completed' | 'disputed' | 'cancelled';
-type TabKey = 'all' | JobStatus;
-
-type JobItem = {
-  id: string;
-  title: string;
-  category: string;
-  status: JobStatus;
-  location: string;
-  deadline: string;
-  budget: number;
-  proposalsCount: number;
-  providerName?: string;
-  providerRating?: number;
+const STATUS_LABELS: Record<JobStatus, string> = {
+  open: 'Open',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+  disputed: 'Disputed',
+  resolved: 'Resolved',
 };
 
-const tabs: Array<{ key: TabKey; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'open', label: 'Open' },
-  { key: 'in_progress', label: 'In Progress' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'disputed', label: 'Disputed' },
-  { key: 'cancelled', label: 'Cancelled' },
-];
+const JOB_TYPE_LABELS: Record<Job['type'], string> = {
+  physical: 'Physical',
+  digital: 'Digital',
+  errand: 'Errand',
+};
 
-const mockJobs: JobItem[] = [
-  {
-    id: 'j-1001',
-    title: 'Need airport drop tomorrow at 8AM',
-    category: 'Transport',
-    status: 'open',
-    location: 'DHA Phase 6, Lahore',
-    deadline: 'Apr 14, 8:00 AM',
-    budget: 30,
-    proposalsCount: 4,
-  },
-  {
-    id: 'j-1002',
-    title: 'Deep cleaning for 2-bedroom apartment',
-    category: 'Cleaning',
-    status: 'in_progress',
-    location: 'Bahria Town, Lahore',
-    deadline: 'Apr 15, 5:00 PM',
-    budget: 55,
-    proposalsCount: 7,
-    providerName: 'Ahsan R.',
-    providerRating: 4,
-  },
-  {
-    id: 'j-1003',
-    title: 'Modern logo and social media kit design',
-    category: 'Design',
-    status: 'completed',
-    location: 'Remote',
-    deadline: 'Apr 10, 11:59 PM',
-    budget: 120,
-    proposalsCount: 11,
-    providerName: 'Sara K.',
-    providerRating: 5,
-  },
-  {
-    id: 'j-1004',
-    title: 'Urgent package delivery to office',
-    category: 'Delivery',
-    status: 'disputed',
-    location: 'Gulberg, Lahore',
-    deadline: 'Apr 13, 2:00 PM',
-    budget: 20,
-    proposalsCount: 3,
-  },
-  {
-    id: 'j-1005',
-    title: 'Assemble home office desk and chair',
-    category: 'Repair',
-    status: 'cancelled',
-    location: 'Model Town, Lahore',
-    deadline: 'Apr 12, 6:00 PM',
-    budget: 25,
-    proposalsCount: 2,
-  },
-];
+const formatBudget = (budget: Job['budget']): string => {
+  const amount = budget.amount / 100;
+  if (budget.type === 'hourly') {
+    return `$${amount.toFixed(2)}/${budget.hourlyRate}/hr`;
+  }
+  return `$${amount.toFixed(2)} fixed`;
+};
 
-const categoryIconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
-  Transport: 'car-outline',
-  Cleaning: 'sparkles-outline',
-  Delivery: 'cube-outline',
-  Repair: 'build-outline',
-  Design: 'color-palette-outline',
-  Digital: 'laptop-outline',
-  Writing: 'create-outline',
-  Teaching: 'book-outline',
+const getStatusColor = (status: JobStatus, C: AppColors): string => {
+  switch (status) {
+    case 'open':
+      return C.success;
+    case 'in_progress':
+      return C.primary;
+    case 'completed':
+      return C.success;
+    case 'cancelled':
+      return C.error;
+    case 'disputed':
+      return C.warning;
+    case 'resolved':
+      return C.textSecondary;
+    default:
+      return C.textSecondary;
+  }
 };
 
 export default function MyJobsScreen() {
-  const router = useRouter();
   const scheme = useColorScheme();
-  const C = scheme === 'dark' ? Colors.dark : Colors.light;
+  const isDark = scheme === 'dark';
+  const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
+  const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<TabKey>('all');
-  const [jobs, setJobs] = useState<JobItem[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [skip, setSkip] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<JobStatus | 'all'>('all');
+  const [stats, setStats] = useState<Record<JobStatus, number>>({
+    open: 0,
+    in_progress: 0,
+    completed: 0,
+    cancelled: 0,
+    disputed: 0,
+    resolved: 0,
+  });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setJobs(mockJobs);
+  const loadJobs = useCallback(async (reset = false) => {
+    if (reset) {
+      setSkip(0);
+      setJobs([]);
+      setHasMore(true);
+    }
+    if (!hasMore && !reset) return;
+
+    try {
+      const currentSkip = reset ? 0 : skip;
+      const result = await jobService.getClientJobs({
+        status: activeTab === 'all' ? undefined : activeTab,
+        skip: currentSkip,
+        limit: 20,
+      });
+      if (reset) {
+        setJobs(result.jobs);
+      } else {
+        setJobs((prev) => [...prev, ...result.jobs]);
+      }
+      setTotal(result.total);
+      setHasMore(result.jobs.length === 20);
+      setSkip(currentSkip + result.jobs.length);
+      setError(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load jobs';
+      setError(msg);
+    } finally {
       setLoading(false);
-    }, 400);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  }, [activeTab, skip, hasMore]);
 
-    return () => clearTimeout(timer);
+  const loadStats = useCallback(async () => {
+    try {
+      const data = await jobService.getJobStats();
+      setStats(data);
+    } catch {
+      // Ignore
+    }
   }, []);
 
-  const filteredJobs = useMemo(() => {
-    if (activeTab === 'all') {
-      return jobs;
+  useEffect(() => {
+    loadJobs(true);
+    loadStats();
+  }, [activeTab]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadJobs(true);
+    loadStats();
+  }, [loadJobs, loadStats]);
+
+  const onEndReached = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      setLoadingMore(true);
+      loadJobs(false);
     }
+  }, [loadingMore, hasMore, loadJobs]);
 
-    return jobs.filter((job) => job.status === activeTab);
-  }, [activeTab, jobs]);
+  const renderJobCard = ({ item }: { item: Job }) => (
+    <TouchableOpacity style={styles.jobCard} onPress={() => router.push(`/job-detail/${item._id}`)} activeOpacity={0.8}>
+      <View style={styles.cardHeader}>
+        <View style={styles.typeBadgeContainer}>
+          <View style={[styles.typeBadge, { backgroundColor: item.type === 'physical' ? C.primary : item.type === 'digital' ? '#6C5CE7' : '#E17055' }]}>
+            <Text style={styles.typeBadgeText}>{JOB_TYPE_LABELS[item.type]}</Text>
+          </View>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status, C) }]}>
+          <Text style={styles.statusBadgeText}>{STATUS_LABELS[item.status]}</Text>
+        </View>
+      </View>
 
-  const emptySubtitle =
-    activeTab === 'all' || activeTab === 'open'
-      ? 'Start by posting a new job to receive proposals.'
-      : `No jobs found in ${tabs.find((tab) => tab.key === activeTab)?.label ?? 'this'} tab.`;
+      <Text style={styles.jobTitle} numberOfLines={2}>{item.title}</Text>
+
+      <View style={styles.jobMeta}>
+        <View style={styles.metaItem}>
+          <Ionicons name="cash-outline" size={16} color={C.textSecondary} />
+          <Text style={styles.metaText}>{formatBudget(item.budget)}</Text>
+        </View>
+        {item.location.city && (
+          <View style={styles.metaItem}>
+            <Ionicons name="location-outline" size={16} color={C.textSecondary} />
+            <Text style={styles.metaText}>{item.location.city}</Text>
+          </View>
+        )}
+        <View style={styles.metaItem}>
+          <Ionicons name="people-outline" size={16} color={C.textSecondary} />
+          <Text style={styles.metaText}>{item.metadata.applicationsCount} applicants</Text>
+        </View>
+      </View>
+
+      {item.provider.providerId && (
+        <View style={styles.providerInfo}>
+          <Text style={styles.providerLabel}>Assigned Provider</Text>
+          <View style={styles.providerRow}>
+            <View style={styles.providerAvatar}>
+              {item.provider.providerAvatar ? (
+                <Text style={styles.providerAvatarText}>{item.provider.providerName?.[0] || 'P'}</Text>
+              ) : (
+                <Text style={styles.providerAvatarText}>{item.provider.providerName?.[0] || 'P'}</Text>
+              )}
+            </View>
+            <Text style={styles.providerName}>{item.provider.providerName || 'Provider'}</Text>
+          </View>
+        </View>
+      )}
+
+      {item.status === 'open' && item.metadata.applicationsCount > 0 && (
+        <TouchableOpacity style={styles.viewApplicantsBtn} onPress={() => router.push(`/job-detail/${item._id}`)}>
+          <Ionicons name="people-outline" size={16} color={C.primary} />
+          <Text style={styles.viewApplicantsText}>View Details ({item.metadata.applicationsCount} applicants)</Text>
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
+  );
+
+  const getTabLabel = (status: JobStatus | 'all') => {
+    if (status === 'all') return 'All';
+    return STATUS_LABELS[status];
+  };
+
+  const tabs: (JobStatus | 'all')[] = ['all', 'open', 'in_progress', 'completed', 'cancelled'];
+
+  if (loading && jobs.length === 0) {
+    return (
+      <SafeAreaViewCompat style={styles.container}>
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator size="large" color={C.primary} />
+        </View>
+      </SafeAreaViewCompat>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.headerRow}>
+    <SafeAreaViewCompat style={styles.container}>
+      <View style={styles.header}>
         <Text style={styles.headerTitle}>My Jobs</Text>
-        <TouchableOpacity>
-          <Ionicons name="options-outline" size={24} color={C.textPrimary} />
+        <TouchableOpacity onPress={() => router.push('/post-job')}>
+          <Ionicons name="add-circle-outline" size={28} color={C.primary} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabsScroll}
-        contentContainerStyle={styles.tabsContent}
-      >
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.key;
+      {/* Stats Row */}
+      <ScrollView horizontal contentContainerStyle={styles.statsContainer} showsHorizontalScrollIndicator={false}>
+        {(['all', 'open', 'in_progress', 'completed', 'cancelled'] as const).map((status) => {
+          const count = status === 'all' ? total : stats[status] || 0;
           return (
             <TouchableOpacity
-              key={tab.key}
-              style={[styles.tabItem, isActive ? styles.tabItemActive : null]}
-              onPress={() => setActiveTab(tab.key)}
+              key={status}
+              style={[
+                styles.statTab,
+                activeTab === status && styles.statTabActive,
+              ]}
+              onPress={() => setActiveTab(status)}
             >
-              <Text style={[styles.tabText, isActive ? styles.tabTextActive : styles.tabTextInactive]}>
-                {tab.label}
-              </Text>
+              <Text style={[styles.statTabLabel, activeTab === status && styles.statTabLabelActive]}>{getTabLabel(status)}</Text>
+              <Text style={[styles.statTabCount, activeTab === status && styles.statTabCountActive]}>{count}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {loading ? (
-        <View style={styles.loaderWrap}>
-          <ActivityIndicator size="large" color={C.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={filteredJobs}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          renderItem={({ item }) => {
-            const categoryIcon = categoryIconMap[item.category] ?? 'briefcase-outline';
-            const showProviderRow = item.status === 'in_progress' || item.status === 'completed';
-
-            return (
-              <TouchableOpacity
-                style={styles.jobCard}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(client)/job-detail/[id]',
-                    params: { id: item.id },
-                  })
-                }
-              >
-                <View style={styles.cardTopRow}>
-                  <View style={styles.categoryRow}>
-                    <Ionicons name={categoryIcon} size={18} color={C.primary} />
-                    <Text style={styles.categoryText}>{item.category}</Text>
-                  </View>
-                  <JobStatusBadge status={item.status} />
-                </View>
-
-                <Text style={styles.jobTitle} numberOfLines={2}>
-                  {item.title}
-                </Text>
-
-                <View style={styles.metaRow}>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="location-outline" size={14} color={C.textHint} />
-                    <Text style={styles.metaText}>{item.location}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="calendar-outline" size={14} color={C.textHint} />
-                    <Text style={styles.metaText}>{item.deadline}</Text>
-                  </View>
-                </View>
-
-                <Text style={styles.budgetText}>{`$${item.budget.toFixed(2)}`}</Text>
-
-                {showProviderRow ? (
-                  <View style={styles.providerRow}>
-                    <View style={styles.providerAvatar}>
-                      <Text style={styles.providerAvatarText}>
-                        {item.providerName?.slice(0, 1).toUpperCase() ?? 'P'}
-                      </Text>
-                    </View>
-                    <Text style={styles.providerName}>{item.providerName ?? 'Assigned Provider'}</Text>
-                    <StarRating rating={item.providerRating ?? 0} size={12} />
-                  </View>
-                ) : null}
-
-                <View style={styles.cardBottomRow}>
-                  {item.status === 'open' ? (
-                    <View style={styles.proposalsBadge}>
-                      <Text style={styles.proposalsText}>{`${item.proposalsCount} Proposals`}</Text>
-                    </View>
-                  ) : item.status === 'in_progress' ? (
-                    <Text style={styles.inProgressText}>In Progress</Text>
-                  ) : (
-                    <View />
-                  )}
-
-                  <TouchableOpacity style={styles.viewButton}>
-                    <Text style={styles.viewButtonText}>View</Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="briefcase-outline" size={36} color={C.primary} />
-              </View>
+      <FlatList
+        data={jobs}
+        renderItem={renderJobCard}
+        keyExtractor={(item) => item._id}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.5}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="briefcase-outline" size={48} color={C.textHint} />
               <Text style={styles.emptyTitle}>No jobs yet</Text>
-              <Text style={styles.emptySubtitle}>{emptySubtitle}</Text>
-              {activeTab === 'all' || activeTab === 'open' ? (
-                <TouchableOpacity
-                  style={styles.emptyActionButton}
-                  onPress={() => router.push('/(client)/post-job')}
-                >
+              <Text style={styles.emptySubtitle}>
+                {activeTab === 'all' ? 'Create your first job to get started' : `No ${getTabLabel(activeTab).toLowerCase()} jobs`}
+              </Text>
+              {activeTab === 'all' && (
+                <TouchableOpacity style={styles.emptyActionBtn} onPress={() => router.push('/post-job')}>
                   <Text style={styles.emptyActionText}>Post a Job</Text>
                 </TouchableOpacity>
-              ) : null}
+              )}
             </View>
-          }
-        />
-      )}
+          ) : null
+        }
+      />
 
-      <TouchableOpacity style={styles.fab} onPress={() => router.push('/(client)/post-job')}>
-        <Ionicons name="add" size={28} color="white" />
-      </TouchableOpacity>
-    </SafeAreaView>
+      {loadingMore && (
+        <View style={styles.loadMoreWrapper}>
+          <ActivityIndicator size="small" color={C.primary} />
+        </View>
+      )}
+    </SafeAreaViewCompat>
   );
 }
 
 const makeStyles = (C: AppColors) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: C.background,
-    },
-    headerRow: {
+    container: { flex: 1, backgroundColor: C.background },
+    loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 20,
-      paddingTop: 8,
-      paddingBottom: 10,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: C.divider,
     },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: C.textPrimary,
-    },
-    tabsScroll: {
-      backgroundColor: C.card,
-      borderBottomWidth: 0.5,
-      borderBottomColor: C.navBorder,
-    },
-    tabsContent: {
-      paddingHorizontal: 8,
-    },
-    tabItem: {
+    headerTitle: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
+    statsContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8 },
+    statTab: {
       paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderBottomWidth: 0,
-      borderBottomColor: C.primary,
-    },
-    tabItemActive: {
-      borderBottomWidth: 2,
-    },
-    tabText: {
-      fontSize: 13,
-    },
-    tabTextActive: {
-      fontWeight: '600',
-      color: C.primary,
-    },
-    tabTextInactive: {
-      fontWeight: '400',
-      color: C.textSecondary,
-    },
-    loaderWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    listContent: {
-      paddingHorizontal: 20,
-      paddingTop: 12,
-      paddingBottom: 100,
-    },
-    separator: {
-      height: 12,
-    },
-    jobCard: {
+      paddingVertical: 10,
+      borderRadius: 20,
       backgroundColor: C.card,
-      borderRadius: 16,
       borderWidth: 1,
       borderColor: C.cardBorder,
-      padding: 16,
-    },
-    cardTopRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: 10,
-    },
-    categoryRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      flexShrink: 1,
-    },
-    categoryText: {
-      fontSize: 12,
-      color: C.primary,
-      fontWeight: '500',
-    },
-    jobTitle: {
-      marginTop: 8,
-      fontSize: 16,
-      fontWeight: '600',
-      color: C.textPrimary,
-    },
-    metaRow: {
-      marginTop: 6,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 16,
-    },
-    metaItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    metaText: {
-      fontSize: 12,
-      color: C.textSecondary,
-    },
-    budgetText: {
-      marginTop: 8,
-      fontSize: 18,
-      fontWeight: '700',
-      color: C.primary,
-    },
-    providerRow: {
-      marginTop: 8,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    providerAvatar: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      backgroundColor: C.primaryLight,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    providerAvatarText: {
-      color: C.primary,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    providerName: {
-      fontSize: 13,
-      color: C.textPrimary,
-      fontWeight: '500',
-      marginRight: 4,
-    },
-    cardBottomRow: {
-      marginTop: 12,
-      paddingTop: 12,
-      borderTopWidth: 1,
-      borderTopColor: C.divider,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+      minWidth: 80,
       alignItems: 'center',
     },
-    proposalsBadge: {
-      borderRadius: 20,
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-      backgroundColor: C.primaryLight,
-    },
-    proposalsText: {
-      fontSize: 12,
-      color: C.primary,
-      fontWeight: '600',
-    },
-    inProgressText: {
-      fontSize: 12,
-      color: C.amber,
-      fontWeight: '500',
-    },
-    viewButton: {
-      height: 36,
-      borderRadius: 8,
-      backgroundColor: C.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 12,
-    },
-    viewButtonText: {
-      color: 'white',
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    emptyWrap: {
-      alignItems: 'center',
-      marginTop: 60,
-      paddingHorizontal: 20,
-    },
-    emptyIconCircle: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: C.primaryLight,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    emptyTitle: {
-      marginTop: 16,
-      fontSize: 18,
-      fontWeight: '600',
-      color: C.textPrimary,
-    },
-    emptySubtitle: {
-      marginTop: 6,
-      fontSize: 14,
-      color: C.textSecondary,
-      textAlign: 'center',
-      lineHeight: 20,
-    },
-    emptyActionButton: {
-      marginTop: 20,
-      height: 44,
-      borderRadius: 12,
-      backgroundColor: C.primary,
-      paddingHorizontal: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    emptyActionText: {
-      color: 'white',
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    fab: {
-      position: 'absolute',
-      right: 20,
-      bottom: 24,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: C.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+    statTabActive: { backgroundColor: C.primary, borderColor: C.primary },
+    statTabLabel: { fontSize: 12, fontWeight: '600', color: C.textSecondary },
+    statTabLabelActive: { color: '#fff' },
+    statTabCount: { fontSize: 11, color: C.textHint, marginTop: 2 },
+    statTabCountActive: { color: 'rgba(255,255,255,0.8)' },
+    jobCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 12, marginHorizontal: 20 },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+    typeBadgeContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    typeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+    typeBadgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    statusBadgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
+    jobTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 8 },
+    jobMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 12 },
+    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    metaText: { fontSize: 12, fontWeight: '500', color: C.textSecondary },
+    providerInfo: { paddingTop: 8, borderTopWidth: 1, borderTopColor: C.divider, marginTop: 8 },
+    providerLabel: { fontSize: 11, color: C.textHint, marginBottom: 6 },
+    providerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    providerAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center' },
+    providerAvatarText: { fontSize: 12, fontWeight: '600', color: C.primary },
+    providerName: { fontSize: 13, fontWeight: '600', color: C.textPrimary },
+    viewApplicantsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, marginTop: 12, paddingHorizontal: 16, borderRadius: 20, backgroundColor: C.primaryLight, borderWidth: 1, borderColor: C.primary },
+    viewApplicantsText: { fontSize: 12, fontWeight: '600', color: C.primary },
+    listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+    emptyTitle: { fontSize: 16, fontWeight: '600', color: C.textPrimary, marginTop: 16 },
+    emptySubtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', marginTop: 8 },
+    emptyActionBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: C.primary, borderRadius: 12 },
+    emptyActionText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+    loadMoreWrapper: { padding: 20, alignItems: 'center' },
   });
