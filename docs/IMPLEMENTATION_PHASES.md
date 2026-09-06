@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Phases
 
-Version: 2.2
-Last updated: 2026-08-11 (Phase 4 "What was actually implemented" section added with full detail matching Phase 1-3)
+Version: 2.3
+Last updated: 2026-08-11 (Phase 5 "What was actually implemented" section added with full detail matching Phase 1-4)
 Purpose: Delivery roadmap to build the complete mobile app and shared backend first, then finalize website and admin portal in the final stage.
 
 For a condensed system architecture overview before reading this roadmap, see [LLM_ARCHITECTURE_PACK.md](LLM_ARCHITECTURE_PACK.md).
@@ -456,6 +456,51 @@ Deliverables:
 Exit Criteria:
 - One accepted provider per job rule enforced
 - Matching and proposal workflow stable under load tests
+
+### What was actually implemented (Phase 5)
+
+Backend (`backend/src/modules/proposals/`):
+- **Model** (`proposal.model.ts`): Complete Proposal schema with compound indexes (jobId+providerId unique), status state machine (submitted → accepted|rejected|withdrawn|expired), bid types (fixed/hourly), virtual fields for bidTotal, instance methods for accept/reject/withdraw
+- **Validation** (`proposal.validation.ts`): Joi schemas for createProposal, updateProposal, proposalQuery, clientProposalAction
+- **Service** (`proposal.service.ts`): createProposal (with category verification), getProposalById, getProposalsForJob (client), getProviderProposals, acceptProposal (auto-rejects others), rejectProposal, withdrawProposal, getJobProposalStats, expireOldProposals
+- **Controller** (`proposal.controller.ts`): 9 handlers for all endpoints
+- **Routes** (`proposal.routes.ts`): 10 endpoints mounted at `/api/v1/proposals` including matching endpoints
+- **Matching Engine** (`matching.service.ts`): Geo-aware provider matching with skill overlap, rating, availability, distance scoring; auto-match with notification support
+- **Modified**: `src/routes/index.ts` to mount proposals router at `/api/v1/proposals`
+
+Mobile frontend:
+- **Proposal Service** (`mobile/src/services/proposalService.ts`): Complete typed API client with Proposal, ProposalStatus, BidType interfaces and all CRUD/matching methods
+- **Proposal Submission** (`mobile/app/(provider)/submit-proposal/[jobId].tsx`): Fixed vs Hourly bid toggle, amount/rate/hours inputs with platform fee preview, cover letter, timeline
+- **Client Proposal Management** (`mobile/app/(client)/job-proposals/[jobId].tsx`): Tabbed view (All/Submitted/Accepted/Rejected/Withdrawn), stats cards, accept/reject actions with auto-reject others
+- **Provider Proposal Management** (`mobile/app/(provider)/my-proposals.tsx`): Status tabs, withdraw action, bid/timeline preview
+- **Proposal Detail** (`mobile/app/(shared)/proposal-detail/[proposalId].tsx`): Full view with bid breakdown, cover letter, provider/client info, role-based actions (client: accept/reject; provider: withdraw)
+- **Matching Engine Integration**: Client can trigger matching from job proposals screen
+
+Proposal Status State Machine:
+- submitted → accepted (client, auto-rejects others) | rejected (client) | withdrawn (provider) | expired (system)
+- Acceptance triggers job assignment and transitions job to in_progress
+- All transitions permission-enforced server-side
+
+Matching Engine Features:
+- Provider filtering by verified categories, skills, rating, availability
+- Geo-distance filtering with service radius for physical/errand jobs
+- Skill overlap scoring (0-100) based on job requirements vs provider skills
+- Match score combines skill overlap (40%), rating (25%), category match (20%), availability (15%)
+- Configurable radius, rating threshold, result limits
+- Auto-match with notification integration ready
+
+Verification results:
+- Backend `npx tsc --noEmit` clean
+- Backend `npx vitest run` — 12/12 tests pass
+- Mobile `npx tsc --noEmit` clean
+
+Notes:
+- Escrow locking/release on proposal acceptance delegated to Wallet module (Phase 6)
+- Review submission endpoint to be added in Phase 6
+- Admin proposal moderation endpoints to be added in Phase 6
+- Advanced matching (ML-based ranking) deferred to post-MVP
+
+---
 
 ## Phase 6 - Wallet, Escrow, and Ledger (Critical)
 

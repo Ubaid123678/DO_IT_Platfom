@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 2.3
-Last updated: 2026-08-11 (Phase 4 - Jobs Core complete; Create, Browse, Manage jobs for client and provider)
+Version: 2.4
+Last updated: 2026-08-11 (Phase 5 - Proposals and Matching Engine complete; Proposal submission, client/provider management, matching engine)
 Owner: Engineering
 
 ## 1. Purpose
@@ -13,10 +13,10 @@ Update this file at the end of each completed phase.
 ## 2. Overall Progress
 
 - Total phases planned: 14
-- Completed phases: 5 (Phase 0, Phase 1, Phase 2, Phase 3, Phase 4)
+- Completed phases: 6 (Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5)
 - In progress phases: 0
-- Current phase: Phase 5 - Proposals and Matching Engine
-- Next phase: Phase 5 - Proposals and Matching Engine
+- Current phase: Phase 6 - Wallet, Escrow, and Ledger
+- Next phase: Phase 6 - Wallet, Escrow, and Ledger
 
 ## 2.1 Execution Mode
 
@@ -527,6 +527,56 @@ Notes:
 
 ---
 
+## Phase 5 - Proposals and Matching Engine
+
+Status: Completed
+Completion date: 2026-08-11
+
+### Completed scope
+
+Backend (`backend/src/modules/proposals/`):
+- **Model** (`proposal.model.ts`): Complete Proposal schema with compound indexes (jobId+providerId unique), status state machine (submitted → accepted|rejected|withdrawn|expired), bid types (fixed/hourly), virtual fields for bidTotal, instance methods for accept/reject/withdraw
+- **Validation** (`proposal.validation.ts`): Joi schemas for createProposal, updateProposal, proposalQuery, clientProposalAction
+- **Service** (`proposal.service.ts`): createProposal (with category verification), getProposalById, getProposalsForJob (client), getProviderProposals, acceptProposal (auto-rejects others), rejectProposal, withdrawProposal, getJobProposalStats, expireOldProposals
+- **Controller** (`proposal.controller.ts`): 9 handlers for all endpoints
+- **Routes** (`proposal.routes.ts`): 10 endpoints mounted at `/api/v1/proposals` including matching endpoints
+- **Matching Engine** (`matching.service.ts`): Geo-aware provider matching with skill overlap, rating, availability, distance scoring; auto-match with notification support
+- **Modified**: `src/routes/index.ts` to mount proposals router at `/api/v1/proposals`
+
+Mobile frontend:
+- **Proposal Service** (`mobile/src/services/proposalService.ts`): Complete typed API client with Proposal, ProposalStatus, BidType interfaces and all CRUD/matching methods
+- **Proposal Submission** (`mobile/app/(provider)/submit-proposal/[jobId].tsx`): Fixed vs Hourly bid toggle, amount/rate/hours inputs with platform fee preview, cover letter, timeline
+- **Client Proposal Management** (`mobile/app/(client)/job-proposals/[jobId].tsx`): Tabbed view (All/Submitted/Accepted/Rejected/Withdrawn), stats cards, accept/reject actions with auto-reject others
+- **Provider Proposal Management** (`mobile/app/(provider)/my-proposals.tsx`): Status tabs, withdraw action, bid/timeline preview
+- **Proposal Detail** (`mobile/app/(shared)/proposal-detail/[proposalId].tsx`): Full view with bid breakdown, cover letter, provider/client info, role-based actions (client: accept/reject; provider: withdraw)
+- **Matching Engine Integration**: Client can trigger matching from job proposals screen
+
+Proposal Status State Machine:
+- submitted → accepted (client, auto-rejects others) | rejected (client) | withdrawn (provider) | expired (system)
+- Acceptance triggers job assignment and transitions job to in_progress
+- All transitions permission-enforced server-side
+
+Matching Engine Features:
+- Provider filtering by verified categories, skills, rating, availability
+- Geo-distance filtering with service radius for physical/errand jobs
+- Skill overlap scoring (0-100) based on job requirements vs provider skills
+- Match score combines skill overlap (40%), rating (25%), category match (20%), availability (15%)
+- Configurable radius, rating threshold, result limits
+- Auto-match with notification integration ready
+
+Verification results:
+- Backend `npx tsc --noEmit` clean
+- Backend `npx vitest run` — 12/12 tests pass
+- Mobile `npx tsc --noEmit` clean
+
+Notes:
+- Escrow locking/release on proposal acceptance delegated to Wallet module (Phase 6)
+- Review submission endpoint to be added in Phase 6
+- Admin proposal moderation endpoints to be added in Phase 6
+- Advanced matching (ML-based ranking) deferred to post-MVP
+
+---
+
 ## 4. Current Repositories and Source Layout
 
 Current workspace uses a single root git repository:
@@ -536,7 +586,7 @@ No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
 
-Phase 4 (Jobs Core - Create, Browse, Manage) is complete. Phase 5 (Proposals and Matching Engine) is the next implementation focus.
+Phase 5 (Proposals and Matching Engine) is complete. Phase 6 (Wallet, Escrow, and Ledger) is the next implementation focus.
 
 ## 6. Update Template For Future Phase Completions
 
@@ -572,10 +622,11 @@ Project summary:
 - Shared database/services for app and website
 
 Current status:
-- Phases 0, 1, 2, 3, and 4 are all completed and verified.
+- Phases 0, 1, 2, 3, 4, and 5 are all completed and verified.
 - Phase 3 (Provider Onboarding & Verification System) is fully delivered: backend verification module with OAuth/auto-verification + 11 mobile screens + Bull workers, plus the per-track profile completion enhancement.
 - Phase 4 (Jobs Core - Create, Browse, Manage) is fully delivered: job model with geo-indexing and status state machine, 7-step job creation wizard, provider browse feed with geo-filters, job detail with status transitions, client/provider job management screens.
-- Phase 5 (Proposals and Matching Engine) is the next implementation focus.
+- Phase 5 (Proposals and Matching Engine) is fully delivered: proposal model with state machine, provider submission flow, client accept/reject with auto-reject others, matching engine with geo/skill/rating scoring, provider/client proposal management screens.
+- Phase 6 (Wallet, Escrow, and Ledger) is the next implementation focus.
 - Website and admin portal implementation remain deferred until app completion.
 
 Core docs:
@@ -587,7 +638,7 @@ Core docs:
 - web/ADMIN_REMAINING.md
 
 Instruction for this chat:
-- Continue implementation from Phase 5 as backend-first execution.
+- Continue implementation from Phase 6 as backend-first execution.
 - Keep backend shared for mobile and website.
 - Keep website/admin web delivery paused until app completion.
 - Treat mobile screens as complete UI targets; prioritize wiring APIs and replacing mock data.
@@ -595,10 +646,11 @@ Instruction for this chat:
 - Do not create separate phase completion markdown files.
 
 Immediate next work:
-1. Phase 5 - Proposals and Matching Engine:
-   - Design and implement proposal model (job_id, provider_id, bid_amount, cover_letter, status)
-   - Build provider apply flow (submit proposal with bid, cover letter, estimated timeline)
-   - Build client proposal review (view all proposals for a job, accept/reject)
-   - Implement matching algorithm execution (geo + skill + rating + availability)
-   - Build mobile screens: proposal submission, client proposal list, proposal detail, acceptance flow
-   - Wire mobile screens to live APIs as they are built
+1. Phase 6 - Wallet, Escrow, and Ledger:
+   - Design and implement wallet model (balance, ledger entries, transactions)
+   - Implement Stripe top-up flow with webhook reconciliation
+   - Implement escrow lock on proposal acceptance (Phase 5 integration)
+   - Implement escrow release on job completion
+   - Platform fee deduction logic (10%)
+   - Immutable transaction ledger with double-entry bookkeeping
+   - Build mobile screens: wallet balance, top-up, transaction history
