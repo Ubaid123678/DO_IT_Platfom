@@ -1,480 +1,523 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  useColorScheme,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'expo-router';
+import { Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { notificationService, type INotification, type NotificationStatus, type NotificationType } from '@/src/services/notificationService';
+import { socketService } from '@/src/services/socket.service';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
-type NotificationType =
-  | 'new_proposal'
-  | 'job_accepted'
-  | 'payment'
-  | 'message'
-  | 'dispute'
-  | 'kyc';
-type FilterTab = 'all' | 'jobs' | 'payments' | 'system';
-
-type NotificationItem = {
-  id: string;
-  type: NotificationType;
-  title: string;
-  body: string;
-  time: string;
-  dateLabel: string;
-  unread: boolean;
+const STATUS_LABELS: Record<NotificationStatus, string> = {
+  pending: 'Pending',
+  sent: 'Sent',
+  delivered: 'Delivered',
+  read: 'Read',
+  failed: 'Failed',
+  dismissed: 'Dismissed',
 };
 
-type ListRow =
-  | { kind: 'date'; id: string; label: string }
-  | { kind: 'notification'; id: string; item: NotificationItem };
+const STATUS_COLORS: Record<NotificationStatus, string> = {
+  pending: '#F39C12',
+  sent: '#3498DB',
+  delivered: '#3498DB',
+  read: '#27AE60',
+  failed: '#E74C3C',
+  dismissed: '#95A5A6',
+};
 
-const tabs: Array<{ key: FilterTab; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'jobs', label: 'Jobs' },
-  { key: 'payments', label: 'Payments' },
-  { key: 'system', label: 'System' },
-];
+const TYPE_LABELS: Record<NotificationType, string> = {
+  message: 'Message',
+  job_created: 'Job Created',
+  job_updated: 'Job Updated',
+  job_assigned: 'Job Assigned',
+  job_completed: 'Job Completed',
+  job_cancelled: 'Job Cancelled',
+  proposal_received: 'Proposal Received',
+  proposal_accepted: 'Proposal Accepted',
+  proposal_rejected: 'Proposal Rejected',
+  proposal_withdrawn: 'Proposal Withdrawn',
+  dispute_created: 'Dispute Created',
+  dispute_evidence_added: 'Dispute Evidence Added',
+  dispute_resolved: 'Dispute Resolved',
+  review_received: 'Review Received',
+  review_flagged: 'Review Flagged',
+  review_moderated: 'Review Moderated',
+  payout_requested: 'Payout Requested',
+  payout_completed: 'Payout Completed',
+  payout_failed: 'Payout Failed',
+  wallet_topup: 'Wallet Top-up',
+  wallet_low_balance: 'Low Balance',
+  wallet_escrow_locked: 'Escrow Locked',
+  wallet_escrow_released: 'Escrow Released',
+  wallet_escrow_refunded: 'Escrow Refunded',
+  verification_submitted: 'Verification Submitted',
+  verification_approved: 'Verification Approved',
+  verification_rejected: 'Verification Rejected',
+  kyc_submitted: 'KYC Submitted',
+  kyc_approved: 'KYC Approved',
+  kyc_rejected: 'KYC Rejected',
+  system_announcement: 'System Announcement',
+  promotion: 'Promotion',
+  security_alert: 'Security Alert',
+};
 
-const mockNotifications: NotificationItem[] = [
-  {
-    id: 'n-1',
-    type: 'new_proposal',
-    title: 'New proposal received',
-    body: 'Ahmed Raza sent a proposal for your Airport Drop job.',
-    time: '10:42 AM',
-    dateLabel: 'Today',
-    unread: true,
-  },
-  {
-    id: 'n-2',
-    type: 'message',
-    title: 'New message from Hamza S.',
-    body: 'I am close to pickup location, should arrive in 10 mins.',
-    time: '9:58 AM',
-    dateLabel: 'Today',
-    unread: true,
-  },
-  {
-    id: 'n-3',
-    type: 'payment',
-    title: 'Payment received',
-    body: 'You received $50.00 for delivery completion.',
-    time: 'Yesterday',
-    dateLabel: 'Yesterday',
-    unread: false,
-  },
-  {
-    id: 'n-4',
-    type: 'job_accepted',
-    title: 'Job accepted',
-    body: 'Your offer was accepted for Home AC Service task.',
-    time: 'Yesterday',
-    dateLabel: 'Yesterday',
-    unread: false,
-  },
-  {
-    id: 'n-5',
-    type: 'kyc',
-    title: 'KYC update required',
-    body: 'Please re-upload your ID back side for better visibility.',
-    time: 'Apr 08',
-    dateLabel: 'Apr 08',
-    unread: true,
-  },
-  {
-    id: 'n-6',
-    type: 'dispute',
-    title: 'Dispute opened',
-    body: 'Client raised a dispute for Delivery Job #J-182.',
-    time: 'Apr 07',
-    dateLabel: 'Apr 07',
-    unread: false,
-  },
-];
+const TYPE_ICONS: Record<NotificationType, string> = {
+  message: 'chatbox-outline',
+  job_created: 'briefcase-outline',
+  job_updated: 'briefcase-outline',
+  job_assigned: 'person-add-outline',
+  job_completed: 'checkmark-circle-outline',
+  job_cancelled: 'close-circle-outline',
+  proposal_received: 'document-text-outline',
+  proposal_accepted: 'checkmark-circle-outline',
+  proposal_rejected: 'close-circle-outline',
+  proposal_withdrawn: 'arrow-back-circle-outline',
+  dispute_created: 'alert-circle-outline',
+  dispute_evidence_added: 'document-outline',
+  dispute_resolved: 'checkmark-circle-outline',
+  review_received: 'star-outline',
+  review_flagged: 'flag-outline',
+  review_moderated: 'shield-checkmark-outline',
+  payout_requested: 'cash-outline',
+  payout_completed: 'cash-outline',
+  payout_failed: 'close-circle-outline',
+  wallet_topup: 'card-outline',
+  wallet_low_balance: 'alert-circle-outline',
+  wallet_escrow_locked: 'lock-closed-outline',
+  wallet_escrow_released: 'lock-open-outline',
+  wallet_escrow_refunded: 'cash-outline',
+  verification_submitted: 'document-outline',
+  verification_approved: 'checkmark-circle-outline',
+  verification_rejected: 'close-circle-outline',
+  kyc_submitted: 'id-card-outline',
+  kyc_approved: 'checkmark-circle-outline',
+  kyc_rejected: 'close-circle-outline',
+  system_announcement: 'megaphone-outline',
+  promotion: 'pricetag-outline',
+  security_alert: 'shield-alert-outline',
+};
 
-const tabMatch = (item: NotificationItem, tab: FilterTab) => {
-  if (tab === 'all') {
-    return true;
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const isYesterday = new Date(now.getTime() - 86400000).toDateString() === date.toDateString();
+  
+  if (isToday) {
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  } else if (isYesterday) {
+    return 'Yesterday';
+  } else {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
-
-  if (tab === 'payments') {
-    return item.type === 'payment';
-  }
-
-  if (tab === 'jobs') {
-    return item.type === 'new_proposal' || item.type === 'job_accepted' || item.type === 'message';
-  }
-
-  return item.type === 'dispute' || item.type === 'kyc';
 };
 
 export default function NotificationsScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
-  const styles = makeStyles(C, isDark);
+  const styles = makeStyles(C);
+  const router = useRouter();
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [filterTab, setFilterTab] = useState<FilterTab>('all');
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [skip, setSkip] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | NotificationStatus>('all');
+  const [stats, setStats] = useState<any>({
+    pending: 0, sent: 0, delivered: 0, read: 0, failed: 0, dismissed: 0, unread: 0
+  });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setNotifications(mockNotifications);
+  const loadNotifications = useCallback(async (reset = false) => {
+    if (reset) {
+      setSkip(0);
+      setNotifications([]);
+      setHasMore(true);
+    }
+    if (!hasMore && !reset) return;
+
+    try {
+      const currentSkip = reset ? 0 : skip;
+      const result = await notificationService.getNotifications({
+        status: activeTab === 'all' ? undefined : activeTab,
+        skip: currentSkip,
+        limit: 20,
+      });
+      if (reset) {
+        setNotifications(result.notifications);
+      } else {
+        setNotifications((prev) => [...prev, ...result.notifications]);
+      }
+      setTotal(result.total);
+      setHasMore(result.notifications.length === 20);
+      setSkip(currentSkip + result.notifications.length);
+      setError(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load notifications';
+      setError(msg);
+    } finally {
       setLoading(false);
-    }, 320);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  }, [activeTab, skip, hasMore]);
 
-    return () => clearTimeout(timer);
+  const loadStats = useCallback(async () => {
+    try {
+      const data = await notificationService.getNotificationStats();
+      setStats(data);
+    } catch {
+      // Ignore
+    }
   }, []);
 
-  const visibleRows = useMemo(() => {
-    const filtered = notifications.filter((item) => tabMatch(item, filterTab));
-    const grouped = new Map<string, NotificationItem[]>();
+  useEffect(() => {
+    loadNotifications(true);
+    loadStats();
+  }, []);
 
-    filtered.forEach((item) => {
-      const existing = grouped.get(item.dateLabel) ?? [];
-      existing.push(item);
-      grouped.set(item.dateLabel, existing);
-    });
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadNotifications(true);
+    loadStats();
+  }, [loadNotifications, loadStats]);
 
-    const order = ['Today', 'Yesterday'];
-    const labels = Array.from(grouped.keys()).sort((a, b) => {
-      const ai = order.indexOf(a);
-      const bi = order.indexOf(b);
-      if (ai !== -1 || bi !== -1) {
-        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  const onEndReached = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      setLoadingMore(true);
+      loadNotifications(false);
+    }
+  }, [loadingMore, hasMore, loadNotifications]);
+
+  const handleMarkAsRead = useCallback(async (notificationId: string) => {
+    try {
+      await notificationService.markAsRead(notificationId);
+      setNotifications(prev => prev.map(n => n._id === notificationId ? { ...n, status: 'read' } : n));
+    } catch (e) {
+      // Ignore
+    }
+  }, []);
+
+  const handleDismiss = useCallback(async (notificationId: string) => {
+    try {
+      await notificationService.dismissNotification(notificationId);
+      setNotifications(prev => prev.filter(n => n._id !== notificationId));
+    } catch (e) {
+      // Ignore
+    }
+  }, []);
+
+  const handleMarkAllAsRead = useCallback(async () => {
+    try {
+      await notificationService.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, status: 'read' })));
+    } catch (e) {
+      // Ignore
+    }
+  }, []);
+
+  const handleDismissAll = useCallback(async () => {
+    try {
+      const unread = notifications.filter(n => n.status !== 'read' && n.status !== 'dismissed');
+      for (const n of unread) {
+        await notificationService.dismissNotification(n._id);
       }
-      return a > b ? -1 : 1;
-    });
-
-    const rows: ListRow[] = [];
-    labels.forEach((label) => {
-      rows.push({ kind: 'date', id: `date-${label}`, label });
-      (grouped.get(label) ?? []).forEach((item) => {
-        rows.push({ kind: 'notification', id: item.id, item });
-      });
-    });
-
-    return rows;
-  }, [notifications, filterTab]);
-
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })));
-  };
-
-  const markRead = (id: string) => {
-    setNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, unread: false } : item)));
-  };
-
-  const deleteNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const iconForType = (type: NotificationType) => {
-    if (type === 'new_proposal') {
-      return {
-        bg: C.primaryLight,
-        color: C.primary,
-        name: 'person' as keyof typeof Ionicons.glyphMap,
-      };
+      setNotifications(prev => prev.map(n => n.status !== 'read' && n.status !== 'dismissed' ? { ...n, status: 'dismissed' } : n));
+    } catch (e) {
+      // Ignore
     }
-    if (type === 'job_accepted') {
-      return {
-        bg: C.amberLight,
-        color: C.amber,
-        name: 'briefcase' as keyof typeof Ionicons.glyphMap,
-      };
-    }
-    if (type === 'payment') {
-      return {
-        bg: isDark ? '#0F2E1F' : '#E8F8F2',
-        color: C.success,
-        name: 'cash' as keyof typeof Ionicons.glyphMap,
-      };
-    }
-    if (type === 'message') {
-      return {
-        bg: C.primaryLight,
-        color: C.primary,
-        name: 'chatbubble' as keyof typeof Ionicons.glyphMap,
-      };
-    }
-    if (type === 'dispute') {
-      return {
-        bg: isDark ? '#2E1010' : '#FDECEA',
-        color: C.error,
-        name: 'warning' as keyof typeof Ionicons.glyphMap,
-      };
-    }
+  }, [notifications]);
 
-    return {
-      bg: C.amberLight,
-      color: C.amber,
-      name: 'shield' as keyof typeof Ionicons.glyphMap,
+  const renderNotification = useCallback(({ item }: { item: any }) => (
+    <TouchableOpacity style={styles.notificationCard} onPress={() => handleMarkAsRead(item._id)} activeOpacity={0.7}>
+      <View style={styles.notificationHeader}>
+        <View style={[
+          styles.typeIcon,
+          { backgroundColor: getTypeColor(item.type) }
+        ]}>
+          <Ionicons name={TYPE_ICONS[item.type] || 'notifications-outline'} size={20} color="#fff" />
+        </View>
+        <View style={styles.notificationInfo}>
+          <Text style={styles.notificationTitle} numberOfLines={1}>{item.title}</Text>
+          <Text style={styles.notificationBody} numberOfLines={2}>{item.body}</Text>
+        </View>
+        <View style={[
+          styles.statusBadge,
+          { backgroundColor: STATUS_COLORS[item.status] }
+        ]}>
+          <Text style={styles.statusBadgeText}>{STATUS_LABELS[item.status]}</Text>
+        </View>
+      </View>
+
+      <View style={styles.notificationMeta}>
+        <Text style={styles.notificationTime}>{formatDate(item.createdAt)}</Text>
+        {item.data?.jobId && (
+          <TouchableOpacity onPress={() => router.push(`/job-detail/${item.data.jobId}`)}>
+            <Text style={styles.metaText}>Job: {item.data.jobId.substring(0, 8)}...</Text>
+          </TouchableOpacity>
+        )}
+        {item.data?.proposalId && (
+          <TouchableOpacity onPress={() => router.push(`/proposal-detail/${item.data.proposalId}`)}>
+            <Text style={styles.metaText}>Proposal: {item.data.proposalId.substring(0, 8)}...</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={styles.notificationActions}>
+        {item.status !== 'read' && (
+          <TouchableOpacity style={styles.markReadBtn} onPress={() => handleMarkAsRead(item._id)}>
+            <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
+            <Text style={styles.actionBtnText}>Mark as Read</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={styles.dismissBtn} onPress={() => handleDismiss(item._id)}>
+          <Ionicons name="close-circle-outline" size={16} color="#fff" />
+          <Text style={styles.actionBtnText}>Dismiss</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  ), []);
+
+  const getTypeColor = (type: string): string => {
+    const colors: Record<string, string> = {
+      message: '#3498DB',
+      job_created: '#27AE60',
+      job_updated: '#3498DB',
+      job_assigned: '#9B59B6',
+      job_completed: '#27AE60',
+      job_cancelled: '#E74C3C',
+      proposal_received: '#F39C12',
+      proposal_accepted: '#27AE60',
+      proposal_rejected: '#E74C3C',
+      dispute_created: '#F39C12',
+      dispute_evidence_added: '#F39C12',
+      dispute_resolved: '#27AE60',
+      review_received: '#F39C12',
+      review_flagged: '#E74C3C',
+      review_moderated: '#27AE60',
+      payout_requested: '#F39C12',
+      payout_completed: '#27AE60',
+      payout_failed: '#E74C3C',
+      wallet_topup: '#3498DB',
+      wallet_low_balance: '#F39C12',
+      wallet_escrow_locked: '#3498DB',
+      wallet_escrow_released: '#27AE60',
+      wallet_escrow_refunded: '#F39C12',
+      verification_submitted: '#3498DB',
+      verification_approved: '#27AE60',
+      verification_rejected: '#E74C3C',
+      kyc_submitted: '#3498DB',
+      kyc_approved: '#27AE60',
+      kyc_rejected: '#E74C3C',
+      system_announcement: '#9B59B6',
+      promotion: '#F39C12',
+      security_alert: '#E74C3C',
     };
+    return colors[type] || '#3498DB';
   };
 
-  if (loading) {
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    const isYesterday = new Date(now.getTime() - 86400000).toDateString() === date.toDateString();
+    
+    if (isToday) {
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } else if (isYesterday) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+  };
+
+  if (loading && notifications.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loaderWrap}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <Text style={styles.loadingText}>Loading notifications...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <GestureHandlerRootView style={styles.gestureRoot}>
-      <SafeAreaView style={styles.container}>
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <TouchableOpacity onPress={markAllRead}>
-            <Text style={styles.markAllText}>Mark all read</Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Notifications</Text>
+        <TouchableOpacity onPress={handleMarkAllAsRead} disabled={stats.unread === 0}>
+          <Text style={[
+            styles.markAllReadBtn,
+            stats.unread === 0 && styles.markAllReadBtnDisabled,
+          ]}>
+            {stats.unread > 0 ? `Mark All as Read (${stats.unread})` : 'All Read'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter Tabs */}
+      <ScrollView horizontal contentContainerStyle={styles.filterContainer} showsHorizontalScrollIndicator={false}>
+        {(['all', 'pending', 'sent', 'delivered', 'read', 'failed', 'dismissed'] as const).map((status) => (
+          <TouchableOpacity
+            key={status}
+            style={[
+              styles.filterTab,
+              activeTab === status && styles.filterTabActive,
+            ]}
+            onPress={() => setActiveTab(status)}
+          >
+            <Text style={[
+              styles.filterTabLabel,
+              activeTab === status && styles.filterTabLabelActive,
+            ]}>
+              {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+            </Text>
+            <Text style={[
+              styles.filterTabCount,
+              activeTab === status && styles.filterTabCountActive,
+            ]}>
+              {status === 'all' ? total : stats[status]?.count || 0}
+            </Text>
           </TouchableOpacity>
-        </View>
+        ))}
+      </ScrollView>
 
-        <View style={styles.tabsRow}>
-          {tabs.map((tab) => {
-            const active = filterTab === tab.key;
-            return (
-              <TouchableOpacity key={tab.key} style={styles.tabButton} onPress={() => setFilterTab(tab.key)}>
-                <Text style={active ? styles.tabTextActive : styles.tabTextInactive}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <FlatList
-          data={visibleRows}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => {
-            if (item.kind === 'date') {
-              return <Text style={styles.dateLabel}>{item.label}</Text>;
-            }
-
-            const n = item.item;
-            const iconSpec = iconForType(n.type);
-
-            return (
-              <Swipeable
-                overshootLeft={false}
-                overshootRight={false}
-                renderLeftActions={() => (
-                  <TouchableOpacity
-                    style={styles.leftAction}
-                    onPress={() => markRead(n.id)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.leftActionText}>Read</Text>
-                  </TouchableOpacity>
-                )}
-                renderRightActions={() => (
-                  <TouchableOpacity
-                    style={styles.rightAction}
-                    onPress={() => deleteNotification(n.id)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.rightActionText}>Delete</Text>
-                  </TouchableOpacity>
-                )}
-              >
-                <View style={[styles.notificationRow, n.unread ? styles.unreadRow : styles.readRow]}>
-                  <View style={[styles.iconWrap, { backgroundColor: iconSpec.bg }]}> 
-                    <Ionicons name={iconSpec.name} size={22} color={iconSpec.color} />
-                  </View>
-
-                  <View style={styles.centerCol}>
-                    <Text style={[styles.titleText, { fontWeight: n.unread ? '600' : '400' }]} numberOfLines={1}>
-                      {n.title}
-                    </Text>
-                    <Text style={styles.bodyText} numberOfLines={2}>
-                      {n.body}
-                    </Text>
-                    <Text style={styles.timeText}>{n.time}</Text>
-                  </View>
-
-                  {n.unread ? <View style={styles.unreadDot} /> : null}
-                </View>
-              </Swipeable>
-            );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyWrap}>
+      <FlatList
+        data={notifications}
+        renderItem={renderNotification}
+        keyExtractor={(item) => item._id}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.5}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          !loading && (
+            <View style={styles.emptyState}>
               <Ionicons name="notifications-outline" size={48} color={C.textHint} />
-              <Text style={styles.emptyText}>No notifications yet</Text>
+              <Text style={styles.emptyTitle}>No notifications</Text>
+              <Text style={styles.emptySubtitle}>
+                {activeTab === 'all' ? 'You\'re all caught up!' : `No ${activeTab} notifications`}
+              </Text>
             </View>
-          }
-        />
-      </SafeAreaView>
-    </GestureHandlerRootView>
+          )
+        }
+      />
+
+      {loadingMore && (
+        <View style={styles.loadMoreWrapper}>
+          <Text style={styles.loadingMoreText}>Loading more...</Text>
+        </View>
+      )}
+
+      {stats.unread > 0 && (
+        <TouchableOpacity style={styles.markAllReadFab} onPress={handleMarkAllAsRead}>
+          <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+          <Text style={styles.markAllReadFabText}>Mark All as Read</Text>
+        </TouchableOpacity>
+      )}
+    </SafeAreaView>
   );
 }
 
-const makeStyles = (C: AppColors, isDark: boolean) =>
+const makeStyles = (C: any) =>
   StyleSheet.create({
-    gestureRoot: {
-      flex: 1,
-    },
-    container: {
-      flex: 1,
-      backgroundColor: C.background,
-    },
-    loaderWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    headerRow: {
-      marginTop: 8,
-      paddingHorizontal: 20,
+    container: { flex: 1, backgroundColor: C.background },
+    loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    loadingText: { fontSize: 16, color: C.textSecondary, marginTop: 12 },
+    header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 10,
-    },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: C.textPrimary,
-    },
-    markAllText: {
-      fontSize: 12,
-      color: C.primary,
-      fontWeight: '600',
-    },
-    tabsRow: {
-      flexDirection: 'row',
-      backgroundColor: C.card,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
       borderBottomWidth: 1,
-      borderBottomColor: C.navBorder,
-      paddingHorizontal: 20,
+      borderBottomColor: '#E8E8E8',
+      backgroundColor: '#fff',
     },
-    tabButton: {
-      marginRight: 20,
-      paddingVertical: 12,
-      borderBottomWidth: 2,
-      borderBottomColor: 'transparent',
+    headerTitle: { fontSize: 22, fontWeight: '700', color: '#1A1A2E' },
+    markAllReadBtn: { fontSize: 14, fontWeight: '600', color: '#27AE60' },
+    markAllReadBtnDisabled: { opacity: 0.5, color: '#95A5A6' },
+    filterContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8 },
+    filterTab: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: '#F1F3F4',
+      borderWidth: 1,
+      borderColor: '#E8E8E8',
+      minWidth: 80,
+      alignItems: 'center',
     },
-    tabTextActive: {
-      color: C.primary,
-      fontSize: 13,
-      fontWeight: '600',
-      borderBottomWidth: 2,
-      borderBottomColor: C.primary,
-      paddingBottom: 2,
+    filterTabActive: { backgroundColor: '#27AE60', borderColor: '#27AE60' },
+    filterTabLabel: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+    filterTabLabelActive: { color: '#fff' },
+    filterTabCount: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
+    filterTabCountActive: { color: 'rgba(255,255,255,0.8)' },
+    notificationCard: { 
+      backgroundColor: '#fff', 
+      borderRadius: 16, 
+      padding: 16, 
+      borderWidth: 1, 
+      borderColor: '#F1F3F4', 
+      marginBottom: 12, 
+      marginHorizontal: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
     },
-    tabTextInactive: {
-      color: C.textSecondary,
-      fontSize: 13,
-      fontWeight: '500',
-      paddingBottom: 2,
+    notificationHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+    typeIcon: { 
+      width: 40, 
+      height: 40, 
+      borderRadius: 20, 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      marginTop: 2 
     },
-    listContent: {
-      paddingBottom: 24,
-      flexGrow: 1,
-    },
-    dateLabel: {
-      paddingHorizontal: 20,
-      marginVertical: 8,
-      fontSize: 12,
-      fontWeight: '600',
-      color: C.textHint,
-      textTransform: 'uppercase',
-    },
-    notificationRow: {
+    notificationInfo: { flex: 1, marginLeft: 12 },
+    notificationTitle: { fontSize: 15, fontWeight: '600', color: '#1A1A2E', marginBottom: 4 },
+    notificationBody: { fontSize: 13, color: '#4A5568', lineHeight: 18 },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    statusBadgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
+    notificationMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
+    notificationTime: { fontSize: 11, color: '#9CA3AF' },
+    metaText: { fontSize: 12, color: '#3498DB', fontWeight: '500' },
+    notificationActions: { flexDirection: 'row', gap: 8, marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F1F3F4' },
+    markReadBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: '#27AE60' },
+    dismissBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: '#E74C3C', borderWidth: 1, borderColor: '#E74C3C' },
+    actionBtnText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+    listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+    emptyTitle: { fontSize: 16, fontWeight: '600', color: '#1A1A2E', marginTop: 16 },
+    emptySubtitle: { fontSize: 13, color: '#6B7280', textAlign: 'center', marginTop: 8 },
+    loadMoreWrapper: { padding: 20, alignItems: 'center' },
+    loadingMoreText: { fontSize: 13, color: '#9CA3AF' },
+    markAllReadFab: {
+      position: 'absolute',
+      bottom: 30,
+      right: 20,
+      left: 20,
       flexDirection: 'row',
-      alignItems: 'flex-start',
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: C.divider,
-    },
-    unreadRow: {
-      backgroundColor: isDark ? '#0F2E2B' : '#F0FBF9',
-    },
-    readRow: {
-      backgroundColor: 'transparent',
-    },
-    iconWrap: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
       alignItems: 'center',
       justifyContent: 'center',
-      flexShrink: 0,
+      gap: 8,
+      paddingVertical: 14,
+      borderRadius: 16,
+      backgroundColor: '#27AE60',
+      shadowColor: '#27AE60',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 6,
     },
-    centerCol: {
-      flex: 1,
-      marginHorizontal: 12,
-    },
-    titleText: {
-      fontSize: 14,
-      color: C.textPrimary,
-    },
-    bodyText: {
-      marginTop: 2,
-      fontSize: 13,
-      color: C.textSecondary,
-      lineHeight: 18,
-    },
-    timeText: {
-      marginTop: 4,
-      fontSize: 11,
-      color: C.textHint,
-    },
-    unreadDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: C.primary,
-      marginTop: 4,
-    },
-    leftAction: {
-      width: 84,
-      marginVertical: 1,
-      backgroundColor: C.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    leftActionText: {
-      color: 'white',
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    rightAction: {
-      width: 84,
-      marginVertical: 1,
-      backgroundColor: C.error,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    rightActionText: {
-      color: 'white',
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    emptyWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingTop: 80,
-    },
-    emptyText: {
-      marginTop: 10,
-      fontSize: 14,
-      color: C.textSecondary,
-      fontWeight: '500',
-    },
-  });
+    markAllReadFabText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  };

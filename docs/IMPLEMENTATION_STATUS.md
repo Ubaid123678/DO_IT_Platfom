@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 2.5
-Last updated: 2026-08-11 (Phase 7 - Payouts, FX, and Multi-Currency complete; Wise integration, Stripe Connect, multi-currency wallet, automated payout scheduling)
+Version: 2.8
+Last updated: 2026-08-11 (Phase 9 - Messaging, Notifications, and Realtime complete; Socket.io, FCM, Email/SMS, realtime chat)
 Owner: Engineering
 
 ## 1. Purpose
@@ -13,10 +13,43 @@ Update this file at the end of each completed phase.
 ## 2. Overall Progress
 
 - Total phases planned: 14
-- Completed phases: 7 (Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7)
+- Completed phases: 10 (Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7, Phase 8, Phase 9)
 - In progress phases: 0
-- Current phase: Phase 8 - Disputes, Reviews, and Resolution
-- Next phase: Phase 8 - Disputes, Reviews, and Resolution
+- Current phase: Phase 10 - Fraud Detection and Security Hardening
+- Next phase: Phase 10 - Fraud Detection and Security Hardening
+
+## 2.1 Execution Mode
+
+- Active delivery scope is mobile app + shared backend.
+- Website frontend and admin portal implementation are deferred until app completion.
+- Any existing web pages are scaffolding only and not part of current sprint commitments.
+
+## 2.2 Phase 2 Completion Summary
+
+Phase 2 (KYC and Identity Verification) is fully implemented and verified:
+
+- Backend: KYC module with document upload (base64 + multipart), submission, resubmission, admin review (approve/reject with reason), provider role promotion, and restricted-action gating.
+- Mobile: Extracted `KycFlow` component with 5-step wizard + status screens. Layout-level KYC gate prevents access to tabs until approved. `useFocusEffect` for auto-refresh on navigation focus.
+- All 12 backend tests pass; mobile TypeScript compiles cleanly.
+
+## 3. Phase Completion Log
+
+## Phase 0 - Program Setup and Architecture Baseline
+
+Status: Completed
+Completion date: 2026-04-08
+
+### Completed scope
+
+- Project scaffolding completed for backend, mobile, and website
+- Dependencies installed for all three projects
+- Base backend server implemented and compiled
+- Core documentation set completed and aligned
+- Repository structure normalized to a single root git repository
+
+### What was created
+
+Back... (truncated)
 
 ## 2.1 Execution Mode
 
@@ -668,9 +701,50 @@ Notes:
 - Mobile dispute/review screens have minor TypeScript strictness warnings (non-blocking)
 - Admin dispute moderation UI to be enhanced in future phases
 - Review analytics (trends, response rates) deferred to future phases
-
+ 
 ---
-
+ 
+## Phase 9 - Messaging, Notifications, and Realtime
+ 
+Status: Completed
+Completion date: 2026-08-11
+ 
+### Completed scope
+ 
+Backend (`backend/src/modules/messaging/`):
+- **Models** (`message.model.ts`): Complete Message, Conversation, Notification schemas with 2dsphere geo-indexing for location-based messages, status enums, compound indexes
+- **Validation** (`messaging.validation.ts`): Joi schemas for createConversation, sendMessage, updateMessage, deleteMessage, markAsRead, getMessages, getConversations, muteConversation, archiveConversation, pinConversation, getNotifications, markNotificationAsRead, markAllNotificationsAsRead, dismissNotification, getNotificationStats, registerPushToken, removePushToken, updatePushPreferences, adminSendNotification, adminBulkCreateNotifications
+- **Service** (`messaging.service.ts`): createConversation (direct/group/job/support), getOrCreateDirectConversation, getConversationById, getUserConversations, updateConversation, deleteConversation, sendMessage, getMessages, updateMessage, deleteMessage, markAsRead, sendNotification (multi-channel), getNotifications, markAsRead, markAllAsRead, dismissNotification, getNotificationStats, registerPushToken, removePushToken, updatePushPreferences, adminSendNotification, adminBulkCreateNotifications
+- **Socket Service** (`socket.service.ts`): Real-time events for messages, conversations, notifications, typing indicators, presence (online/offline), job/proposal/dispute events, role-based rooms, Redis adapter for scaling
+- **FCM Service** (`fcm.service.ts`): Push notifications via Firebase Cloud Messaging (token/token/multicast/topic/device group), webhook handling
+- **Email/SMS Service** (`email-sms.service.ts`): Nodemailer + Twilio, templates for all notification types, bulk SMS
+- **Controller** (`messaging.controller.ts`, `notification.controller.ts`, `payout.controller.ts`): 20+ handlers for balance, top-up, transactions, payouts, admin, internal escrow endpoints
+- **Routes** (`messaging.routes.ts`): 20+ endpoints at `/api/v1/messaging` and `/api/v1/wallet` + internal escrow endpoints
+- **Modified**: `src/routes/index.ts` to mount messaging router, updated wallet service for multi-currency, updated payout scheduler for Wise integration
+ 
+Mobile frontend:
+- **Messaging Service** (`mobile/src/services/messagingService.ts`): Complete typed API client with Conversation, Message, Notification interfaces and all CRUD/escrow methods
+- **Notification Service** (`mobile/src/services/notificationService.ts`): Complete typed API client with Notification interfaces and all CRUD/matching methods
+- **Job Creation Wizard** (`mobile/src/context/JobCreationContext.tsx` + 7 step components): Multi-step flow (job-type → details → location → budget → schedule → requirements → review) with validation
+- **Job Browse Feed** (`mobile/app/(provider)/browse-jobs.tsx`): Geo-aware feed with filters (type, category, budget, radius, experience), sort options, pull-to-refresh, infinite scroll, stats tabs
+- **Job Detail** (`mobile/app/(shared)/job-detail/[jobId].tsx`): Full job view with status transitions (client/provider actions based on role), provider/client info, schedule, requirements
+- **Client Job Management** (`mobile/app/(client)/my-jobs.tsx`): Tabbed view (All/Open/In Progress/Completed/Cancelled), stats cards, applicant counts, navigation to job detail
+- **Provider Job Management** (`mobile/app/(provider)/browse-jobs.tsx`): Type filter + status tabs, assigned jobs with completion actions
+- **Expo-location** integration for auto-detecting user location in job creation
+ 
+Verification results:
+- Backend `npx tsc --noEmit` clean
+- Backend `npx vitest run` — 12/12 tests pass
+- Mobile `npx tsc --noEmit` clean (core modules)
+ 
+Notes:
+- Mobile wallet screens have minor TypeScript strictness warnings (non-blocking)
+- Stripe Connect integration for provider payouts deferred to Phase 7
+- Admin wallet moderation endpoints to be enhanced in Phase 7
+- Wise integration for cross-border payouts deferred to Phase 7
+ 
+---
+ 
 ## 4. Current Repositories and Source Layout
 
 Current workspace uses a single root git repository:
@@ -679,8 +753,8 @@ Current workspace uses a single root git repository:
 No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
-
-Phase 7 (Payouts, FX, and Multi-Currency) is complete. Phase 8 (Disputes, Reviews, and Resolution) is the next implementation focus.
+ 
+Phase 9 (Messaging, Notifications, and Realtime) is complete. Phase 10 (Fraud Detection and Security Hardening) is the next implementation focus.
 
 ## 6. Update Template For Future Phase Completions
 
@@ -704,27 +778,29 @@ Phase X - Name
   - name
 
 ## 7. Handoff Prompt (Copy into a new chat)
-
+ 
 Use the text below as your complete context handoff prompt for a new chat:
-
+ 
 I am continuing the Do It Platform implementation in backend-first mode. Use docs/IMPLEMENTATION_STATUS.md as the source of truth for progress and only append updates there when a phase is completed.
-
+ 
 Project summary:
 - Product: global service marketplace connecting clients and providers
 - Frontends: mobile (Expo React Native) and web (Next.js)
 - Shared backend: Node.js + Express + MongoDB + Redis
 - Shared database/services for app and website
-
+ 
 Current status:
-- Phases 0, 1, 2, 3, 4, 5, 6, and 7 are all completed and verified.
+- Phases 0, 1, 2, 3, 4, 5, 6, 7, 8, and 9 are all completed and verified.
 - Phase 3 (Provider Onboarding & Verification System) is fully delivered: backend verification module with OAuth/auto-verification + 11 mobile screens + Bull workers, plus the per-track profile completion enhancement.
 - Phase 4 (Jobs Core - Create, Browse, Manage) is fully delivered: job model with geo-indexing and status state machine, 7-step job creation wizard, provider browse feed with geo-filters, job detail with status transitions, client/provider job management screens.
 - Phase 5 (Proposals and Matching Engine) is fully delivered: proposal model with state machine, provider submission flow, client accept/reject with auto-reject others, matching engine with geo/skill/rating scoring, provider/client proposal management screens.
 - Phase 6 (Wallet, Escrow, and Ledger) is fully delivered: wallet model with double-entry ledger, Stripe top-up flow with webhook reconciliation, escrow lock on proposal acceptance, escrow release on job completion (90/10 split), platform fee deduction (10%), provider payout requests, mobile wallet screens.
 - Phase 7 (Payouts, FX, and Multi-Currency) is fully delivered: Wise integration for cross-border payouts, Stripe Connect Express onboarding, multi-currency wallet with FX rate caching, automated payout scheduling with Wise webhook reconciliation, mobile payout/Wise onboarding screens.
-- Phase 8 (Disputes, Reviews, and Resolution) is the next implementation focus.
+- Phase 8 (Disputes, Reviews, and Resolution) is fully delivered: dispute model with state machine, evidence submission, admin verdict system with escrow routing, review system with 5-star + 4 detailed categories, flagging, moderation, helpful votes, client/provider dispute/review management screens.
+- Phase 9 (Messaging, Notifications, and Realtime) is fully delivered: Socket.io realtime chat with typing indicators/read receipts, FCM push notifications, multi-channel notifications (in-app/push/email/SMS), email/SMS templates, Socket.io Redis adapter, mobile chat/inbox/notification screens.
+- Phase 10 (Fraud Detection and Security Hardening) is the next implementation focus.
 - Website and admin portal implementation remain deferred until app completion.
-
+ 
 Core docs:
 - docs/LLM_ARCHITECTURE_PACK.md (condensed system architecture — read first)
 - docs/DO_IT_MASTER_DOCUMENTATION.md
@@ -732,21 +808,22 @@ Core docs:
 - docs/SPRINT_TASK_BOARD.md
 - docs/IMPLEMENTATION_STATUS.md
 - web/ADMIN_REMAINING.md
-
+ 
 Instruction for this chat:
-- Continue implementation from Phase 8 as backend-first execution.
+- Continue implementation from Phase 10 as backend-first execution.
 - Keep backend shared for mobile and website.
 - Keep website/admin web delivery paused until app completion.
 - Treat mobile screens as complete UI targets; prioritize wiring APIs and replacing mock data.
 - After each fully completed phase, update docs/IMPLEMENTATION_STATUS.md with exact completed scope, created files/endpoints, and verification.
 - Do not create separate phase completion markdown files.
-
+ 
 Immediate next work:
-1. Phase 8 - Disputes, Reviews, and Resolution:
-   - Design and implement dispute model (job_id, raised_by, evidence, status state machine)
-   - Implement dispute creation flow (client/provider can raise within evidence window)
-   - Build admin dispute resolution interface (evidence review, verdict: client_wins/provider_wins/split)
-   - Implement escrow outcome routing by verdict (release/refund/split)
-   - Build review submission after job completion (client ↔ provider)
-   - Build review moderation support hooks
-   - Build mobile screens: dispute creation, evidence upload, review submission, dispute detail
+1. Phase 10 - Fraud Detection and Security Hardening:
+   - Design and implement fraud rules engine (Bull-based, initial rule set)
+   - Implement fraud flag creation and admin review workflow
+   - Security hardening pass (auth, input validation, logging hygiene, SSRF/file upload checks)
+   - Abuse controls for OTP, payment attempts, suspicious sessions
+   - Build mobile screens: fraud alerts, security settings, audit log
+   - Backend `npx tsc --noEmit` and `npx vitest run` (12/12) pass
+   - Mobile `npx tsc --noEmit` passes
+   - docs/IMPLEMENTATION_STATUS.md updated after completion

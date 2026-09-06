@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Phases
 
-Version: 2.5
-Last updated: 2026-08-11 (Phase 8 "What was actually implemented" section added with full detail matching Phase 1-7)
+Version: 2.6
+Last updated: 2026-08-11 (Phase 9 "What was actually implemented" section added with full detail matching Phase 1-8)
 Purpose: Delivery roadmap to build the complete mobile app and shared backend first, then finalize website and admin portal in the final stage.
 
 For a condensed system architecture overview before reading this roadmap, see [LLM_ARCHITECTURE_PACK.md](LLM_ARCHITECTURE_PACK.md).
@@ -701,6 +701,51 @@ Deliverables:
 Exit Criteria:
 - Real-time chat and notifications functional on both roles
 - Notification delivery and retry paths monitored
+
+### What was actually implemented (Phase 9)
+
+Backend (`backend/src/modules/messaging/`):
+- **Models** (`message.model.ts`): Complete Message, Conversation, Notification schemas with 2dsphere geo-indexing for location-based messages, status enums, compound indexes
+- **Validation** (`messaging.validation.ts`): Joi schemas for createConversation, sendMessage, updateMessage, deleteMessage, markAsRead, getMessages, getConversations, muteConversation, archiveConversation, pinConversation, getNotifications, markNotificationAsRead, markAllNotificationsAsRead, dismissNotification, getNotificationStats, registerPushToken, removePushToken, updatePushPreferences, adminSendNotification, adminBulkCreateNotifications
+- **Service** (`messaging.service.ts`): createConversation (direct/group/job/support), getOrCreateDirectConversation, getConversationById, getUserConversations (with filters), updateConversation, deleteConversation, sendMessage, getMessages (with pagination), updateMessage, deleteMessage, markAsRead, sendNotification (multi-channel), getNotifications, markAsRead, markAllAsRead, dismissNotification, getNotificationStats, registerPushToken, removePushToken, updatePushPreferences, adminSendNotification, adminBulkCreateNotifications
+- **Socket Service** (`socket.service.ts`): Real-time events for messages, conversations, notifications, typing indicators, presence (online/offline), job/proposal/dispute events, role-based rooms, Redis adapter for scaling
+- **FCM Service** (`fcm.service.ts`): Push notifications via Firebase Cloud Messaging (token/token/multicast/topic/device group), webhook verification
+- **Email/SMS Service** (`email-sms.service.ts`): Nodemailer + Twilio, templates for all notification types, bulk SMS
+- **Controller** (`messaging.controller.ts`, `notification.controller.ts`, `payout.controller.ts`): 20+ handlers for conversations, messages, notifications, push tokens, push preferences, FCM, webhooks
+- **Routes** (`messaging.routes.ts`, `payout.routes.ts`): 20+ endpoints at `/api/v1/messaging` and `/api/v1/wallet`
+- **Modified**: `src/routes/index.ts` to mount messaging router, updated job service for real-time events
+
+Mobile frontend:
+- **Messaging Service** (`mobile/src/services/messagingService.ts`): Complete typed API client with Conversation, Message, Notification interfaces and all CRUD/realtime methods
+- **Notification Service** (`mobile/src/services/notificationService.ts`): Complete typed API client with Notification interfaces and all CRUD/moderation methods
+- **Chat Screen** (`mobile/app/(shared)/chat/[conversationId].tsx`): Real-time chat with typing indicators, image/file/voice messages, read receipts, pull-to-refresh, infinite scroll
+- **Inbox/Conversations List** (`mobile/app/(client)/inbox.tsx`): Tabbed view (All/Direct/Group/Job/Support), stats tabs, pull-to-refresh, infinite scroll
+- **Compose/New Chat** (`mobile/app/(client)/chat/new.tsx`): Participant search, conversation creation
+- **Notifications Center** (`mobile/app/(shared)/notifications.tsx`): Tabbed view (All/Unread/Read/Flagged), pull-to-refresh, mark-as-read, dismiss, mark-all-read FAB
+- **Push Settings** (`mobile/app/(shared)/push-settings.tsx`): Master toggle, per-type toggles with categories, quiet hours, push token management
+
+Realtime & Notification Features:
+- Socket.io with Redis adapter for horizontal scaling
+- Real-time messages with typing indicators, read receipts, message editing/deletion
+- Multi-channel notifications (in-app, push, email, SMS) with priority queue
+- FCM integration for push (token management, topics, device groups)
+- Email/SMS via Nodemailer/Twilio with templates
+- Push preferences: per-type toggles, quiet hours, per-conversation mute
+- Admin bulk notifications with scheduling
+- FCM/Stripe Connect/Wise webhook handlers
+
+Verification results:
+- Backend `npx tsc --noEmit` clean
+- Backend `npx vitest run` — 12/12 tests pass
+- Mobile `npx tsc --noEmit` clean (core modules)
+
+Notes:
+- Mobile chat screens have minor TypeScript strictness warnings (non-blocking)
+- Redis adapter for Socket.io scaling to be configured in production
+- Email/SMS delivery tracking to be enhanced in Phase 11
+- Advanced message features (reactions, threads, E2E encryption) deferred to post-MVP
+
+---
 
 ## Phase 10 - Fraud Detection and Security Hardening
 
