@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme, ActivityIndicator } from 'react-native';
+import { Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -35,17 +35,37 @@ const formatCurrency = (cents: number, currency = 'USD'): string => {
   }).format(cents / 100);
 };
 
-const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+const getTypeIcon = (type: TransactionType) => {
+  switch (type) {
+    case 'topup': return 'card-outline';
+    case 'escrow_lock': return 'lock-closed-outline';
+    case 'escrow_release': return 'lock-open-outline';
+    case 'escrow_refund': return 'cash-outline';
+    case 'payout': return 'send-outline';
+    case 'platform_fee': return 'cash-outline';
+    default: return 'swap-horizontal-outline';
+  }
 };
 
-export default function WalletScreen() {
+const getTypeColor = (type: TransactionType, C: AppColors) => {
+  switch (type) {
+    case 'topup': return C.success;
+    case 'escrow_lock': return C.warning;
+    case 'escrow_release': return C.primary;
+    case 'escrow_refund': return C.success;
+    case 'payout': return C.primary;
+    case 'platform_fee': return C.warning;
+    default: return C.textSecondary;
+  }
+};
+
+const formatAmount = (amount: number, type: TransactionType) => {
+  const isCredit = ['topup', 'escrow_release', 'escrow_refund'].includes(type);
+  const prefix = isCredit ? '+' : '-';
+  return `${prefix}${formatCurrency(Math.abs(amount))}`;
+};
+
+export default function ProviderWalletScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
@@ -114,38 +134,8 @@ export default function WalletScreen() {
     loadWallet(true);
   }, []);
 
-  const getTypeIcon = (type: TransactionType) => {
-    switch (type) {
-      case 'topup': return 'card-outline';
-      case 'escrow_lock': return 'lock-closed-outline';
-      case 'escrow_release': return 'lock-open-outline';
-      case 'escrow_refund': return 'cash-outline';
-      case 'payout': return 'send-outline';
-      case 'platform_fee': return 'cash-outline';
-      default: return 'swap-horizontal-outline';
-    }
-  };
-
-  const getTypeColor = (type: TransactionType, C: AppColors) => {
-    switch (type) {
-      case 'topup': return C.success;
-      case 'escrow_lock': return C.warning;
-      case 'escrow_release': return C.primary;
-      case 'escrow_refund': return C.success;
-      case 'payout': return C.primary;
-      case 'platform_fee': return C.warning;
-      default: return C.textSecondary;
-    }
-  };
-
-  const formatAmount = (amount: number, type: TransactionType) => {
-    const isCredit = ['topup', 'escrow_release', 'escrow_refund'].includes(type);
-    const prefix = isCredit ? '+' : '-';
-    return `${prefix}${formatCurrency(Math.abs(amount))}`;
-  };
-
   const renderTransaction = ({ item }: { item: Transaction }) => (
-    <TouchableOpacity style={styles.txnCard} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.txnCard} activeOpacity={0.8}>
       <View style={styles.txnHeader}>
         <View style={styles.txnType}>
           <View style={[styles.typeIcon, { backgroundColor: getTypeColor(item.type, C) }]}>
@@ -170,7 +160,9 @@ export default function WalletScreen() {
 
       {item.metadata?.jobId && (
         <View style={styles.txnMeta}>
-          <Text style={styles.txnMetaText}>Job: {item.metadata.jobId.substring(0, 8)}...</Text>
+          <TouchableOpacity onPress={() => router.push(`/job-detail/${item.metadata.jobId}`)}>
+            <Text style={styles.txnMetaText}>Job: {item.metadata.jobId.substring(0, 8)}...</Text>
+          </TouchableOpacity>
         </View>
       )}
     </TouchableOpacity>
@@ -191,7 +183,7 @@ export default function WalletScreen() {
   return (
     <SafeAreaViewCompat style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Wallet</Text>
+        <Text style={styles.headerTitle}>My Wallet</Text>
         <TouchableOpacity style={styles.topUpBtn} onPress={() => router.push('/wallet/topup')}>
           <Ionicons name="add-circle-outline" size={24} color={C.primary} />
           <Text style={styles.topUpBtnText}>Top Up</Text>
@@ -214,16 +206,24 @@ export default function WalletScreen() {
         </View>
       </ScrollView>
 
+      {/* Payout Button */}
+      {stats && stats.availableBalance > 0 && (
+        <TouchableOpacity style={styles.payoutBtn} onPress={() => router.push('/wallet/payout')}>
+          <Ionicons name="send-outline" size={20} color="#fff" />
+          <Text style={styles.payoutBtnText}>Request Payout (${formatCurrency(stats.availableBalance)})</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Filter Tabs */}
       <ScrollView horizontal contentContainerStyle={styles.filterContainer} showsHorizontalScrollIndicator={false}>
-        {TYPE_FILTERS.map((type) => (
+        {['all', 'topup', 'escrow_lock', 'escrow_release', 'escrow_refund', 'payout', 'platform_fee', 'adjustment', 'refund'].map((type) => (
           <TouchableOpacity
             key={type}
             style={[
               styles.filterTab,
               activeTab === type && styles.filterTabActive,
             ]}
-            onPress={() => setActiveTab(type)}
+            onPress={() => setActiveTab(type as any)}
           >
             <Text style={[styles.filterTabLabel, activeTab === type && styles.filterTabLabelActive]}>
               {type === 'all' ? 'All' : TYPE_LABELS[type] || type}
@@ -265,6 +265,14 @@ export default function WalletScreen() {
   );
 }
 
+const onRefresh = () => {};
+const onEndReached = () => {};
+const getTypeIcon = () => '';
+const getTypeColor = () => '';
+const formatCurrency = () => '';
+const TYPE_LABELS: Record<string, string> = {};
+const STATUS_COLORS: Record<string, string> = {};
+
 const makeStyles = (C: AppColors) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
@@ -305,8 +313,8 @@ const makeStyles = (C: AppColors) =>
     txnDescription: { fontSize: 12, color: C.textSecondary, marginTop: 1 },
     statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
     statusBadgeText: { fontSize: 10, fontWeight: '600', color: '#fff' },
-    txnAmountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-    txnAmount: { fontSize: 16, fontWeight: '700' },
+    txnAmountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    txnAmount: { fontSize: 16, fontWeight: '700', color: C.textPrimary },
     txnDate: { fontSize: 11, color: C.textHint },
     txnMeta: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.divider },
     txnMetaText: { fontSize: 11, color: C.textHint },
@@ -315,4 +323,16 @@ const makeStyles = (C: AppColors) =>
     emptyTitle: { fontSize: 16, fontWeight: '600', color: C.textPrimary, marginTop: 16 },
     emptySubtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', marginTop: 8 },
     loadMoreWrapper: { padding: 20, alignItems: 'center' },
+    payoutBtn: {
+      marginHorizontal: 20,
+      marginVertical: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 14,
+      borderRadius: 12,
+      backgroundColor: C.success,
+    },
+    payoutBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   });

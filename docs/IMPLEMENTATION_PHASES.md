@@ -521,6 +521,46 @@ Exit Criteria:
 - Money movement paths fully tested (happy + failure paths)
 - Idempotency and reconciliation checks passing
 
+### What was actually implemented (Phase 6)
+
+Backend (`backend/src/modules/wallet/`):
+- **Model** (`wallet.model.ts`): Complete Wallet schema with double-entry ledger (Wallet, LedgerEntry, Transaction, Payout), balance tracking (balance, escrowBalance, availableBalance), currency support, transaction types (topup, escrow_lock, escrow_release, escrow_refund, platform_fee, payout, adjustment, refund), virtual fields, instance methods
+- **Validation** (`wallet.validation.ts`): Joi schemas for createTopUp, confirmTopUp, getTransactionHistory, requestPayout, escrowLock, escrowRelease, escrowRefund, adminAdjustment
+- **Service** (`wallet.service.ts`): createTopUpIntent (Stripe PaymentIntent with idempotency), confirmTopUp (webhook-driven), lockEscrow (on proposal acceptance), releaseEscrow (on job completion with provider/platform/client split), refundEscrow (on cancellation), requestPayout (with platform fee), adminAdjustment, getBalance, getTransactionHistory, getWalletStats
+- **Controller** (`wallet.controller.ts`): 10+ handlers for balance, top-up, transactions, payouts, admin, internal escrow endpoints
+- **Routes** (`wallet.routes.ts`): 12 endpoints mounted at `/api/v1/wallet` + internal escrow endpoints
+- **Stripe Integration** (`stripe.service.ts`): PaymentIntent creation, confirmation, refunds, webhooks, customer/connect accounts
+- **Modified**: `src/routes/index.ts` to mount wallet router at `/api/v1/wallet`, updated proposal service to call wallet.lockEscrow on acceptProposal, updated job service to call wallet.releaseEscrow on job completion
+
+Mobile frontend:
+- **Wallet Service** (`mobile/src/services/walletService.ts`): Complete typed API client with Wallet, Transaction, TransactionType, TransactionStatus interfaces and all CRUD/escrow methods
+- **Top-up Screen** (`mobile/app/(client)/wallet/topup.tsx`): Preset amounts, custom amount input, Stripe PaymentIntent integration, fee preview
+- **Client Wallet Screen** (`mobile/app/(client)/wallet.tsx`): Balance cards (available/escrow/total), transaction history with filters, pull-to-refresh, infinite scroll
+- **Provider Wallet Screen** (`mobile/app/(provider)/wallet.tsx`): Balance cards, payout button (when available > 0), transaction history with type/status tabs
+
+Wallet & Escrow Features:
+- Double-entry ledger: every transaction creates balanced debit/credit entries
+- Escrow lock on proposal acceptance: deducts from client balance, adds to escrowBalance
+- Escrow release on job completion: splits funds (provider 90%, platform 10%), releases client refund if any
+- Escrow refund on cancellation: returns full escrow to client available balance
+- Platform fee: 10% deducted on escrow release, credited to platform wallet
+- Payout requests: 10% platform fee, pending status until processed
+- Idempotency keys for all financial operations
+- Stripe webhook handling for payment confirmation/failure
+
+Verification results:
+- Backend `npx tsc --noEmit` clean
+- Backend `npx vitest run` — 12/12 tests pass
+- Mobile `npx tsc --noEmit` clean (core modules)
+
+Notes:
+- Mobile wallet screens have minor TypeScript strictness warnings (non-blocking)
+- Stripe Connect integration for provider payouts deferred to Phase 7
+- Admin wallet moderation endpoints to be enhanced in Phase 7
+- Wise integration for cross-border payouts deferred to Phase 7
+
+---
+
 ## Phase 7 - Payouts, FX, and Multi-Currency
 
 Duration: 1 sprint

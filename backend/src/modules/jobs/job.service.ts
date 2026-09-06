@@ -3,6 +3,7 @@ import { AppError } from '../../common/errors/AppError.js';
 import { JobModel, type IJob, type JobStatus, type JobType } from './job.model.js';
 import UserModel from '../auth/auth.model.js';
 import { SkillCategoryModel } from '../verification/verification.model.js';
+import { walletService } from '../wallet/wallet.service.js';
 
 interface BrowseJobsOptions {
   type?: JobType;
@@ -393,10 +394,32 @@ export const jobService = {
         break;
       case 'completed':
         job.provider.completedAt = now;
-        // Release escrow will be handled by wallet service
+        // Release escrow via wallet service
+        const lockedAmount = job.escrow?.lockedAmount || 0;
+        const platformFee = job.escrow?.platformFeeAmount || Math.round(lockedAmount * 0.1);
+        const providerAmount = lockedAmount - platformFee;
+        const clientRefund = 0; // Can be extended for partial refunds
+
+        await walletService.releaseEscrow(
+          jobId,
+          {
+            providerAmount,
+            platformFee,
+            clientRefund,
+          },
+          `escrow_release_${jobId}_${Date.now()}`
+        );
         break;
       case 'cancelled':
-        // Handle refund logic via wallet service
+        // Refund escrow to client
+        if (job.escrow?.lockedAmount && job.escrow.lockedAmount > 0) {
+          await walletService.refundEscrow(
+            jobId,
+            job.escrow.lockedAmount,
+            'Job cancelled',
+            `escrow_refund_${jobId}_${Date.now()}`
+          );
+        }
         break;
       case 'disputed':
         job.dispute = {

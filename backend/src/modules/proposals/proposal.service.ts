@@ -3,6 +3,7 @@ import { ProposalModel, type IProposal, type ProposalStatus } from './proposal.m
 import { JobModel } from '../jobs/job.model.js';
 import UserModel from '../auth/auth.model.js';
 import { jobService as JobService } from '../jobs/job.service.js';
+import { walletService } from '../wallet/wallet.service.js';
 
 const serializeProposal = (proposal: any) => {
   const obj = proposal.toJSON?.() ?? proposal;
@@ -186,6 +187,17 @@ export const proposalService = {
     if (job.status !== 'open') {
       throw new AppError('Job is not open for assignment', 400, 'JOB_NOT_OPEN');
     }
+
+    // Lock escrow for the job using the proposal's bid amount
+    const escrowAmount = proposal.bidAmount;
+    const idempotencyKey = `escrow_lock_${proposal._id}_${Date.now()}`;
+
+    await walletService.lockEscrow(
+      job._id.toString(),
+      proposal._id.toString(),
+      escrowAmount,
+      idempotencyKey
+    );
 
     // Accept the proposal
     await proposal.accept(clientId, message);
