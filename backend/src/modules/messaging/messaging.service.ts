@@ -192,7 +192,7 @@ export const messagingService = {
         .populate('participants', 'fullName provider_profile.avatar_url')
         .lean(),
       ConversationModel.countDocuments(filter),
-    );
+    ]);
 
     return {
       conversations: conversations.map(serializeConversation),
@@ -525,219 +525,15 @@ export const messagingService = {
       priority: payload.priority,
       scheduledFor: payload.scheduledFor,
       metadata: { sentByAdmin: adminId },
-    });
+    }));
 
-    const notifications = await NotificationModel.insertMany(notifications);
+    const insertedNotifications = await NotificationModel.insertMany(notifications);
     
     // Send real-time
-    for (const notification of notifications) {
+    for (const notification of insertedNotifications) {
       socketService.emitToUser(notification.userId.toString(), 'new_notification', notification);
     }
 
-    return notifications.length;
-  },
-
-  // Push token management
-  registerPushToken: async (userId: string, token: string, platform: 'ios' | 'android' | 'web', deviceId?: string): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $addToSet: { deviceTokens: { token, platform, deviceId, createdAt: new Date() } },
-    });
-  },
-
-  removePushToken: async (userId: string, token: string): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $pull: { deviceTokens: { token } },
-    });
-  },
-
-  // Push preferences
-  updatePushPreferences: async (userId: string, preferences: {
-    enabled?: boolean;
-    types?: string[];
-    quietHours?: { enabled: boolean; start: string; end: string; timezone?: string };
-  }): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $set: { pushPreferences: preferences },
-    });
-  },
-
-  // Admin functions
-  adminSendNotification: async (adminId: string, payload: {
-    userIds: string[];
-    title: string;
-    body: string;
-    data?: Record<string, string>;
-    channels: NotificationChannel[];
-    priority: 'low' | 'normal' | 'high' | 'urgent';
-    scheduledFor?: Date;
-  }): Promise<number> => {
-    const userIds = payload.userIds;
-    const admin = await UserModel.findById(adminId);
-    if (!admin || admin.role !== 'admin') throw new AppError('Admin access required', 403, 'ADMIN_REQUIRED');
-
-    const notifications = userIds.map(userId => ({
-      userId,
-      type: 'system_announcement' as NotificationType,
-      title: payload.title,
-      body: payload.body,
-      data: payload.data,
-      channels: payload.channels,
-      priority: payload.priority,
-      scheduledFor: payload.scheduledFor,
-      metadata: { sentByAdmin: adminId },
-    });
-
-    const notifications = await NotificationModel.insertMany(notifications);
-    
-    // Send real-time
-    for (const notification of notifications) {
-      socketService.emitToUser(notification.userId.toString(), 'new_notification', notification);
-    }
-
-    return notifications.length;
-  },
-
-  // Push token management
-  registerPushToken: async (userId: string, token: string, platform: 'ios' | 'android' | 'web', deviceId?: string): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $addToSet: { deviceTokens: { token, platform, deviceId, createdAt: new Date() } },
-    });
-  },
-
-  removePushToken: async (userId: string, token: string): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $pull: { deviceTokens: { token } },
-    });
-  },
-
-  // Push preferences
-  updatePushPreferences: async (userId: string, preferences: {
-    enabled?: boolean;
-    types?: string[];
-    quietHours?: { enabled: boolean; start: string; end: string; timezone?: string };
-  }): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $set: { pushPreferences: preferences },
-    });
-  },
-
-  // Admin functions
-  adminSendNotification: async (adminId: string, payload: {
-    userIds: string[];
-    title: string;
-    body: string;
-    data?: Record<string, string>;
-    channels: NotificationChannel[];
-    priority: 'low' | 'normal' | 'high' | 'urgent';
-    scheduledFor?: Date;
-  }): Promise<number> => {
-    const userIds = payload.userIds;
-    const admin = await UserModel.findById(adminId);
-    if (!admin || admin.role !== 'admin') throw new AppError('Admin access required', 403, 'ADMIN_REQUIRED');
-
-    const notifications = userIds.map(userId => ({
-      userId,
-      type: 'system_announcement' as NotificationType,
-      title: payload.title,
-      body: payload.body,
-      data: payload.data,
-      channels: payload.channels,
-      priority: payload.priority,
-      scheduledFor: payload.scheduledFor,
-      metadata: { sentByAdmin: adminId },
-    });
-
-    const notifications = await NotificationModel.insertMany(notifications);
-    
-    // Send real-time
-    for (const notification of notifications) {
-      socketService.emitToUser(notification.userId.toString(), 'new_notification', notification);
-    }
-
-    return notifications.length;
-  },
-
-  // Push token management
-  registerPushToken: async (userId: string, token: string, platform: 'ios' | 'android' | 'web', deviceId?: string): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $addToSet: { deviceTokens: { token, platform, deviceId, createdAt: new Date() } },
-    });
-  },
-
-  removePushToken: async (userId: string, token: string): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $pull: { deviceTokens: { token } },
-    });
-  },
-
-  // Push preferences
-  updatePushPreferences: async (userId: string, preferences: {
-    enabled?: boolean;
-    types?: string[];
-    quietHours?: { enabled: boolean; start: string; end: string; timezone?: string };
-  }): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $set: { pushPreferences: preferences },
-    });
-  },
-
-  // Admin functions
-  adminSendNotification: async (adminId: string, payload: {
-    userIds: string[];
-    title: string;
-    body: string;
-    data?: Record<string, string>;
-    channels: NotificationChannel[];
-    priority: 'low' | 'normal' | 'high' | 'urgent';
-    scheduledFor?: Date;
-  }): Promise<number> => {
-    const userIds = payload.userIds;
-    const admin = await UserModel.findById(adminId);
-    if (!admin || admin.role !== 'admin') throw new AppError('Admin access required', 403, 'ADMIN_REQUIRED');
-
-    const notifications = userIds.map(userId => ({
-      userId,
-      type: 'system_announcement' as NotificationType,
-      title: payload.title,
-      body: payload.body,
-      data: payload.data,
-      channels: payload.channels,
-      priority: payload.priority,
-      scheduledFor: payload.scheduledFor,
-      metadata: { sentByAdmin: adminId },
-    });
-
-    const notifications = await NotificationModel.insertMany(notifications);
-    
-    // Send real-time
-    for (const notification of notifications) {
-      socketService.emitToUser(notification.userId.toString(), 'new_notification', notification);
-    }
-
-    return notifications.length;
-  },
-
-  // Push token management
-  registerPushToken: async (userId: string, token: string, platform: 'ios' | 'android' | 'web', deviceId?: string): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $addToSet: { deviceTokens: { token, platform, deviceId, createdAt: new Date() } },
-    });
-  },
-
-  removePushToken: async (userId: string, token: string): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $pull: { deviceTokens: { token } },
-    });
-  },
-
-  // Push preferences
-  updatePushPreferences: async (userId: string, preferences: {
-    enabled?: boolean;
-    types?: string[];
-    quietHours?: { enabled: boolean; start: string; end: string; timezone?: string };
-  }): Promise<void> => {
-    await UserModel.findByIdAndUpdate(userId, {
-      $set: { pushPreferences: preferences },
-    });
+    return insertedNotifications.length;
   },
 };

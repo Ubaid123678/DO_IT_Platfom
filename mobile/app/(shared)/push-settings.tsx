@@ -43,19 +43,6 @@ const TYPE_LABELS: Record<string, string> = {
   security_alert: 'Security Alerts',
 };
 
-const TYPE_CATEGORIES = [
-  { title: 'Messages', types: ['message'] },
-  { title: 'Jobs', types: ['job_created', 'job_updated', 'job_assigned', 'job_completed', 'job_cancelled'] },
-  { title: 'Proposals', types: ['proposal_received', 'proposal_accepted', 'proposal_rejected', 'proposal_withdrawn'] },
-  { title: 'Disputes', types: ['dispute_created', 'dispute_evidence_added', 'dispute_resolved'] },
-  { title: 'Reviews', types: ['review_received', 'review_flagged', 'review_moderated'] },
-  { title: 'Payouts', types: ['payout_requested', 'payout_completed', 'payout_failed'] },
-  { title: 'Wallet', types: ['wallet_topup', 'wallet_low_balance', 'wallet_escrow_locked', 'wallet_escrow_released', 'wallet_escrow_refunded'] },
-  { title: 'Verification', types: ['verification_submitted', 'verification_approved', 'verification_rejected'] },
-  { title: 'KYC', types: ['kyc_submitted', 'kyc_approved', 'kyc_rejected'] },
-  { title: 'System', types: ['system_announcement', 'promotion', 'security_alert'] },
-};
-
 export default function PushNotificationSettingsScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -100,7 +87,7 @@ export default function PushNotificationSettingsScreen() {
       promotion: true,
       security_alert: true,
     },
-    quietHours: {
+quietHours: {
       enabled: false,
       start: '22:00',
       end: '08:00',
@@ -109,19 +96,6 @@ export default function PushNotificationSettingsScreen() {
   });
 
   const [loading, setLoading] = useState(true);
-
-  const TYPE_CATEGORIES = [
-    { title: 'Messages', types: ['message'] },
-    { title: 'Jobs', types: ['job_created', 'job_updated', 'job_assigned', 'job_completed', 'job_cancelled'] },
-    { title: 'Proposals', types: ['proposal_received', 'proposal_accepted', 'proposal_rejected', 'proposal_withdrawn'] },
-    { title: 'Disputes', types: ['dispute_created', 'dispute_evidence_added', 'dispute_resolved'] },
-    { title: 'Reviews', types: ['review_received', 'review_flagged', 'review_moderated'] },
-    { title: 'Payouts', types: ['payout_requested', 'payout_completed', 'payout_failed'] },
-    { title: 'Wallet', types: ['wallet_topup', 'wallet_low_balance', 'wallet_escrow_locked', 'wallet_escrow_released', 'wallet_escrow_refunded'] },
-    { title: 'Verification', types: ['verification_submitted', 'verification_approved', 'verification_rejected'] },
-    { title: 'KYC', types: ['kyc_submitted', 'kyc_approved', 'kyc_rejected'] },
-    { title: 'System', types: ['system_announcement', 'promotion', 'security_alert'] },
-  };
 
   const loadPrefs = async () => {
     try {

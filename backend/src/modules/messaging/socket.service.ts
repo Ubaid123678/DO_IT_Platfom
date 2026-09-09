@@ -234,7 +234,7 @@ export const socketService = {
           conversationId,
           archivedBy: socket.data.userId,
         });
-      }
+      });
 
       socket.on('pin_conversation', (conversationId: string) => {
         socket.to(`conversation:${conversationId}`).emit('conversation_pinned', {
@@ -319,7 +319,7 @@ export const socketService = {
       if (socket.data.userId) {
         users.push(socket.data.userId);
       }
-    }
+    });
     return users;
   },
 

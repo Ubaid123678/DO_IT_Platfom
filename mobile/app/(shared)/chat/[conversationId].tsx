@@ -131,7 +131,7 @@ export default function ChatScreen() {
     };
   }, [conversationId]);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!text.trim() || sending) return;
     setSending(true);
     try {
@@ -201,7 +201,8 @@ export default function ChatScreen() {
           )}
         </View>
       </TouchableOpacity>
-    ), []);
+    );
+  }, []);
 
   if (loading && messages.length === 0) {
     return (

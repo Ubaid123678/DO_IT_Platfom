@@ -36,7 +36,7 @@ export const messagingValidators = {
       replyToMessageId: Joi.string().pattern(/^[a-fA-F0-9]{24}$/).optional(),
       forwardFromMessageId: Joi.string().pattern(/^[a-fA-F0-9]{24}$/).optional(),
     }).optional(),
-  },
+  }),
 
   updateMessage: Joi.object({
     content: Joi.string().max(10000).optional(),

@@ -520,4 +520,4 @@ const makeStyles = (C: any) =>
       elevation: 6,
     },
     markAllReadFabText: { fontSize: 14, fontWeight: '600', color: '#fff' },
-  };
+  });
