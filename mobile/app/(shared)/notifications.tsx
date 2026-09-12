@@ -5,7 +5,7 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { notificationService, type INotification, type NotificationStatus, type NotificationType } from '@/src/services/notificationService';
-import { socketService } from '@/src/services/socket.service';
+import { socketService } from '@/src/services/socketService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const STATUS_LABELS: Record<NotificationStatus, string> = {
