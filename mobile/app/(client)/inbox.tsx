@@ -5,7 +5,7 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { messagingService, type IConversation } from '@/src/services/messagingService';
-import { socketService } from '@/src/services/socket.service';
+import { socketService } from '@/src/services/socketService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const formatDate = (dateString: string): string => {
