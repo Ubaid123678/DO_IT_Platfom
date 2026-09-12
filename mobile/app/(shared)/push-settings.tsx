@@ -163,11 +163,6 @@ quietHours: {
     }));
   };
 
-  const handleSave = async () => {
-    await notificationService.updatePushPreferences(prefs);
-    Alert.alert('Success', 'Notification preferences saved');
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
