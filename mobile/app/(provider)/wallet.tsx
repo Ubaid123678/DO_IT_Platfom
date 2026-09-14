@@ -265,14 +265,6 @@ export default function ProviderWalletScreen() {
   );
 }
 
-const onRefresh = () => {};
-const onEndReached = () => {};
-const getTypeIcon = () => '';
-const getTypeColor = () => '';
-const formatCurrency = () => '';
-const TYPE_LABELS: Record<string, string> = {};
-const STATUS_COLORS: Record<string, string> = {};
-
 const makeStyles = (C: AppColors) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
