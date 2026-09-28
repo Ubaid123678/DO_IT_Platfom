@@ -2,7 +2,7 @@
 
 # dependencies
 node_modules/
-
+node_modules.bat
 # Expo
 .expo/
 dist/
@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Corrupted backup - MFT-level corruption, do not commit
+node_modules.bak/
