@@ -332,7 +332,7 @@ const makeStyles = (C: AppColors) =>
     typeFilterBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
     typeFilterLabel: { fontSize: 11, fontWeight: '600', color: C.textSecondary },
     typeFilterLabelActive: { color: '#fff' },
-    statsContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8 },
+    statsContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8, alignItems: 'flex-start' },
     statTab: {
       paddingHorizontal: 12,
       paddingVertical: 4,
@@ -342,6 +342,7 @@ const makeStyles = (C: AppColors) =>
       borderColor: C.cardBorder,
       minWidth: 64,
       alignItems: 'center',
+      alignSelf: 'flex-start',
     },
     statTabActive: { backgroundColor: C.primary, borderColor: C.primary },
     statTabLabel: { fontSize: 10, fontWeight: '600', color: C.textSecondary },

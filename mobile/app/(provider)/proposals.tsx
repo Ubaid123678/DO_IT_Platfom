@@ -94,17 +94,6 @@ export default function ProviderProposalsScreen() {
     loadProposals(true);
   }, [activeTab]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadProposals(true);
-  }, [loadProposals]);
-
-  const onEndReached = useCallback(() => {
-    if (!loadingMore && hasMore) {
-      setLoadingMore(true);
-      loadProposals(false);
-    }
-  }, [loadingMore, hasMore, loadProposals]);
 
   const renderProposal = ({ item }: { item: Proposal }) => (
     <TouchableOpacity style={styles.proposalCard} onPress={() => router.push(`/proposal-detail/${item._id}` as any)} activeOpacity={0.8}>
@@ -184,6 +173,18 @@ export default function ProviderProposalsScreen() {
     return STATUS_LABELS[status];
   };
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadProposals(true);
+  }, [loadProposals]);
+
+  const onEndReached = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      setLoadingMore(true);
+      loadProposals(false);
+    }
+  }, [loadingMore, hasMore, loadProposals]);
+
   if (loading && proposals.length === 0) {
     return (
       <SafeAreaViewCompat style={styles.container}>
@@ -252,17 +253,6 @@ export default function ProviderProposalsScreen() {
   );
 }
 
-const onRefresh = useCallback(() => {
-  setRefreshing(true);
-  loadProposals(true);
-}, [loadProposals]);
-
-const onEndReached = useCallback(() => {
-  if (!loadingMore && hasMore) {
-    setLoadingMore(true);
-    loadProposals(false);
-  }
-}, [loadingMore, hasMore, loadProposals]);
 
 const makeStyles = (C: AppColors, isDark: boolean) =>
   StyleSheet.create({
@@ -278,7 +268,7 @@ const makeStyles = (C: AppColors, isDark: boolean) =>
       borderBottomColor: C.divider,
     },
     headerTitle: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
-    statsContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8 },
+    statsContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8, alignItems: 'flex-start' },
     statTab: {
       paddingHorizontal: 14,
       paddingVertical: 6,
@@ -288,6 +278,7 @@ const makeStyles = (C: AppColors, isDark: boolean) =>
       borderColor: C.cardBorder,
       minWidth: 72,
       alignItems: 'center',
+      alignSelf: 'flex-start',
     },
     statTabActive: { backgroundColor: C.primary, borderColor: C.primary },
     statTabLabel: { fontSize: 11, fontWeight: '600', color: C.textSecondary },
