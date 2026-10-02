@@ -1,9 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  RefreshControl,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,70 +14,30 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
+import { proposalService, type Proposal, type ProposalStatus, type ProposalListResponse } from '@/src/services/proposalService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
-type ProposalStatus = 'Pending' | 'Accepted' | 'Rejected';
-type ProposalTab = 'All' | ProposalStatus;
-
-type ProposalItem = {
-  id: string;
-  jobId: string;
-  activeJobId?: string;
-  title: string;
-  budget: number;
-  bid: number;
-  status: ProposalStatus;
-  submittedAt: string;
-  cover: string;
+const STATUS_LABELS: Record<ProposalStatus, string> = {
+  submitted: 'Submitted',
+  withdrawn: 'Withdrawn',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
+  expired: 'Expired',
 };
 
-const tabs: ProposalTab[] = ['All', 'Pending', 'Accepted', 'Rejected'];
+const STATUS_COLORS: Record<ProposalStatus, string> = {
+  submitted: '#1A9E8F',
+  withdrawn: '#95A5A6',
+  accepted: '#27AE60',
+  rejected: '#E74C3C',
+  expired: '#F39C12',
+};
 
-const mockProposals: ProposalItem[] = [
-  {
-    id: 'pr-1001',
-    jobId: 'job-501',
-    title: 'Need same-day parcel delivery to Gulberg office',
-    budget: 45,
-    bid: 42,
-    status: 'Pending',
-    submittedAt: 'Apr 11, 11:20 AM',
-    cover: 'I can complete this delivery within 60-75 minutes and share live updates.',
-  },
-  {
-    id: 'pr-1002',
-    jobId: 'job-201',
-    activeJobId: 'job-201',
-    title: 'Deliver legal documents to city court before noon',
-    budget: 55,
-    bid: 55,
-    status: 'Accepted',
-    submittedAt: 'Apr 10, 9:32 AM',
-    cover: 'Experienced in legal document handling with same-day completion guarantee.',
-  },
-  {
-    id: 'pr-1003',
-    jobId: 'job-503',
-    title: 'Apartment deep cleaning for move-in tomorrow morning',
-    budget: 35,
-    bid: 38,
-    status: 'Rejected',
-    submittedAt: 'Apr 09, 6:10 PM',
-    cover: 'I can bring all cleaning supplies and complete kitchen + bathrooms thoroughly.',
-  },
-  {
-    id: 'pr-1004',
-    jobId: 'job-504',
-    title: 'Landing page + payment flow for online course website',
-    budget: 300,
-    bid: 280,
-    status: 'Pending',
-    submittedAt: 'Apr 09, 2:48 PM',
-    cover: 'I can deliver a responsive landing page with clean checkout flow in 4 days.',
-  },
-];
+const formatCurrency = (amount: number): string => {
+  return `$${(amount / 100).toFixed(2)}`;
+};
 
 export default function ProviderProposalsScreen() {
   const router = useRouter();
@@ -83,328 +46,282 @@ export default function ProviderProposalsScreen() {
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C, isDark);
 
-  const [activeTab, setActiveTab] = useState<ProposalTab>('All');
-  const [proposals, setProposals] = useState<ProposalItem[]>([]);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [skip, setSkip] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ProposalStatus | 'all'>('all');
+
+  const loadProposals = useCallback(async (reset = false) => {
+    if (reset) {
+      setSkip(0);
+      setProposals([]);
+      setHasMore(true);
+    }
+    if (!hasMore && !reset) return;
+
+    try {
+      const currentSkip = reset ? 0 : skip;
+      const result = await proposalService.getProviderProposals({
+        status: activeTab === 'all' ? undefined : activeTab,
+        skip: currentSkip,
+        limit: 20,
+      });
+      if (reset) {
+        setProposals(result.proposals);
+      } else {
+        setProposals((prev) => [...prev, ...result.proposals]);
+      }
+      setTotal(result.total);
+      setHasMore(result.proposals.length === 20);
+      setSkip(currentSkip + result.proposals.length);
+      setError(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load proposals';
+      setError(msg);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  }, [activeTab, skip, hasMore]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setProposals(mockProposals);
-      setLoading(false);
-    }, 280);
+    loadProposals(true);
+  }, [activeTab]);
 
-    return () => clearTimeout(timer);
-  }, []);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadProposals(true);
+  }, [loadProposals]);
 
-  const filteredProposals = useMemo(() => {
-    if (activeTab === 'All') {
-      return proposals;
+  const onEndReached = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      setLoadingMore(true);
+      loadProposals(false);
     }
+  }, [loadingMore, hasMore, loadProposals]);
 
-    return proposals.filter((proposal) => proposal.status === activeTab);
-  }, [activeTab, proposals]);
-
-  const statusPalette = (status: ProposalStatus) => {
-    if (status === 'Accepted') {
-      return { bg: isDark ? '#0F2E1F' : '#E8F8F2', color: C.success };
-    }
-    if (status === 'Rejected') {
-      return { bg: isDark ? '#2E1010' : '#FDECEA', color: C.error };
-    }
-    return { bg: C.amberLight, color: C.amber };
-  };
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Proposals</Text>
-        <TouchableOpacity onPress={() => router.push('/(provider)/browse-jobs')}>
-          <Ionicons name="search-outline" size={24} color={C.textPrimary} />
-        </TouchableOpacity>
+  const renderProposal = ({ item }: { item: Proposal }) => (
+    <TouchableOpacity style={styles.proposalCard} onPress={() => router.push(`/proposal-detail/${item._id}` as any)} activeOpacity={0.8}>
+      <View style={styles.cardHeader}>
+        <View style={styles.jobInfo}>
+          <Text style={styles.jobTitle}>{item.job?.title || 'Job'}</Text>
+          <View style={styles.jobMeta}>
+            {item.job?.type && (
+              <View style={styles.metaItem}>
+                <Ionicons name="briefcase-outline" size={12} color={C.textHint} />
+                <Text style={styles.metaText}>{item.job.type}</Text>
+              </View>
+            )}
+            {item.job?.location?.city && (
+              <View style={styles.metaItem}>
+                <Ionicons name="location-outline" size={12} color={C.textHint} />
+                <Text style={styles.metaText}>{item.job.location.city}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] }]}>
+          <Text style={styles.statusBadgeText}>{STATUS_LABELS[item.status]}</Text>
+        </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabsScroll}
-        contentContainerStyle={styles.tabsContent}
-      >
-        {tabs.map((tab) => {
-          const active = activeTab === tab;
+      <View style={styles.bidSection}>
+        <Text style={styles.bidLabel}>Your Bid</Text>
+        <Text style={styles.bidAmount}>
+          {item.bidType === 'hourly'
+            ? `$${(item.bidAmount / 100).toFixed(2)}/hr${item.estimatedHours ? ` × ${item.estimatedHours}hrs` : ''} = ${formatCurrency(item.bidTotal || item.bidAmount)}`
+            : formatCurrency(item.bidAmount)}
+        </Text>
+      </View>
+
+      <Text style={styles.timelineLabel}>Timeline: {item.estimatedTimeline}</Text>
+
+      <View style={styles.coverLetterPreview}>
+        <Text style={styles.coverLetterText}>{item.coverLetter.substring(0, 100)}...</Text>
+      </View>
+
+      {item.status === 'submitted' && (
+        <TouchableOpacity style={styles.withdrawBtn} onPress={() => handleWithdraw(item._id)}>
+          <Ionicons name="arrow-back-circle-outline" size={16} color="#fff" />
+          <Text style={styles.withdrawBtnText}>Withdraw</Text>
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
+  );
+
+  const handleWithdraw = async (proposalId: string) => {
+    const confirmed = await new Promise<boolean>((resolve) => {
+      Alert.alert(
+        'Withdraw Proposal',
+        'Are you sure you want to withdraw this proposal?',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Withdraw', style: 'destructive', onPress: () => resolve(true) },
+        ]
+      );
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await proposalService.withdrawProposal(proposalId);
+      Alert.alert('Success', 'Proposal withdrawn.');
+      loadProposals(true);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to withdraw proposal';
+      Alert.alert('Error', msg);
+    }
+  };
+
+  const getTabLabel = (status: ProposalStatus | 'all') => {
+    if (status === 'all') return 'All';
+    return STATUS_LABELS[status];
+  };
+
+  if (loading && proposals.length === 0) {
+    return (
+      <SafeAreaViewCompat style={styles.container}>
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator size="large" color={C.primary} />
+        </View>
+      </SafeAreaViewCompat>
+    );
+  }
+
+  return (
+    <SafeAreaViewCompat style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Proposals</Text>
+      </View>
+
+      {/* Status Tabs */}
+      <ScrollView horizontal contentContainerStyle={styles.statsContainer} showsHorizontalScrollIndicator={false}>
+        {(['all', 'submitted', 'accepted', 'rejected', 'withdrawn'] as const).map((status) => {
+          const count = status === 'all' ? total : 0;
           return (
             <TouchableOpacity
-              key={tab}
-              style={[styles.tabItem, active ? styles.tabItemActive : null]}
-              onPress={() => setActiveTab(tab)}
+              key={status}
+              style={[
+                styles.statTab,
+                activeTab === status && styles.statTabActive,
+              ]}
+              onPress={() => setActiveTab(status)}
             >
-              <Text style={active ? styles.tabTextActive : styles.tabTextInactive}>{tab}</Text>
+              <Text style={[styles.statTabLabel, activeTab === status && styles.statTabLabelActive]}>{status === 'all' ? 'All' : STATUS_LABELS[status]}</Text>
+              <Text style={[styles.statTabCount, activeTab === status && styles.statTabCountActive]}>{count}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {loading ? (
-        <View style={styles.loaderWrap}>
-          <ActivityIndicator size="large" color={C.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={filteredProposals}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          renderItem={({ item }) => {
-            const palette = statusPalette(item.status);
-            return (
-              <TouchableOpacity
-                style={styles.card}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(provider)/job-detail/[id]',
-                    params: { id: item.jobId },
-                  })
-                }
-              >
-                <View style={styles.topRow}>
-                  <Text style={styles.idText}>{item.id.toUpperCase()}</Text>
-                  <View style={[styles.statusPill, { backgroundColor: palette.bg }]}>
-                    <Text style={[styles.statusText, { color: palette.color }]}>{item.status}</Text>
-                  </View>
-                </View>
-
-                <Text style={styles.title} numberOfLines={2}>
-                  {item.title}
-                </Text>
-
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaText}>{`Client budget: $${item.budget}`}</Text>
-                  <Text style={styles.metaDot}>•</Text>
-                  <Text style={styles.metaText}>{`Your bid: $${item.bid}`}</Text>
-                </View>
-
-                <Text style={styles.coverText} numberOfLines={2}>
-                  {item.cover}
-                </Text>
-
-                <View style={styles.bottomRow}>
-                  <Text style={styles.timeText}>{`Submitted ${item.submittedAt}`}</Text>
-
-                  {item.status === 'Accepted' ? (
-                    <TouchableOpacity
-                      style={styles.actionBtnPrimary}
-                      onPress={() =>
-                        router.push({
-                          pathname: '/(provider)/active-job/[id]',
-                          params: { id: item.activeJobId ?? 'job-201' },
-                        })
-                      }
-                    >
-                      <Text style={styles.actionBtnPrimaryText}>Open Job</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.actionBtnGhost}
-                      onPress={() =>
-                        router.push({
-                          pathname: '/(provider)/job-detail/[id]',
-                          params: { id: item.jobId },
-                        })
-                      }
-                    >
-                      <Text style={styles.actionBtnGhostText}>View</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <Ionicons name="document-text-outline" size={44} color={C.textHint} />
-              <Text style={styles.emptyTitle}>No proposals found</Text>
-              <Text style={styles.emptySub}>Apply to jobs and your proposals will appear here.</Text>
+      <FlatList
+        data={proposals}
+        renderItem={renderProposal}
+        keyExtractor={(item) => item._id}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.5}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="document-text-outline" size={48} color={C.textHint} />
+              <Text style={styles.emptyTitle}>No proposals yet</Text>
+              <Text style={styles.emptySubtitle}>
+                {activeTab === 'all' ? 'Your submitted proposals will appear here' : `No ${getTabLabel(activeTab).toLowerCase()} proposals`}
+              </Text>
             </View>
-          }
-        />
+          ) : null
+        }
+      />
+
+      {loadingMore && (
+        <View style={styles.loadMoreWrapper}>
+          <ActivityIndicator size="small" color={C.primary} />
+        </View>
       )}
-    </SafeAreaView>
+    </SafeAreaViewCompat>
   );
 }
 
+const onRefresh = useCallback(() => {
+  setRefreshing(true);
+  loadProposals(true);
+}, [loadProposals]);
+
+const onEndReached = useCallback(() => {
+  if (!loadingMore && hasMore) {
+    setLoadingMore(true);
+    loadProposals(false);
+  }
+}, [loadingMore, hasMore, loadProposals]);
+
 const makeStyles = (C: AppColors, isDark: boolean) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: C.background,
-    },
-    headerRow: {
-      height: 52,
-      marginTop: 8,
-      paddingHorizontal: 20,
+    container: { flex: 1, backgroundColor: C.background },
+    loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-    },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: C.textPrimary,
-    },
-    tabsScroll: {
-      marginTop: 6,
-      maxHeight: 42,
-    },
-    tabsContent: {
       paddingHorizontal: 20,
-      gap: 8,
-      alignItems: 'center',
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: C.divider,
     },
-    tabItem: {
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: C.cardBorder,
-      backgroundColor: isDark ? '#152E2C' : C.card,
+    headerTitle: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
+    statsContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8 },
+    statTab: {
       paddingHorizontal: 14,
       paddingVertical: 6,
-    },
-    tabItemActive: {
-      borderColor: C.primary,
-      backgroundColor: C.primary,
-    },
-    tabTextActive: {
-      fontSize: 13,
-      color: 'white',
-      fontWeight: '600',
-    },
-    tabTextInactive: {
-      fontSize: 13,
-      color: C.textPrimary,
-      fontWeight: '500',
-    },
-    loaderWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    listContent: {
-      paddingHorizontal: 20,
-      paddingTop: 10,
-      paddingBottom: 26,
-      flexGrow: 1,
-    },
-    separator: {
-      height: 12,
-    },
-    card: {
-      borderRadius: 14,
+      borderRadius: 18,
+      backgroundColor: C.card,
       borderWidth: 1,
       borderColor: C.cardBorder,
-      backgroundColor: isDark ? '#152E2C' : C.card,
-      padding: 16,
+      minWidth: 72,
+      alignItems: 'center',
     },
-    topRow: {
+    statTabActive: { backgroundColor: C.primary, borderColor: C.primary },
+    statTabLabel: { fontSize: 11, fontWeight: '600', color: C.textSecondary },
+    statTabLabelActive: { color: '#fff' },
+    statTabCount: { fontSize: 10, color: C.textHint, marginTop: 1 },
+    statTabCountActive: { color: 'rgba(255,255,255,0.8)' },
+    proposalCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 12, marginHorizontal: 20 },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+    jobInfo: { flex: 1 },
+    jobTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 4 },
+    jobMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    metaText: { fontSize: 12, color: C.textSecondary },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    statusBadgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
+    bidSection: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    bidLabel: { fontSize: 12, color: C.textHint },
+    bidAmount: { fontSize: 16, fontWeight: '700', color: C.primary },
+    timelineLabel: { fontSize: 12, color: C.textSecondary, marginBottom: 8 },
+    coverLetterPreview: { backgroundColor: C.inputBg, borderRadius: 8, padding: 12, marginBottom: 12 },
+    coverLetterText: { fontSize: 13, color: C.textSecondary, lineHeight: 18 },
+    withdrawBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    idText: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: C.textHint,
-    },
-    statusPill: {
-      borderRadius: 20,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-    },
-    statusText: {
-      fontSize: 10,
-      fontWeight: '600',
-    },
-    title: {
-      marginTop: 8,
-      fontSize: 15,
-      fontWeight: '600',
-      color: C.textPrimary,
-    },
-    metaRow: {
-      marginTop: 6,
-      flexDirection: 'row',
-      alignItems: 'center',
+      justifyContent: 'center',
       gap: 6,
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: C.warning,
     },
-    metaText: {
-      fontSize: 12,
-      color: C.textSecondary,
-    },
-    metaDot: {
-      fontSize: 12,
-      color: C.textHint,
-    },
-    coverText: {
-      marginTop: 8,
-      fontSize: 13,
-      lineHeight: 20,
-      color: C.textSecondary,
-    },
-    bottomRow: {
-      marginTop: 12,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    timeText: {
-      fontSize: 11,
-      color: C.textHint,
-      flex: 1,
-      marginRight: 10,
-    },
-    actionBtnPrimary: {
-      height: 34,
-      borderRadius: 8,
-      backgroundColor: C.primary,
-      paddingHorizontal: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    actionBtnPrimaryText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: 'white',
-    },
-    actionBtnGhost: {
-      height: 34,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: C.primary,
-      paddingHorizontal: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    actionBtnGhostText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: C.primary,
-    },
-    emptyWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingTop: 80,
-      paddingHorizontal: 22,
-    },
-    emptyTitle: {
-      marginTop: 10,
-      fontSize: 17,
-      fontWeight: '700',
-      color: C.textPrimary,
-    },
-    emptySub: {
-      marginTop: 6,
-      textAlign: 'center',
-      fontSize: 13,
-      color: C.textSecondary,
-      lineHeight: 20,
-    },
+    withdrawBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+    listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+    emptyTitle: { fontSize: 16, fontWeight: '600', color: C.textPrimary, marginTop: 16 },
+    emptySubtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', marginTop: 8 },
+    loadMoreWrapper: { padding: 20, alignItems: 'center' },
   });

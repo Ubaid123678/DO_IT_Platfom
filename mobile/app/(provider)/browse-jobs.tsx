@@ -16,6 +16,7 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { jobService, type Job, type JobStatus, type JobType } from '@/src/services/jobService';
+import { verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const STATUS_LABELS: Record<JobStatus, string> = {
@@ -85,6 +86,7 @@ export default function ProviderJobsScreen() {
     resolved: 0,
   });
   const [filterType, setFilterType] = useState<JobType | 'all'>('all');
+  const [verifiedTypes, setVerifiedTypes] = useState<JobType[]>([]);
 
   const loadJobs = useCallback(async (reset = false) => {
     if (reset) {
@@ -123,12 +125,29 @@ export default function ProviderJobsScreen() {
 
   const loadStats = useCallback(async () => {
     try {
-      const data = await jobService.getProviderJobStats();
-      setStats(data);
+      const [statsData, verifData] = await Promise.all([
+        jobService.getProviderJobStats(),
+        verificationService.getVerificationStatus(),
+      ]);
+      setStats(statsData);
+
+      // Extract verified job types from categories
+      const types = new Set<JobType>();
+      verifData.categories?.forEach((cat) => {
+        if (cat.status === 'approved' || cat.status === 'auto_approved') {
+          types.add(cat.job_type);
+        }
+      });
+      setVerifiedTypes(Array.from(types));
+
+      // Reset filterType if it's not in verified types
+      if (filterType !== 'all' && !types.has(filterType)) {
+        setFilterType('all');
+      }
     } catch {
       // Ignore
     }
-  }, []);
+  }, [filterType]);
 
   useEffect(() => {
     loadJobs(true);
@@ -214,23 +233,25 @@ export default function ProviderJobsScreen() {
         <Text style={styles.headerTitle}>My Jobs</Text>
       </View>
 
-      {/* Filter Row */}
-      <View style={styles.filterRow}>
-        <ScrollView horizontal contentContainerStyle={styles.typeFilters} showsHorizontalScrollIndicator={false}>
-          {(['all', 'physical', 'digital', 'errand'] as const).map((type) => (
-            <TouchableOpacity
-              key={type}
-              style={[
-                styles.typeFilterBtn,
-                filterType === type && styles.typeFilterBtnActive,
-              ]}
-              onPress={() => setFilterType(type)}
-            >
-              <Text style={[styles.typeFilterLabel, filterType === type && styles.typeFilterLabelActive]}>{type === 'all' ? 'All' : JOB_TYPE_LABELS[type]}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+      {/* Type Filters - only show if multiple verified types */}
+      {verifiedTypes.length > 1 && (
+        <View style={styles.filterRow}>
+          <ScrollView horizontal contentContainerStyle={styles.typeFilters} showsHorizontalScrollIndicator={false}>
+            {(['all', ...verifiedTypes] as const).map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.typeFilterBtn,
+                  filterType === type && styles.typeFilterBtnActive,
+                ]}
+                onPress={() => setFilterType(type)}
+              >
+                <Text style={[styles.typeFilterLabel, filterType === type && styles.typeFilterLabelActive]}>{type === 'all' ? 'All' : JOB_TYPE_LABELS[type]}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Status Tabs */}
       <ScrollView horizontal contentContainerStyle={styles.statsContainer} showsHorizontalScrollIndicator={false}>
@@ -298,34 +319,34 @@ const makeStyles = (C: AppColors) =>
       borderBottomColor: C.divider,
     },
     headerTitle: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
-    filterRow: { paddingHorizontal: 20, paddingVertical: 8 },
-    typeFilters: { gap: 8 },
+    filterRow: { paddingHorizontal: 20, paddingVertical: 6 },
+    typeFilters: { gap: 6 },
     typeFilterBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 20,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 18,
       backgroundColor: C.card,
       borderWidth: 1,
       borderColor: C.cardBorder,
     },
     typeFilterBtnActive: { backgroundColor: C.primary, borderColor: C.primary },
-    typeFilterLabel: { fontSize: 12, fontWeight: '600', color: C.textSecondary },
+    typeFilterLabel: { fontSize: 11, fontWeight: '600', color: C.textSecondary },
     typeFilterLabelActive: { color: '#fff' },
     statsContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8 },
     statTab: {
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: 20,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 16,
       backgroundColor: C.card,
       borderWidth: 1,
       borderColor: C.cardBorder,
-      minWidth: 80,
+      minWidth: 64,
       alignItems: 'center',
     },
     statTabActive: { backgroundColor: C.primary, borderColor: C.primary },
-    statTabLabel: { fontSize: 12, fontWeight: '600', color: C.textSecondary },
+    statTabLabel: { fontSize: 10, fontWeight: '600', color: C.textSecondary },
     statTabLabelActive: { color: '#fff' },
-    statTabCount: { fontSize: 11, color: C.textHint, marginTop: 2 },
+    statTabCount: { fontSize: 9, color: C.textHint, marginTop: 1 },
     statTabCountActive: { color: 'rgba(255,255,255,0.8)' },
     jobCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 12, marginHorizontal: 20 },
     cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
