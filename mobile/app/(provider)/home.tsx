@@ -1,6 +1,6 @@
 ﻿import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -10,28 +10,39 @@ import {
   TouchableOpacity,
   View,
   useColorScheme,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { io, Socket } from 'socket.io-client';
 
 import JobStatusBadge from '@/src/components/job/JobStatusBadge';
 import { verificationService } from '@/src/services/verificationService';
+import { walletService } from '@/src/services/walletService';
+import { jobService } from '@/src/services/jobService';
+import { proposalService } from '@/src/services/proposalService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 type UserState = {
   name: string;
+  avatarUrl: string | null;
+  email: string;
 };
 
 type NearbyJob = {
   id: string;
   title: string;
   budget: number;
-  distance: string;
+  distance?: string;
+  category?: string;
+  status: string;
 };
 
 type EarningsState = {
-  total: number;
-  pkr: string;
-  pendingClearance: number;
+  totalUsd: number;
+  totalPkr: string;
+  pendingClearanceUsd: number;
+  pendingClearancePkr: string;
 };
 
 type StatsState = {
@@ -47,41 +58,101 @@ type CategoryStatus = {
   status: string;
 };
 
-const defaultNearbyJobs: NearbyJob[] = [
-  { id: 'pj-1', title: 'Need same-day grocery pickup and delivery', budget: 32, distance: '1.8 km' },
-  { id: 'pj-2', title: 'Home AC filter cleaning and tune-up', budget: 55, distance: '3.2 km' },
-  { id: 'pj-3', title: 'Urgent office document drop service', budget: 22, distance: '2.5 km' },
-];
+type VerificationBanner = {
+  type: 'success' | 'warning' | 'error' | 'info';
+  message: string;
+  categories: CategoryStatus[];
+} | null;
 
-const quickActions = [
-  { icon: 'search-outline' as const, label: 'Browse Jobs', route: '/(provider)/browse-jobs' as const },
-  { icon: 'document-text-outline' as const, label: 'Proposals', route: '/(provider)/proposals' as const },
-  { icon: 'wallet-outline' as const, label: 'Earnings', route: '/(provider)/earnings' as const },
-  { icon: 'person-outline' as const, label: 'Profile', route: '/(provider)/profile' as const },
-];
+const SOCKET_URL = __DEV__ ? 'http://10.0.2.2:8080' : 'https://api.doitplatform.com';
 
 export default function ProviderHomeScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
-  const C = scheme === 'dark' ? Colors.dark : Colors.light;
+  const isDark = scheme === 'dark';
+  const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
 
-  const [user, setUser] = useState<UserState>({ name: 'Ubaid' });
+  const [user, setUser] = useState<UserState>({ name: '', avatarUrl: null, email: '' });
   const [isOnline, setIsOnline] = useState(true);
   const [nearbyJobs, setNearbyJobs] = useState<NearbyJob[]>([]);
-  const [earnings, setEarnings] = useState<EarningsState>({ total: 3450, pkr: '962,325', pendingClearance: 120 });
-  const [stats, setStats] = useState<StatsState>({ activeJobs: 5, proposals: 14, completed: 38, rating: 4.8 });
+  const [earnings, setEarnings] = useState<EarningsState>({
+    totalUsd: 0,
+    totalPkr: '0',
+    pendingClearanceUsd: 0,
+    pendingClearancePkr: '0',
+  });
+  const [stats, setStats] = useState<StatsState>({ activeJobs: 0, proposals: 0, completed: 0, rating: 0 });
   const [loading, setLoading] = useState(true);
-  const [verifBanner, setVerifBanner] = useState<{ type: string; message: string; categories: CategoryStatus[] } | null>(null);
+  const [verifBanner, setVerifBanner] = useState<VerificationBanner>(null);
+  const [dismissedBanner, setDismissedBanner] = useState(false);
+  const [bannerShowCount, setBannerShowCount] = useState(0);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
+  // Load persisted banner state on mount
   useEffect(() => {
-    const load = async () => {
-      setUser({ name: 'Ubaid' });
-      setNearbyJobs(defaultNearbyJobs);
-      setEarnings({ total: 3450, pkr: '962,325', pendingClearance: 120 });
-      setStats({ activeJobs: 5, proposals: 14, completed: 38, rating: 4.8 });
+    const loadBannerState = async () => {
       try {
-        const status = await verificationService.getVerificationStatus();
+        const [dismissed, count] = await Promise.all([
+          AsyncStorage.getItem('@home_verif_banner_dismissed'),
+          AsyncStorage.getItem('@home_verif_banner_show_count'),
+        ]);
+        if (dismissed === 'true') setDismissedBanner(true);
+        if (count) setBannerShowCount(parseInt(count, 10));
+      } catch {
+        // ignore
+      }
+    };
+    void loadBannerState();
+  }, []);
+
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }, []);
+
+  const initials = useMemo(() => {
+    const parts = user.name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }, [user.name]);
+
+  // Initialize socket for real-time online status
+  useEffect(() => {
+    const newSocket = io(SOCKET_URL, {
+      transports: ['websocket'],
+      autoConnect: true,
+    });
+    newSocket.on('connect', () => {
+      console.log('[Home] Socket connected');
+    });
+    newSocket.on('provider:online-status', (data: { providerId: string; isOnline: boolean }) => {
+      if (data.providerId === user.email) {
+        setIsOnline(data.isOnline);
+      }
+    });
+    setSocket(newSocket);
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [user.email]);
+
+  const loadData = useCallback(async () => {
+    try {
+      // Load user profile (includes avatar, name)
+      const profileRes = await verificationService.getProfile();
+      const pp = profileRes.provider_profile ?? {};
+      setUser({
+        name: ('fullName' in pp && typeof pp.fullName === 'string' ? pp.fullName : pp.headline) ?? 'Provider',
+        avatarUrl: pp.avatar_url ?? null,
+        email: 'email' in profileRes && typeof profileRes.email === 'string' ? profileRes.email : '',
+      });
+
+      // Load verification status for banner
+      const status = await verificationService.getVerificationStatus();
+      if (!dismissedBanner) {
         if (status.overall_status === 'verified') {
           setVerifBanner({ type: 'success', message: 'All categories verified! You can browse and apply for jobs.', categories: [] });
         } else if (status.overall_status === 'partially_verified') {
@@ -93,20 +164,102 @@ export default function ProviderHomeScreen() {
         } else {
           setVerifBanner({ type: 'info', message: 'Complete skill verification to unlock all features.', categories: [] });
         }
-      } catch {
-        // no banner on error
       }
-      setLoading(false);
-    };
-    const timer = setTimeout(() => { void load(); }, 350);
-    return () => clearTimeout(timer);
-  }, []);
 
-  const initials = useMemo(() => {
-    const parts = user.name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }, [user.name]);
+      // Load wallet/earnings
+      try {
+        const walletRes = await walletService.getWalletStats();
+        const balanceUsd = walletRes.balance / 100; // cents to dollars
+        const escrowUsd = walletRes.escrowBalance / 100;
+        const availableUsd = walletRes.availableBalance / 100;
+
+        // Fetch FX rate for PKR conversion (approximate)
+        let usdToPkr = 279;
+        try {
+          const fxRes = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+          const fxData = await fxRes.json();
+          usdToPkr = fxData.rates?.PKR ?? 279;
+        } catch {
+          // use fallback
+        }
+
+        const totalPkr = Math.round(balanceUsd * usdToPkr).toLocaleString();
+        const pendingPkr = Math.round(escrowUsd * usdToPkr).toLocaleString();
+        const pendingClearancePkr = pendingPkr;
+
+        setEarnings({
+          totalUsd: balanceUsd,
+          totalPkr,
+          pendingClearanceUsd: escrowUsd,
+          pendingClearancePkr,
+        });
+      } catch (e: any) {
+        // Wallet might not exist yet for new providers
+        console.warn('[Home] Wallet stats fetch failed:', e?.response?.status || e?.message);
+        setEarnings({ totalUsd: 0, totalPkr: '0', pendingClearanceUsd: 0, pendingClearancePkr: '0' });
+      }
+
+      // Load provider job stats
+      const jobStats = await jobService.getProviderJobStats();
+      // Load proposals count
+      let proposalsCount = 0;
+      try {
+        const proposalsRes = await proposalService.getProviderProposals({ limit: 1 });
+        proposalsCount = proposalsRes.total;
+      } catch (e: any) {
+        // Ignore 404 or other errors - proposals might not exist yet
+        console.warn('[Home] Proposals fetch failed:', e?.response?.status || e?.message, e?.response?.data);
+      }
+      setStats({
+        activeJobs: jobStats.in_progress + jobStats.open,
+        proposals: proposalsCount,
+        completed: jobStats.completed,
+        rating: 4.8, // TODO: add rating API
+      });
+
+      // Load nearby jobs (browse with location filter)
+      const jobsRes = await jobService.browseJobs({ limit: 10, status: 'open' });
+      const mappedJobs: NearbyJob[] = (jobsRes.jobs || []).map((job: any) => ({
+        id: job._id,
+        title: job.title,
+        budget: job.budget?.max ?? job.budget?.amount ?? 0,
+        distance: job.location?.distance ? `${job.location.distance} km` : undefined,
+        category: job.category_name,
+        status: job.status,
+      }));
+      setNearbyJobs(mappedJobs);
+
+    } catch (e: any) {
+      console.error('[Home] Load error:', e?.message, 'Status:', e?.response?.status, 'URL:', e?.config?.url, 'Data:', e?.response?.data);
+    } finally {
+      setLoading(false);
+    }
+  }, [dismissedBanner]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => { void loadData(); }, 350);
+    return () => clearTimeout(timer);
+  }, [loadData]);
+
+  const handleDismissBanner = async () => {
+    setDismissedBanner(true);
+    setVerifBanner(null);
+    try {
+      await AsyncStorage.setItem('@home_verif_banner_dismissed', 'true');
+      const newCount = bannerShowCount + 1;
+      setBannerShowCount(newCount);
+      await AsyncStorage.setItem('@home_verif_banner_show_count', String(newCount));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleAvailabilityToggle = async (value: boolean) => {
+    setIsOnline(value);
+    if (socket?.connected) {
+      socket.emit('provider:set-online', { isOnline: value });
+    }
+  };
 
   if (loading) {
     return (
@@ -121,7 +274,7 @@ export default function ProviderHomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {verifBanner && (
+        {verifBanner && !dismissedBanner && (verifBanner.type !== 'success' || bannerShowCount < 3) && (
           <TouchableOpacity
             style={[
               styles.verifBanner,
@@ -178,17 +331,24 @@ export default function ProviderHomeScreen() {
             {verifBanner.type !== 'success' && (
               <Ionicons name="chevron-forward" size={18} color={C.textHint} />
             )}
+            <TouchableOpacity onPress={handleDismissBanner} style={styles.dismissBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={18} color={C.textHint} />
+            </TouchableOpacity>
           </TouchableOpacity>
         )}
 
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.profileTrigger} onPress={() => router.push('/(provider)/profile')} activeOpacity={0.9}>
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitials}>{initials}</Text>
+              {user.avatarUrl ? (
+                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarInitials}>{initials}</Text>
+              )}
             </View>
             <View style={styles.greetingWrap}>
-              <Text style={styles.greetingLabel}>Good Morning,</Text>
-              <Text style={styles.greetingName}>{user.name}</Text>
+              <Text style={styles.greetingLabel}>{greeting},</Text>
+              <Text style={styles.greetingName}>{user.name || 'Provider'}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity style={styles.notificationTrigger} onPress={() => router.push('/(shared)/notifications')} activeOpacity={0.9}>
@@ -199,8 +359,8 @@ export default function ProviderHomeScreen() {
 
         <View style={styles.earningsCard}>
           <Text style={styles.earningsLabel}>Total Earnings</Text>
-          <Text style={styles.earningsAmount}>{`$${earnings.total.toFixed(2)}`}</Text>
-          <Text style={styles.earningsPkr}>{`≈ PKR ${earnings.pkr}`}</Text>
+          <Text style={styles.earningsAmount}>{`$${earnings.totalUsd.toFixed(2)}`}</Text>
+          <Text style={styles.earningsPkr}>{`≈ PKR ${earnings.totalPkr}`}</Text>
           <View style={styles.earningsActionsRow}>
             <TouchableOpacity style={styles.earningsActionButton} onPress={() => router.push('/(provider)/earnings')}>
               <Text style={styles.earningsActionText}>Withdraw</Text>
@@ -209,7 +369,7 @@ export default function ProviderHomeScreen() {
               <Text style={styles.earningsActionText}>View Details</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.pendingText}>{`Pending clearance: $${earnings.pendingClearance.toFixed(2)}`}</Text>
+          <Text style={styles.pendingText}>{`Pending clearance: $${earnings.pendingClearanceUsd.toFixed(2)} (≈ PKR ${earnings.pendingClearancePkr})`}</Text>
         </View>
 
         <View style={styles.statsGrid}>
@@ -254,7 +414,12 @@ export default function ProviderHomeScreen() {
         <View style={styles.sectionWrap}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsRow}>
-            {quickActions.map((action) => (
+            {[
+              { icon: 'search-outline' as const, label: 'Browse Jobs', route: '/(provider)/browse-jobs' as const },
+              { icon: 'document-text-outline' as const, label: 'Proposals', route: '/(provider)/proposals' as const },
+              { icon: 'wallet-outline' as const, label: 'Earnings', route: '/(provider)/earnings' as const },
+              { icon: 'person-outline' as const, label: 'Profile', route: '/(provider)/profile' as const },
+            ].map((action) => (
               <TouchableOpacity key={action.label} style={styles.quickActionItem} onPress={() => router.push(action.route)}>
                 <View style={styles.quickActionIconBox}>
                   <Ionicons name={action.icon} size={24} color={C.primary} />
@@ -272,7 +437,7 @@ export default function ProviderHomeScreen() {
               {isOnline ? 'You are Online' : 'You are Offline'}
             </Text>
           </View>
-          <Switch value={isOnline} onValueChange={setIsOnline} trackColor={{ false: C.cardBorder, true: C.primary }} thumbColor="white" />
+          <Switch value={isOnline} onValueChange={handleAvailabilityToggle} trackColor={{ false: C.cardBorder, true: C.primary }} thumbColor="white" />
         </View>
 
         <View style={styles.sectionWrap}>
@@ -282,25 +447,49 @@ export default function ProviderHomeScreen() {
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nearbyList}>
-            {nearbyJobs.map((job) => (
-              <TouchableOpacity
-                key={job.id}
-                style={styles.nearbyCard}
-                onPress={() => router.push({ pathname: '/(provider)/job-detail/[id]', params: { id: job.id } })}
-              >
-                <JobStatusBadge status="open" />
-                <Text style={styles.nearbyTitle} numberOfLines={2}>{job.title}</Text>
-                <Text style={styles.nearbyBudget}>{`$${job.budget.toFixed(0)}`}</Text>
-                <View style={styles.nearbyBottomRow}>
-                  <Text style={styles.nearbyDistance}>{job.distance}</Text>
-                  <TouchableOpacity style={styles.applyButton}>
-                    <Text style={styles.applyButtonText}>Apply</Text>
-                  </TouchableOpacity>
-                </View>
+          {nearbyJobs.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nearbyList}>
+              {nearbyJobs.map((job) => (
+                <TouchableOpacity
+                  key={job.id}
+                  style={styles.nearbyCard}
+                  onPress={() => router.push({ pathname: '/(provider)/job-detail/[id]', params: { id: job.id } })}
+                >
+                  <JobStatusBadge status={job.status as any} />
+                  <Text style={styles.nearbyTitle} numberOfLines={2}>{job.title}</Text>
+                  <Text style={styles.nearbyBudget}>{`$${job.budget.toFixed(0)}`}</Text>
+                  <View style={styles.nearbyBottomRow}>
+                    <Text style={styles.nearbyDistance}>{job.distance || 'Remote'}</Text>
+                    <TouchableOpacity style={styles.applyButton}>
+                      <Text style={styles.applyButtonText}>Apply</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyJobs}>
+              <Ionicons name="briefcase-outline" size={48} color={C.textHint} />
+              <Text style={styles.emptyJobsText}>No jobs available near you</Text>
+              <TouchableOpacity style={styles.browseBtn} onPress={() => router.push('/(provider)/browse-jobs')}>
+                <Text style={styles.browseBtnText}>Browse All Jobs</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            </View>
+          )}
+        </View>
+
+        {/* Reels section placeholder */}
+        <View style={styles.sectionWrap}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Real-time Reels</Text>
+            <TouchableOpacity onPress={() => { /* TODO: reels screen */ }}>
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.reelsPlaceholder}>
+            <Ionicons name="videocam-outline" size={48} color={C.textHint} />
+            <Text style={styles.reelsPlaceholderText}>Reels coming soon</Text>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -313,20 +502,22 @@ const makeStyles = (C: AppColors) =>
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 30 },
     loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    verifBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, gap: 10 },
-    verifBannerSuccess: { borderColor: C.success, backgroundColor: '#E8F8F2' },
-    verifBannerWarning: { borderColor: C.amber, backgroundColor: '#FEF3DC' },
-    verifBannerError: { borderColor: C.error, backgroundColor: '#FDECEA' },
-    verifBannerInfo: { borderColor: C.primary, backgroundColor: C.primaryLight },
-    verifBannerIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-    verifBannerText: { fontSize: 13, fontWeight: '500', color: C.textPrimary, flex: 1 },
+    verifBanner: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: C.card, borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, gap: 10 },
+    verifBannerSuccess: { borderColor: C.success, backgroundColor: C.success + '15' },
+    verifBannerWarning: { borderColor: C.amber, backgroundColor: C.amber + '15' },
+    verifBannerError: { borderColor: C.error, backgroundColor: C.error + '15' },
+    verifBannerInfo: { borderColor: C.primary, backgroundColor: C.primary + '15' },
+    verifBannerIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+    verifBannerText: { fontSize: 13, fontWeight: '600', color: C.textPrimary, flex: 1, lineHeight: 18 },
     verifCatRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
     verifCatBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-    verifCatBadgeText: { fontSize: 11, fontWeight: '600', color: C.textSecondary },
+    verifCatBadgeText: { fontSize: 11, fontWeight: '600', color: C.textPrimary },
     verifMoreText: { fontSize: 11, color: C.textHint, alignSelf: 'center' },
+    dismissBtn: { padding: 4 },
     topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, marginTop: 8, justifyContent: 'space-between' },
     profileTrigger: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-    avatarCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
+    avatarCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    avatarImage: { width: 44, height: 44, borderRadius: 22 },
     avatarInitials: { fontSize: 16, fontWeight: '700', color: 'white' },
     greetingWrap: { marginLeft: 10 },
     greetingLabel: { fontSize: 12, color: C.textSecondary, fontWeight: '400' },
@@ -366,4 +557,10 @@ const makeStyles = (C: AppColors) =>
     nearbyDistance: { fontSize: 12, color: C.textSecondary, flex: 1 },
     applyButton: { backgroundColor: C.amber, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, alignItems: 'center', justifyContent: 'center' },
     applyButtonText: { fontSize: 11, fontWeight: '700', color: 'white' },
+    emptyJobs: { alignItems: 'center', padding: 30, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder },
+    emptyJobsText: { marginTop: 12, fontSize: 14, color: C.textSecondary, textAlign: 'center' },
+    browseBtn: { marginTop: 16, backgroundColor: C.primary, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 10 },
+    browseBtnText: { color: 'white', fontSize: 13, fontWeight: '600' },
+    reelsPlaceholder: { alignItems: 'center', padding: 30, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder },
+    reelsPlaceholderText: { marginTop: 12, fontSize: 14, color: C.textSecondary, textAlign: 'center' },
   });

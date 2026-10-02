@@ -133,28 +133,31 @@ const computeCompleteness = (
 };
 
 const serializeProviderProfile = (user: { toJSON?: () => Record<string, unknown> } | null, track: ProviderTrack | null) => {
-  const json = user?.toJSON?.() ?? {};
-  const profile = (json.provider_profile ?? {}) as Record<string, unknown>;
-  const trackData = (json.track_data ?? {}) as Record<string, unknown>;
+    const json = user?.toJSON?.() ?? {};
+    const profile = (json.provider_profile ?? {}) as Record<string, unknown>;
+    const trackData = (json.track_data ?? {}) as Record<string, unknown>;
 
-  // Surface availability from the track mirror (working_hours / on_site_availability)
-  // when the universal availability isn't stored yet (legacy/partial saves) so the
-  // client always receives a consistent `provider_profile.availability`.
-  if (!hasValue(profile.availability) && track) {
-    const td = (trackData[track] ?? {}) as Record<string, unknown>;
-    const mirror = track === 'errand' ? td.working_hours : track === 'physical' ? td.on_site_availability : undefined;
-    if (hasValue(mirror)) profile.availability = mirror;
-  }
+    // Surface availability from the track mirror (working_hours / on_site_availability)
+    // when the universal availability isn't stored yet (legacy/partial saves) so the
+    // client always receives a consistent `provider_profile.availability`.
+    if (!hasValue(profile.availability) && track) {
+      const td = (trackData[track] ?? {}) as Record<string, unknown>;
+      const mirror = track === 'errand' ? td.working_hours : track === 'physical' ? td.on_site_availability : undefined;
+      if (hasValue(mirror)) profile.availability = mirror;
+    }
 
-  const { completeness, missing_fields } = computeCompleteness(track, profile, trackData);
-  return {
-    provider_profile: profile,
-    track,
-    track_data: trackData,
-    completeness,
-    missing_fields,
+    // Include user's fullName from the user document
+    if (json.fullName) profile.fullName = json.fullName;
+
+    const { completeness, missing_fields } = computeCompleteness(track, profile, trackData);
+    return {
+      provider_profile: profile,
+      track,
+      track_data: trackData,
+      completeness,
+      missing_fields,
+    };
   };
-};
 
 const serializePublicProfile = async (provider: unknown, providerUserId: string) => {
   const json = (provider as { toJSON: () => Record<string, unknown> }).toJSON();
