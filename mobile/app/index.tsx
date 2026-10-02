@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -100,7 +100,7 @@ export default function SplashScreen() {
         };
     }, [dot1Opacity, dot2Opacity, dot3Opacity]);
 
-    const navigateOnce = useCallback((path: string | object) => {
+    const navigateOnce = useCallback((path: Href) => {
         if (navigated) return;
         setNavigated(true);
         router.replace(path);

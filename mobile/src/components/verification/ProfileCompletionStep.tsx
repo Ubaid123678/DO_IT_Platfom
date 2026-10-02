@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -194,55 +195,60 @@ export default function ProfileCompletionStep() {
         
         {isOpen && (
           <Modal 
-            animationType="slide" 
+            animationType="fade" 
             transparent 
             visible={true}
             onRequestClose={() => setIsOpen(false)}
           >
-            <View style={styles.modalOverlay} onTouchStart={() => setIsOpen(false)}>
+            <View style={styles.modalContainer}>
+              {/* Backdrop - tap outside to close */}
+              <Pressable 
+                style={styles.modalOverlay} 
+                onPress={() => setIsOpen(false)}
+                accessibilityRole="button"
+              />
+              {/* Modal content - positioned on top, captures all touches */}
               <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>{label}</Text>
-                  <TouchableOpacity onPress={() => setIsOpen(false)}>
-                    <Ionicons name="close" size={24} color={C.textSecondary} />
-                  </TouchableOpacity>
-                </View>
-                <TextInput
-                  style={styles.modalSearch}
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoFocus
-                />
-                <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent}>
-                  {filteredOptions.map((option) => (
-                    <TouchableOpacity 
-                      key={option}
-                      style={[styles.modalOption, selected.includes(option) && styles.modalOptionSelected]}
-                      onPress={() => {
-                        toggleOption(option);
-                      }}
-                    >
-                    <View style={styles.modalOptionContent}>
-                      <Text style={styles.modalOptionText}>{renderOption ? renderOption(option) : option}</Text>
-                    </View>
-                    {selected.includes(option) && (
-                      <Ionicons name="checkmark-circle" size={20} color={C.primary} />
-                    )}
-                    </TouchableOpacity>
-                  ))}
-                  {filteredOptions.length === 0 && (
-                    <Text style={styles.modalEmptyText}>No options found</Text>
-                  )}
-                </ScrollView>
-                <TouchableOpacity 
-                  style={styles.modalDoneButton}
-                  onPress={() => setIsOpen(false)}
-                >
-                  <Text style={styles.modalDoneButtonText}>Done</Text>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{label}</Text>
+                <TouchableOpacity onPress={() => setIsOpen(false)}>
+                  <Ionicons name="close" size={24} color={C.textSecondary} />
                 </TouchableOpacity>
               </View>
+              <TextInput
+                style={styles.modalSearch}
+                placeholder="Search..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus
+              />
+              <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent}>
+                {filteredOptions.map((option) => (
+                  <TouchableOpacity 
+                    key={option}
+                    style={[styles.modalOption, selected.includes(option) && styles.modalOptionSelected]}
+                    onPress={() => toggleOption(option)}
+                  >
+                  <View style={styles.modalOptionContent}>
+                    <Text style={styles.modalOptionText}>{renderOption ? renderOption(option) : option}</Text>
+                  </View>
+                  {selected.includes(option) && (
+                    <Ionicons name="checkmark-circle" size={20} color={C.primary} />
+                  )}
+                  </TouchableOpacity>
+                ))}
+                {filteredOptions.length === 0 && (
+                  <Text style={styles.modalEmptyText}>No options found</Text>
+                )}
+              </ScrollView>
+<TouchableOpacity 
+                style={styles.modalDoneButton}
+                onPress={() => setIsOpen(false)}
+              >
+                <Text style={styles.modalDoneButtonText}>Done</Text>
+              </TouchableOpacity>
             </View>
+          </View>
           </Modal>
         )}
       </View>
@@ -349,7 +355,7 @@ export default function ProfileCompletionStep() {
           teamSize: (physical.team_size as string) ?? '',
           insuranceCovered: (physical.insurance as { covered?: boolean })?.covered ?? false,
           hasTransport: (physical.has_transport as { yes?: boolean })?.yes ?? true,
-          transportMode: (physical.has_transport as { mode?: string })?.mode ?? '',
+          transportMode: (errand.transport_mode as string) ?? (physical.has_transport as { mode?: string })?.mode ?? '',
           skills: Array.isArray(digital.skills) ? (digital.skills as string[]).join(', ') : '',
           techStack: Array.isArray(digital.tech_stack) ? (digital.tech_stack as string[]).join(', ') : '',
           projectRate: digital.project_rate != null ? String(digital.project_rate) : '',
@@ -947,16 +953,23 @@ const makeStyles = (C: AppColors) =>
       fontSize: 14,
       color: C.textHint,
     },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+    modalContainer: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: 'transparent',
       justifyContent: 'center',
+      alignItems: 'center',
       paddingHorizontal: 20,
+    },
+    modalOverlay: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: 'rgba(0,0,0,0.5)',
     },
     modalContent: {
       backgroundColor: C.card,
       borderRadius: 16,
       maxHeight: '80%',
+      width: '100%',
+      maxWidth: 400,
     },
     modalHeader: {
       flexDirection: 'row',
