@@ -350,7 +350,7 @@ export default function ProfileCompletionStep() {
           yearsExperience: physical.years_experience != null ? String(physical.years_experience) : '',
           serviceRadiusKm: physical.service_radius_km != null ? String(physical.service_radius_km) : '',
           toolsEquipment: Array.isArray(physical.tools_equipment) ? (physical.tools_equipment as string[]).join(', ') : '',
-          hourlyRate: physical.hourly_rate != null ? String(physical.hourly_rate) : '',
+          hourlyRate: physical.hourly_rate != null ? String(physical.hourly_rate) : (digital.hourly_rate != null ? String(digital.hourly_rate) : ''),
           canTravel: physical.can_travel ?? true,
           teamSize: (physical.team_size as string) ?? '',
           insuranceCovered: (physical.insurance as { covered?: boolean })?.covered ?? false,
@@ -506,13 +506,17 @@ export default function ProfileCompletionStep() {
     setSaving(true);
     try {
       const payload = buildPayload();
+      console.log('[ProfileCompletion] Saving payload:', JSON.stringify(payload));
       const profile = await verificationService.updateProfile(payload);
+      console.log('[ProfileCompletion] Save response:', profile);
       setCompleteness(profile.completeness ?? completeness);
       setMissingFields(profile.missing_fields ?? []);
       await verificationService.markVerificationComplete().catch(() => {});
       dispatch({ type: 'SET_RESUME_BIO_COMPLETE' });
+      console.log('[ProfileCompletion] Navigating to dashboard...');
       router.replace('/(provider)/home');
     } catch (e) {
+      console.error('[ProfileCompletion] Save error:', e);
       const msg = e instanceof Error ? e.message : 'Failed to save profile.';
       Alert.alert('Save failed', msg);
     } finally {
@@ -522,6 +526,7 @@ export default function ProfileCompletionStep() {
 
   const handleSkip = async () => {
     await verificationService.markVerificationComplete().catch(() => {});
+    console.log('[ProfileCompletion] Skipping, navigating to dashboard...');
     router.replace('/(provider)/home');
   };
 

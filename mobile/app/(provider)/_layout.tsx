@@ -1,10 +1,12 @@
-﻿import { useRouter } from 'expo-router';
+﻿import Ionicons from '@expo/vector-icons/Ionicons';
+import { Tabs, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import KycFlow from '@/src/components/KycFlow';
 import { kycService } from '@/src/services/kycService';
+import { verificationService } from '@/src/services/verificationService';
 import { Colors } from '@/src/theme/colors';
 
 export default function ProviderLayout() {
@@ -12,7 +14,7 @@ export default function ProviderLayout() {
   const C = scheme === 'dark' ? Colors.dark : Colors.light;
   const router = useRouter();
 
-  const [gate, setGate] = useState<'loading' | 'kyc'>('loading');
+  const [gate, setGate] = useState<'loading' | 'kyc' | 'approved'>('loading');
   const gateRanRef = useRef(false);
 
   const checkGate = useCallback(async () => {
@@ -23,9 +25,14 @@ export default function ProviderLayout() {
         return;
       }
 
-      // KYC approved → always go to verification wizard first.
-      // The wizard (provider-verification) checks backend status and routes to
-      // category-selection, pending-review, profile completion, or dashboard.
+      // KYC approved → check if skill verification is complete
+      const verifDone = await verificationService.isVerificationComplete();
+      if (verifDone) {
+        setGate('approved');
+        return;
+      }
+
+      // Not complete → go to verification wizard
       router.replace('/(provider-verification)');
     } catch {
       router.replace('/(provider-verification)');
@@ -51,7 +58,80 @@ export default function ProviderLayout() {
     return <KycFlow onApproved={() => { void checkGate(); }} />;
   }
 
-  // Fallback (should not reach here - router.replace handles navigation)
+  if (gate === 'approved') {
+    return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarHideOnKeyboard: true,
+        tabBarActiveTintColor: C.primary,
+        tabBarInactiveTintColor: C.textHint,
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '600',
+          marginBottom: 4,
+        },
+        tabBarStyle: {
+          backgroundColor: C.navBg,
+          borderTopColor: C.navBorder,
+          borderTopWidth: 0.5,
+          height: 60,
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="browse-jobs"
+        options={{
+          title: 'Browse',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'search' : 'search-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="proposals"
+        options={{
+          title: 'Proposals',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'document-text' : 'document-text-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="earnings"
+        options={{
+          title: 'Earnings',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'wallet' : 'wallet-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'person' : 'person-outline'} color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen name="job-detail/[id]" options={{ href: null }} />
+      <Tabs.Screen name="active-job/[id]" options={{ href: null }} />
+      <Tabs.Screen name="kyc" options={{ href: null }} />
+      <Tabs.Screen name="withdraw" options={{ href: null }} />
+    </Tabs>
+    );
+  }
+
   return null;
 }
 
