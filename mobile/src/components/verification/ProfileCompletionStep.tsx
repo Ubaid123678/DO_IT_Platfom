@@ -640,12 +640,14 @@ export default function ProfileCompletionStep() {
           <View style={styles.fieldGap}>
             {renderField('Bio', form.bio, (v) => setField('bio', v), { placeholder: 'Tell clients about your experience and expertise...', multiline: true, required: true, maxLength: 500 })}
           </View>
-          <View style={styles.fieldGap}>
-            {renderField('City', form.city, (v) => setField('city', v), { 
-              placeholder: 'e.g. Lahore', 
-              required: effectiveTrack === 'physical' || effectiveTrack === 'errand' 
-            })}
-          </View>
+          {effectiveTrack === 'physical' || effectiveTrack === 'errand' && (
+            <View style={styles.fieldGap}>
+              {renderField('City', form.city, (v) => setField('city', v), { 
+                placeholder: 'e.g. Lahore', 
+                required: true 
+              })}
+            </View>
+          )}
 
           <MultiSelectDropdown
             label="Languages"
@@ -784,7 +786,7 @@ export default function ProfileCompletionStep() {
             </View>
 
             <View style={styles.subSectionHeader}>
-              <Text style={styles.subSectionTitle}>Work history <Text style={styles.fieldRequired}>*</Text> (at least one)</Text>
+              <Text style={styles.subSectionTitle}>Work history (optional)</Text>
               <TouchableOpacity onPress={() => setField('workHistory', [...form.workHistory, emptyWorkHistory()])}>
                 <Ionicons name="add-circle-outline" size={22} color={C.primary} />
               </TouchableOpacity>
@@ -811,7 +813,7 @@ export default function ProfileCompletionStep() {
             ))}
 
             <View style={styles.subSectionHeader}>
-              <Text style={styles.subSectionTitle}>Education</Text>
+              <Text style={styles.subSectionTitle}>Education <Text style={styles.fieldRequired}>*</Text> (at least one)</Text>
               <TouchableOpacity onPress={() => setField('education', [...form.education, emptyEducation()])}>
                 <Ionicons name="add-circle-outline" size={22} color={C.primary} />
               </TouchableOpacity>

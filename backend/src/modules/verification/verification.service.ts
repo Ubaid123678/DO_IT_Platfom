@@ -96,17 +96,17 @@ const computeCompleteness = (
     optional.push({ label: 'Team size', done: hasValue(td.team_size) });
     optional.push({ label: 'Insurance', done: hasValue(td.insurance) });
     optional.push({ label: 'Transport', done: hasValue(td.has_transport) });
-  } else if (track === 'digital') {
-    const td = (trackData.digital ?? {}) as Record<string, unknown>;
-    required.push({ label: 'Skills', done: hasValue(td.skills) });
-    required.push({ label: 'Tech stack', done: hasValue(td.tech_stack) });
-    required.push({ label: 'Hourly rate', done: hasValue(td.hourly_rate) });
-    required.push({ label: 'Timezone', done: hasValue(td.timezone) });
-    required.push({ label: 'English proficiency', done: hasValue(td.english_proficiency) });
-    required.push({ label: 'Work history', done: hasValue(td.work_history) });
-    optional.push({ label: 'Project rate', done: hasValue(td.project_rate) });
-    optional.push({ label: 'Education', done: hasValue(td.education) });
-    optional.push({ label: 'Resume', done: hasValue(td.resume_file_url) });
+} else if (track === 'digital') {
+      const td = (trackData.digital ?? {}) as Record<string, unknown>;
+      required.push({ label: 'Skills', done: hasValue(td.skills) });
+      required.push({ label: 'Tech stack', done: hasValue(td.tech_stack) });
+      required.push({ label: 'Hourly rate', done: hasValue(td.hourly_rate) });
+      required.push({ label: 'Timezone', done: hasValue(td.timezone) });
+      required.push({ label: 'English proficiency', done: hasValue(td.english_proficiency) });
+      optional.push({ label: 'Work history', done: hasValue(td.work_history) });
+      optional.push({ label: 'Project rate', done: hasValue(td.project_rate) });
+      required.push({ label: 'Education', done: hasValue(td.education) });
+      optional.push({ label: 'Resume', done: hasValue(td.resume_file_url) });
   } else if (track === 'errand') {
     const td = (trackData.errand ?? {}) as Record<string, unknown>;
     required.push({ label: 'Service area', done: hasValue(td.service_area) });
