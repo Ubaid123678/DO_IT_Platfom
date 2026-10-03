@@ -228,7 +228,8 @@ export default function ClientHomeScreen() {
 
         <View style={styles.sectionWrap}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsRow}>            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(client)/post-job')}>
+          <View style={styles.quickActionsRow}>
+            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(client)/post-job')}>
               <View style={styles.quickActionIconBox}>
                 <Ionicons name="add-circle" size={24} color={C.primary} />
               </View>

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { useJobCreation } from '@/src/context/JobCreationContext';
@@ -22,8 +22,10 @@ const stepComponents: Record<string, React.FC> = {
   'review': JobReviewStep,
 };
 
+const FIRST_STEP = 'job-type';
+
 export default function PostJobScreen() {
-  const { state, dispatch } = useJobCreation();
+  const { state, dispatch, goBack } = useJobCreation();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -31,6 +33,20 @@ export default function PostJobScreen() {
     // Reset wizard on mount
     dispatch({ type: 'RESET' });
   }, []);
+
+  // Handle Android hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (state.currentStep !== FIRST_STEP) {
+        goBack();
+        return true; // Prevent default back behavior
+      }
+      // On first step, allow default (exit to home)
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [state.currentStep, goBack]);
 
   const StepComponent = stepComponents[state.currentStep];
   if (!StepComponent) {
@@ -49,6 +65,5 @@ export default function PostJobScreen() {
   return <StepComponent />;
 }
 
-// Need to import useState
 import { useState } from 'react';
 import { Text } from 'react-native';
