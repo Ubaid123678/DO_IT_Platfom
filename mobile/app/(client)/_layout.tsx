@@ -1,14 +1,70 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useColorScheme, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { authService } from '@/src/services/authService';
+import { verificationService } from '@/src/services/verificationService';
 import { Colors } from '@/src/theme/colors';
 
 export default function ClientLayout() {
   const scheme = useColorScheme();
   const C = scheme === 'dark' ? Colors.dark : Colors.light;
+  const router = useRouter();
 
-  return (
+  const [gate, setGate] = useState<'loading' | 'profile' | 'approved'>('loading');
+  const gateRanRef = useRef(false);
+
+  const checkGate = useCallback(async () => {
+    try {
+      // First check if user is authenticated
+      const userRaw = await AsyncStorage.getItem('user');
+      if (!userRaw) {
+        // Not logged in, let auth flow handle it
+        router.replace('/(auth)/login');
+        return;
+      }
+
+      const user = JSON.parse(userRaw);
+
+      // Check if client profile is completed
+      const hasCompletedProfile = await AsyncStorage.getItem('hasCompletedProfile');
+      if (hasCompletedProfile !== 'true') {
+        setGate('profile');
+        return;
+      }
+
+      setGate('approved');
+    } catch {
+      router.replace('/(auth)/login');
+    }
+  }, [router]);
+
+  // Runs once per mount
+  useEffect(() => {
+    if (gateRanRef.current) return;
+    gateRanRef.current = true;
+    void checkGate();
+  }, [checkGate]);
+
+  if (gate === 'loading') {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
+        <View style={{ flex: 1 }} />
+      </SafeAreaView>
+    );
+  }
+
+  if (gate === 'profile') {
+    // Redirect to profile completion screen
+    router.replace('/(onboarding)/client-profile');
+    return null;
+  }
+
+  if (gate === 'approved') {
+    return (
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -88,5 +144,8 @@ export default function ClientLayout() {
       <Tabs.Screen name="wallet-withdraw" options={{ href: null }} />
       <Tabs.Screen name="verification" options={{ href: null }} />
     </Tabs>
-  );
+    );
+  }
+
+  return null;
 }

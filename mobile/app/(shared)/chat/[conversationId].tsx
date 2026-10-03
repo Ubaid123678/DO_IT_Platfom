@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Alert, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme, Image } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme, Image } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -233,7 +233,7 @@ export default function ChatScreen() {
             <Text style={styles.headerSubtitle}>Online</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => router.push(`/conversation-detail/${conversationId}`)}>
+        <TouchableOpacity onPress={() => router.push(`/conversation-detail/${conversationId}` as any)}>
           <Ionicons name="information-circle-outline" size={24} color={C.textPrimary} />
         </TouchableOpacity>
       </View>
@@ -251,13 +251,13 @@ export default function ChatScreen() {
         showsVerticalScrollIndicator={false}
         inverted
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.emptyState}>
               <Ionicons name="chatbox-outline" size={48} color={C.textHint} />
               <Text style={styles.emptyTitle}>No messages yet</Text>
               <Text style={styles.emptySubtitle}>Start the conversation!</Text>
             </View>
-          )
+          ) : null
         }
         onContentSizeChange={() => {
           flatListRef.current?.scrollToEnd({ animated: false });
@@ -317,8 +317,10 @@ const makeStyles = (C: AppColors) =>
     listContent: { paddingBottom: 20, paddingTop: 10 },
     messageContainer: { marginHorizontal: 12, marginBottom: 8 },
     messageBubble: { maxWidth: '75%', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16 },
+    messageText: { fontSize: 15, color: C.textPrimary, lineHeight: 22 },
     ownMessage: { backgroundColor: '#27AE60', borderBottomRightRadius: 4, alignSelf: 'flex-end' },
     otherMessage: { backgroundColor: '#F1F3F4', borderBottomLeftRadius: 4, alignSelf: 'flex-start' },
+    otherMessageTime: { color: C.textHint },
     ownMessageText: { color: '#fff', fontSize: 15, lineHeight: 22 },
     otherMessageText: { color: '#202124', fontSize: 15, lineHeight: 22 },
     messageTime: { fontSize: 10, color: '#888', marginTop: 4, alignSelf: 'flex-end' },

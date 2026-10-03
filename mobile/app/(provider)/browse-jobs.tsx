@@ -134,8 +134,8 @@ export default function ProviderJobsScreen() {
       // Extract verified job types from categories
       const types = new Set<JobType>();
       verifData.categories?.forEach((cat) => {
-        if (cat.status === 'approved' || cat.status === 'auto_approved') {
-          types.add(cat.job_type);
+        if ((cat.status === 'approved' || cat.status === 'auto_approved') && cat.job_type) {
+          types.add(cat.job_type as JobType);
         }
       });
       setVerifiedTypes(Array.from(types));

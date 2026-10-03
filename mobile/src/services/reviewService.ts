@@ -68,7 +68,6 @@ export interface IReview {
   bidTotal?: number;
 }
 
-export type ReviewStatus = 'pending' | 'published' | 'flagged' | 'removed';
 
 export interface ReviewQueryParams {
   status?: 'pending' | 'published' | 'flagged' | 'removed' | 'all';
@@ -215,7 +214,7 @@ export const reviewService = {
   } = {}): Promise<ReviewListResponse> => {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
+      if (value !== undefined && value !== null) {
         queryParams.append(key, String(value));
       }
     });
@@ -231,7 +230,7 @@ export const reviewService = {
   } = {}): Promise<ReviewListResponse> => {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
+      if (value !== undefined && value !== null) {
         queryParams.append(key, String(value));
       }
     });
@@ -247,7 +246,7 @@ export const reviewService = {
   } = {}): Promise<ReviewListResponse> => {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
+      if (value !== undefined && value !== null) {
         queryParams.append(key, String(value));
       }
     });

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, FlatList, RefreshControl, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -61,7 +61,7 @@ export default function DisputeListScreen() {
       const currentSkip = reset ? 0 : skip;
       const result = await disputeService.getMyDisputes({
         status: activeTab === 'all' ? undefined : activeTab,
-        skip: currentSkip,
+        page: Math.floor(currentSkip / 20) + 1,
         limit: 20,
       });
       if (reset) {
@@ -110,7 +110,7 @@ export default function DisputeListScreen() {
   }, [loadingMore, hasMore, loadDisputes]);
 
   const renderDispute = ({ item }: { item: IDispute }) => (
-    <TouchableOpacity style={styles.disputeCard} onPress={() => router.push(`/dispute-detail/${item._id}`)} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.disputeCard} onPress={() => router.push(`/dispute-detail/${item._id}` as any)} activeOpacity={0.8}>
       <View style={styles.cardHeader}>
         <View style={styles.jobInfo}>
           <Text style={styles.jobTitle}>{item.jobId}</Text>
@@ -289,7 +289,7 @@ export default function DisputeListScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.emptyState}>
               <Ionicons name="document-text-outline" size={48} color={C.textHint} />
               <Text style={styles.emptyTitle}>No disputes yet</Text>
@@ -297,7 +297,7 @@ export default function DisputeListScreen() {
                 {activeTab === 'all' ? 'Your disputes will appear here' : `No ${activeTab.replace('_', ' ')} disputes`}
               </Text>
             </View>
-          )
+          ) : null
         }
       />
 
@@ -338,6 +338,9 @@ const makeStyles = (C: AppColors) =>
     },
     statLabel: { fontSize: 11, color: C.textHint, marginTop: 2 },
     statValue: { fontSize: 14, fontWeight: '700' },
+    statCardActive: { backgroundColor: C.primary, borderColor: C.primary },
+    statLabelActive: { color: '#fff' },
+    statValueActive: { color: '#fff' },
     disputeCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 12, marginHorizontal: 20 },
     cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
     jobInfo: { flex: 1 },
@@ -360,6 +363,7 @@ const makeStyles = (C: AppColors) =>
     evidenceLabel: { fontSize: 12, fontWeight: '600', color: C.textPrimary, marginBottom: 8 },
     evidenceList: { gap: 8 },
     evidenceItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+    evidenceInfo: { flex: 1 },
     evidenceType: { fontSize: 12, fontWeight: '500', color: C.textPrimary },
     evidenceTime: { fontSize: 11, color: C.textHint },
     evidenceMore: { fontSize: 12, color: C.textHint, marginTop: 4, textAlign: 'right' },

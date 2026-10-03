@@ -208,7 +208,7 @@ export default function ProviderWalletScreen() {
 
       {/* Payout Button */}
       {stats && stats.availableBalance > 0 && (
-        <TouchableOpacity style={styles.payoutBtn} onPress={() => router.push('/wallet/payout')}>
+        <TouchableOpacity style={styles.payoutBtn} onPress={() => router.push('/wallet/payout' as any)}>
           <Ionicons name="send-outline" size={20} color="#fff" />
           <Text style={styles.payoutBtnText}>Request Payout (${formatCurrency(stats.availableBalance)})</Text>
         </TouchableOpacity>
@@ -226,7 +226,7 @@ export default function ProviderWalletScreen() {
             onPress={() => setActiveTab(type as any)}
           >
             <Text style={[styles.filterTabLabel, activeTab === type && styles.filterTabLabelActive]}>
-              {type === 'all' ? 'All' : TYPE_LABELS[type] || type}
+              {type === 'all' ? 'All' : TYPE_LABELS[type as TransactionType] || type}
             </Text>
           </TouchableOpacity>
         ))}
@@ -244,7 +244,7 @@ export default function ProviderWalletScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.emptyState}>
               <Ionicons name="receipt-outline" size={48} color={C.textHint} />
               <Text style={styles.emptyTitle}>No transactions yet</Text>
@@ -252,7 +252,7 @@ export default function ProviderWalletScreen() {
                 {activeTab === 'all' ? 'Your transactions will appear here' : `No ${TYPE_LABELS[activeTab]?.toLowerCase() || activeTab} transactions`}
               </Text>
             </View>
-          )
+          ) : null
         }
       />
 

@@ -118,7 +118,6 @@ export default function TopUpScreen() {
                 placeholder="0.00"
                 keyboardType="decimal-pad"
                 autoFocus
-                disabled={loading || confirming}
               />
             </View>
             <Text style={styles.amountHint}>Enter amount or tap a preset below</Text>
@@ -188,7 +187,7 @@ export default function TopUpScreen() {
             <TouchableOpacity
               style={[
                 styles.continueBtn,
-                !amount || parseFloat(amount) < 1 && styles.continueBtnDisabled,
+                (!amount || parseFloat(amount) < 1) && styles.continueBtnDisabled,
               ]}
               onPress={handleTopUp}
               disabled={!amount || parseFloat(amount) < 1 || loading}

@@ -65,6 +65,13 @@ export type ForgotPasswordPayload = {
 export type UpdateMePayload = {
   fullName?: string;
   role?: 'client' | 'provider';
+  bio?: string;
+  city?: string;
+  languages?: { code: string; level: string }[];
+  notificationEmail?: boolean;
+  notificationPush?: boolean;
+  notificationSms?: boolean;
+  profileVisibility?: 'public' | 'private';
 };
 
 export type ResetPasswordPayload = {

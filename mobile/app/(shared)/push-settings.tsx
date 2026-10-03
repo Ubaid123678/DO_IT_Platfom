@@ -43,6 +43,17 @@ const TYPE_LABELS: Record<string, string> = {
   security_alert: 'Security Alerts',
 };
 
+const TYPE_CATEGORIES = [
+  { title: 'Jobs', types: ['job_created', 'job_updated', 'job_assigned', 'job_completed', 'job_cancelled'] },
+  { title: 'Proposals', types: ['proposal_received', 'proposal_accepted', 'proposal_rejected', 'proposal_withdrawn'] },
+  { title: 'Messages', types: ['message'] },
+  { title: 'Disputes', types: ['dispute_created', 'dispute_evidence_added', 'dispute_resolved'] },
+  { title: 'Reviews', types: ['review_received', 'review_flagged', 'review_moderated'] },
+  { title: 'Wallet', types: ['payout_requested', 'payout_completed', 'payout_failed', 'wallet_topup', 'wallet_low_balance', 'wallet_escrow_locked', 'wallet_escrow_released', 'wallet_escrow_refunded'] },
+  { title: 'Verification', types: ['verification_submitted', 'verification_approved', 'verification_rejected', 'kyc_submitted', 'kyc_approved', 'kyc_rejected'] },
+  { title: 'System', types: ['system_announcement', 'promotion', 'security_alert'] },
+];
+
 export default function PushNotificationSettingsScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -121,7 +132,7 @@ quietHours: {
   };
 
   const toggleType = (type: string) => {
-    setPrefs(prev => ({
+    setPrefs((prev: any) => ({
       ...prev,
       types: {
         ...prev.types,
@@ -136,7 +147,7 @@ quietHours: {
     Object.keys(newTypes).forEach(key => {
       newTypes[key] = newEnabled;
     });
-    setPrefs(prev => ({
+    setPrefs((prev: any) => ({
       ...prev,
       enabled: newEnabled,
       types: newTypes,
@@ -144,7 +155,7 @@ quietHours: {
   };
 
   const handleTimeChange = (field: 'start' | 'end', value: string) => {
-    setPrefs(prev => ({
+    setPrefs((prev: any) => ({
       ...prev,
       quietHours: {
         ...prev.quietHours,
@@ -154,7 +165,7 @@ quietHours: {
   };
 
   const toggleQuietHours = () => {
-    setPrefs(prev => ({
+    setPrefs((prev: any) => ({
       ...prev,
       quietHours: {
         ...prev.quietHours,
@@ -232,11 +243,11 @@ quietHours: {
           )}
         </View>
 
-        {Object.entries(TYPE_CATEGORIES).map(({ title, types }) => (
+        {TYPE_CATEGORIES.map(({ title, types }) => (
           <View key={title} style={styles.categorySection}>
             <Text style={styles.categoryTitle}>{title}</Text>
             <View style={styles.chipRow}>
-              {types.map(type => (
+              {types.map((type: string) => (
                 <TouchableOpacity
                   key={type}
                   style={[styles.chip, prefs.types[type] && styles.chipActive]}
@@ -262,14 +273,13 @@ quietHours: {
 const makeStyles = (C: any) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
+    loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    loadingText: { fontSize: 16, color: C.textSecondary },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
     headerTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary },
     saveBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: C.primary, alignItems: 'center' },
     saveBtnText: { fontSize: 15, fontWeight: '600', color: '#fff' },
     content: { paddingHorizontal: 20, paddingBottom: 100 },
-    section: { marginBottom: 24 },
-    sectionTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 4 },
-    sectionSubtitle: { fontSize: 12, color: C.textHint, marginBottom: 12 },
     masterToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder },
     toggleInfo: { flex: 1 },
     toggleTitle: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
@@ -297,6 +307,4 @@ const makeStyles = (C: any) =>
     footer: { flexDirection: 'row', gap: 12, padding: 20, paddingBottom: 32, backgroundColor: C.background },
     backBtn: { flex: 1, paddingVertical: 16, borderRadius: 12, borderWidth: 1, borderColor: C.divider, alignItems: 'center' },
     backBtnText: { fontSize: 16, fontWeight: '600', color: C.textPrimary },
-    saveBtn: { flex: 1, paddingVertical: 16, borderRadius: 12, backgroundColor: C.primary, alignItems: 'center' },
-    saveBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   });

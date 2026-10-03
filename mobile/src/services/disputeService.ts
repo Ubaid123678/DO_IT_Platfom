@@ -150,7 +150,7 @@ export const disputeService = {
   } = {}): Promise<DisputeListResponse> => {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
+      if (value !== undefined && value !== null) {
         queryParams.append(key, String(value));
       }
     });
@@ -172,7 +172,7 @@ export const disputeService = {
   } = {}): Promise<AdminDisputeListResponse> => {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
+      if (value !== undefined && value !== null) {
         queryParams.append(key, String(value));
       }
     });
@@ -203,9 +203,4 @@ export const disputeService = {
     return res.data.data.dispute;
   },
 
-  // Get dispute by ID for admin
-  getDisputeByIdForAdmin: async (disputeId: string) => {
-    const res = await api.get(`/disputes/admin/${disputeId}`);
-    return res.data.data.dispute;
-  },
 };

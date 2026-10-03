@@ -37,6 +37,10 @@ const resolveApiBaseUrl = (): string => {
   return 'http://localhost:8080/api/v1';
 };
 
+// Debug: log the resolved base URL
+const resolvedBaseUrl = resolveApiBaseUrl();
+console.log('[API] Base URL:', resolvedBaseUrl);
+
 export const api = axios.create({
   baseURL: resolveApiBaseUrl(),
   timeout: 10000,

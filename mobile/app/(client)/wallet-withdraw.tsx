@@ -491,7 +491,7 @@ const makeStyles = (C: AppColors, isDark: boolean) =>
       color: 'white',
     },
     modalOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: C.overlay,
       alignItems: 'center',
       justifyContent: 'center',

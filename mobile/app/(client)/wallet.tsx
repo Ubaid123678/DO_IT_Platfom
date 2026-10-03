@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme, ActivityIndicator } from 'react-native';
+import { Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme, ActivityIndicator } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -226,7 +226,7 @@ export default function WalletScreen() {
             onPress={() => setActiveTab(type)}
           >
             <Text style={[styles.filterTabLabel, activeTab === type && styles.filterTabLabelActive]}>
-              {type === 'all' ? 'All' : TYPE_LABELS[type] || type}
+              {type === 'all' ? 'All' : TYPE_LABELS[type as TransactionType] || type}
             </Text>
           </TouchableOpacity>
         ))}
@@ -244,7 +244,7 @@ export default function WalletScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.emptyState}>
               <Ionicons name="receipt-outline" size={48} color={C.textHint} />
               <Text style={styles.emptyTitle}>No transactions yet</Text>
@@ -252,7 +252,7 @@ export default function WalletScreen() {
                 {activeTab === 'all' ? 'Your transactions will appear here' : `No ${TYPE_LABELS[activeTab]?.toLowerCase() || activeTab} transactions`}
               </Text>
             </View>
-          )
+          ) : null
         }
       />
 

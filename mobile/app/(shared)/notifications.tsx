@@ -240,7 +240,7 @@ export default function NotificationsScreen() {
           styles.typeIcon,
           { backgroundColor: getTypeColor(item.type) }
         ]}>
-          <Ionicons name={TYPE_ICONS[item.type] || 'notifications-outline'} size={20} color="#fff" />
+          <Ionicons name={(TYPE_ICONS[item.type as NotificationType] || 'notifications-outline') as keyof typeof Ionicons.glyphMap} size={20} color="#fff" />
         </View>
         <View style={styles.notificationInfo}>
           <Text style={styles.notificationTitle} numberOfLines={1}>{item.title}</Text>
@@ -248,9 +248,9 @@ export default function NotificationsScreen() {
         </View>
         <View style={[
           styles.statusBadge,
-          { backgroundColor: STATUS_COLORS[item.status] }
+          { backgroundColor: STATUS_COLORS[item.status as NotificationStatus] }
         ]}>
-          <Text style={styles.statusBadgeText}>{STATUS_LABELS[item.status]}</Text>
+          <Text style={styles.statusBadgeText}>{STATUS_LABELS[item.status as NotificationStatus]}</Text>
         </View>
       </View>
 
@@ -398,7 +398,7 @@ export default function NotificationsScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.emptyState}>
               <Ionicons name="notifications-outline" size={48} color={C.textHint} />
               <Text style={styles.emptyTitle}>No notifications</Text>
@@ -406,7 +406,7 @@ export default function NotificationsScreen() {
                 {activeTab === 'all' ? 'You\'re all caught up!' : `No ${activeTab} notifications`}
               </Text>
             </View>
-          )
+          ) : null
         }
       />
 
