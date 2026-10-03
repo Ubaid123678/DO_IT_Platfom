@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs, useRouter } from 'expo-router';
+import { Redirect, Tabs, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -58,9 +58,7 @@ export default function ClientLayout() {
   }
 
   if (gate === 'profile') {
-    // Redirect to profile completion screen
-    router.replace('/(onboarding)/client-profile');
-    return null;
+    return <Redirect href="/(onboarding)/client-profile" />;
   }
 
   if (gate === 'approved') {

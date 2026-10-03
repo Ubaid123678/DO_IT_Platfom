@@ -14,9 +14,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import JobCard from '@/src/components/job/JobCard';
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { authService } from '@/src/services/authService';
+import { walletService } from '@/src/services/walletService';
+import { jobService } from '@/src/services/jobService';
 
 type UserState = {
   name: string;
+  avatarUrl?: string;
+  email: string;
+  memberSince?: string;
+  profileCompleteness?: number;
+  missingFields?: string[];
 };
 
 type ActiveJob = {
@@ -43,62 +51,74 @@ const defaultCategories: CategoryChip[] = [
   { emoji: '📚', label: 'Teaching' },
 ];
 
-const defaultJobs: ActiveJob[] = [
-  {
-    id: 'job-1',
-    title: 'Need AC servicing at home',
-    category: 'Repair',
-    budget: '$45.00',
-    status: 'In Progress',
-  },
-  {
-    id: 'job-2',
-    title: 'Logo and social banner design',
-    category: 'Design',
-    budget: '$80.00',
-    status: 'Open',
-  },
-  {
-    id: 'job-3',
-    title: 'Airport pickup service tomorrow',
-    category: 'Transport',
-    budget: '$30.00',
-    status: 'Open',
-  },
-];
-
 export default function ClientHomeScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
   const C = scheme === 'dark' ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
 
-  const [user, setUser] = useState<UserState>({ name: 'Ubaid' });
+  const [user, setUser] = useState<UserState | null>(null);
   const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
   const [categories, setCategories] = useState<CategoryChip[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setUser({ name: 'Ubaid' });
-      setUnreadCount(2);
-      setActiveJobs(defaultJobs);
-      setCategories(defaultCategories);
-      setLoading(false);
-    }, 400);
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const [userRes, walletRes, jobStatsRes, myJobsRes] = await Promise.allSettled([
+          authService.getMe(),
+          walletService.getWalletStats(),
+          jobService.getProviderJobStats(),
+          jobService.getClientJobs({ limit: 5 }),
+        ]);
 
-    return () => clearTimeout(timer);
+        if (userRes.status === 'fulfilled') {
+          const userData = userRes.value.data.user;
+          setUser({
+            name: userData.fullName,
+            avatarUrl: userData.avatar_url,
+            email: userData.email,
+            memberSince: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'New',
+            profileCompleteness: 0,
+            missingFields: [],
+          });
+        }
+
+        if (walletRes.status === 'fulfilled') {
+          // Wallet data loaded
+        }
+
+        if (jobStatsRes.status === 'fulfilled') {
+          // Job stats loaded
+        }
+
+        if (myJobsRes.status === 'fulfilled') {
+          const jobs = myJobsRes.value.jobs || [];
+          setActiveJobs(jobs.map((job: any) => ({
+            id: job._id,
+            title: job.title,
+            category: job.requirements?.categories?.[0]?.name || 'General',
+            budget: job.budget?.amount ? `$${(job.budget.amount / 100).toFixed(2)}` : '$0.00',
+            status: job.status,
+          })));
+        }
+      } catch (e) {
+        console.error('[ClientHome] Load error:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    void loadData();
   }, []);
 
   const initials = useMemo(() => {
+    if (!user?.name) return 'U';
     const parts = user.name.trim().split(/\s+/);
-    if (parts.length === 1) {
-      return parts[0].slice(0, 2).toUpperCase();
-    }
-
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }, [user.name]);
+  }, [user?.name]);
 
   if (loading) {
     return (
@@ -109,6 +129,23 @@ export default function ClientHomeScreen() {
       </SafeAreaView>
     );
   }
+
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator color={C.primary} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -124,13 +161,28 @@ export default function ClientHomeScreen() {
             activeOpacity={0.9}
           >
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitials}>{initials}</Text>
+              {user.avatarUrl ? (
+                <Image
+                  source={{ uri: user.avatarUrl }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Text style={styles.avatarInitials}>{initials}</Text>
+              )}
             </View>
 
             <View style={styles.greetingWrap}>
-              <Text style={styles.greetingLabel}>Good Morning,</Text>
+              <Text style={styles.greetingLabel}>{greeting},</Text>
               <Text style={styles.greetingName}>{user.name}</Text>
             </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.editProfileBtn}
+            onPress={() => router.push('/(onboarding)/client-profile')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="pencil-outline" size={20} color={C.primary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -291,6 +343,458 @@ const makeStyles = (C: AppColors) =>
       backgroundColor: C.primary,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    avatarImage: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+    },
+    avatarInitials: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: 'white',
+    },
+    greetingWrap: {
+      marginLeft: 10,
+    },
+    greetingLabel: {
+      fontSize: 12,
+      color: C.textSecondary,
+    },
+    greetingName: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: C.textPrimary,
+      marginTop: 2,
+    },
+    editProfileBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: C.card,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    notificationTrigger: {
+      position: 'relative',
+      padding: 6,
+    },
+    unreadDot: {
+      position: 'absolute',
+      top: 3,
+      right: 4,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: C.amber,
+    },
+    walletCard: {
+      backgroundColor: C.primary,
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 20,
+    },
+    walletLabel: {
+      fontSize: 12,
+      color: 'rgba(255,255,255,0.7)',
+      marginBottom: 4,
+    },
+    walletAmount: {
+      fontSize: 32,
+      fontWeight: '800',
+      color: 'white',
+    },
+    walletConverted: {
+      fontSize: 13,
+      color: 'rgba(255,255,255,0.6)',
+      marginTop: 2,
+    },
+    walletActionsRow: {
+      marginTop: 16,
+      flexDirection: 'row',
+      gap: 10,
+    },
+    walletActionPrimary: {
+      flex: 1,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    walletActionSecondary: {
+      flex: 1,
+      height: 36,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.6)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    walletActionText: {
+      color: 'white',
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    sectionWrap: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: C.textPrimary,
+      marginBottom: 12,
+    },
+    quickActionsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    quickActionItem: {
+      width: 72,
+      alignItems: 'center',
+    },
+    quickActionIconBox: {
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      backgroundColor: C.card,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    quickActionLabel: {
+      marginTop: 6,
+      fontSize: 10,
+      fontWeight: '500',
+      color: C.textSecondary,
+      textAlign: 'center',
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    seeAllText: {
+      fontSize: 12,
+      color: C.primary,
+      fontWeight: '600',
+    },
+    emptyJobsBox: {
+      backgroundColor: C.card,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      padding: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyJobsText: {
+      marginTop: 8,
+      color: C.textSecondary,
+      fontSize: 13,
+    },
+    emptyJobsAction: {
+      marginTop: 12,
+      color: C.primary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    jobsHorizontalList: {
+      paddingRight: 10,
+      gap: 12,
+    },
+    jobCardItem: {
+      width: 200,
+    },
+    categoriesList: {
+      gap: 8,
+      paddingRight: 8,
+    },
+    categoryChip: {
+      backgroundColor: C.card,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    categoryEmoji: {
+      fontSize: 14,
+    },
+    categoryLabel: {
+      fontSize: 12,
+      color: C.textPrimary,
+      fontWeight: '500',
+    },
+    loaderWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    container: {
+      flex: 1,
+      backgroundColor: C.background,
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 8,
+      paddingBottom: 30,
+    },
+    loaderWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+      marginTop: 8,
+      justifyContent: 'space-between',
+    },
+    profileTrigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    avatarCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: C.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarImage: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+    },
+    avatarInitials: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: 'white',
+    },
+    greetingWrap: {
+      marginLeft: 10,
+    },
+    greetingLabel: {
+      fontSize: 12,
+      color: C.textSecondary,
+    },
+    greetingName: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: C.textPrimary,
+      marginTop: 2,
+    },
+    notificationTrigger: {
+      position: 'relative',
+      padding: 6,
+    },
+    unreadDot: {
+      position: 'absolute',
+      top: 3,
+      right: 4,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: C.amber,
+    },
+    walletCard: {
+      backgroundColor: C.primary,
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 20,
+    },
+    walletLabel: {
+      fontSize: 12,
+      color: 'rgba(255,255,255,0.7)',
+      marginBottom: 4,
+    },
+    walletAmount: {
+      fontSize: 32,
+      fontWeight: '800',
+      color: 'white',
+    },
+    walletConverted: {
+      fontSize: 13,
+      color: 'rgba(255,255,255,0.6)',
+      marginTop: 2,
+    },
+    walletActionsRow: {
+      marginTop: 16,
+      flexDirection: 'row',
+      gap: 10,
+    },
+    walletActionPrimary: {
+      flex: 1,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    walletActionSecondary: {
+      flex: 1,
+      height: 36,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.6)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    walletActionText: {
+      color: 'white',
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    sectionWrap: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: C.textPrimary,
+      marginBottom: 12,
+    },
+    quickActionsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    quickActionItem: {
+      width: 72,
+      alignItems: 'center',
+    },
+    quickActionIconBox: {
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      backgroundColor: C.card,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    quickActionLabel: {
+      marginTop: 6,
+      fontSize: 10,
+      fontWeight: '500',
+      color: C.textSecondary,
+      textAlign: 'center',
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    seeAllText: {
+      fontSize: 12,
+      color: C.primary,
+      fontWeight: '600',
+    },
+    emptyJobsBox: {
+      backgroundColor: C.card,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      padding: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyJobsText: {
+      marginTop: 8,
+      color: C.textSecondary,
+      fontSize: 13,
+    },
+    emptyJobsAction: {
+      marginTop: 12,
+      color: C.primary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    jobsHorizontalList: {
+      paddingRight: 10,
+      gap: 12,
+    },
+    jobCardItem: {
+      width: 200,
+    },
+    categoriesList: {
+      gap: 8,
+      paddingRight: 8,
+    },
+    categoryChip: {
+      backgroundColor: C.card,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    categoryEmoji: {
+      fontSize: 14,
+    },
+    categoryLabel: {
+      fontSize: 12,
+      color: C.textPrimary,
+      fontWeight: '500',
+    },
+    loaderWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    container: {
+      flex: 1,
+      backgroundColor: C.background,
+    },
+    scroll: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 8,
+      paddingBottom: 30,
+    },
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+      marginTop: 8,
+      justifyContent: 'space-between',
+    },
+    profileTrigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    avatarCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: C.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarImage: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
     },
     avatarInitials: {
       fontSize: 16,

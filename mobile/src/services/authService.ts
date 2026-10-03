@@ -133,6 +133,8 @@ export const authService = {
     api.post<ApiResponse<{ debugResetToken?: string }>>('/auth/forgot-password', payload),
   resetPassword: (payload: ResetPasswordPayload) =>
     api.post<ApiResponse<null>>('/auth/reset-password', payload),
+  getMe: () =>
+    api.get<ApiResponse<{ user: AuthUser }>>('/auth/me'),
   me: (accessToken: string) =>
     api.get<ApiResponse<{ user: AuthUser }>>('/auth/me', {
       headers: {
