@@ -96,14 +96,13 @@ export default function ClientLayout() {
       <Tabs.Screen
         name="post-job"
         options={{
-          title: 'Post Job',
-          tabBarLabel: () => null,
+          title: 'Browse',
           tabBarIconStyle: {
             marginTop: -4,
           },
           tabBarIcon: ({ focused }) => (
             <Ionicons
-              name={focused ? 'add-circle' : 'add-circle-outline'}
+              name={focused ? 'search' : 'search-outline'}
               color={C.primary}
               size={32}
             />
@@ -138,6 +137,8 @@ export default function ClientLayout() {
         }}
       />
       <Tabs.Screen name="job-detail/[id]" options={{ href: null }} />
+      <Tabs.Screen name="disputes" options={{ href: null }} />
+      <Tabs.Screen name="job-proposals/[jobId]" options={{ href: null }} />
       <Tabs.Screen name="proposals/[jobId]" options={{ href: null }} />
       <Tabs.Screen name="wallet" options={{ href: null }} />
       <Tabs.Screen name="wallet-topup" options={{ href: null }} />

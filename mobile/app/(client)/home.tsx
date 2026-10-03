@@ -243,6 +243,16 @@ export default function ClientHomeScreen() {
               <Text style={styles.quickActionLabel}>My Jobs</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              style={styles.quickActionItem}
+              onPress={() => router.push(activeJobs[0] ? `/(client)/job-proposals/${activeJobs[0].id}` : '/(client)/my-jobs')}
+            >
+              <View style={styles.quickActionIconBox}>
+                <Ionicons name="document-text" size={24} color={C.primary} />
+              </View>
+              <Text style={styles.quickActionLabel}>Proposals</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(client)/messages')}>
               <View style={styles.quickActionIconBox}>
                 <Ionicons name="chatbubbles" size={24} color={C.primary} />
