@@ -739,6 +739,13 @@ export const verificationService = {
 
   uploadAvatarFile: async (userId: string, fileUrl: string) => {
     const user = await getUserOrThrow(userId);
+
+    if (user.role === 'client') {
+      user.set('avatar_url', fileUrl);
+      await user.save();
+      return { avatar_url: fileUrl };
+    }
+
     assertProviderOrAdmin(user);
 
     // provider_profile / track_data are Schema.Types.Mixed — Mutating the object

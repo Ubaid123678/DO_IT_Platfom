@@ -72,6 +72,15 @@ export type UpdateMePayload = {
   notificationPush?: boolean;
   notificationSms?: boolean;
   profileVisibility?: 'public' | 'private';
+  clientProfile?: {
+    bio?: string;
+    city?: string;
+    languages?: { code: string; level: string }[];
+    notificationEmail?: boolean;
+    notificationPush?: boolean;
+    notificationSms?: boolean;
+    profileVisibility?: 'public' | 'private';
+  };
 };
 
 export type ResetPasswordPayload = {
@@ -147,4 +156,6 @@ export const authService = {
         Authorization: `Bearer ${accessToken}`,
       },
     }),
+    uploadAvatar: (data: string) =>
+      api.post<ApiResponse<{ avatar_url: string }>>('/providers/profile/avatar', { data }),
 };

@@ -30,6 +30,15 @@ type LoginInput = {
 type UpdateProfileInput = {
   fullName?: string;
   role?: 'client' | 'provider';
+  clientProfile?: {
+    bio?: string;
+    city?: string;
+    languages?: { code: string; level: 'basic' | 'intermediate' | 'fluent' }[];
+    notificationEmail?: boolean;
+    notificationPush?: boolean;
+    notificationSms?: boolean;
+    profileVisibility?: 'public' | 'private';
+  };
 };
 
 const OTP_EXPIRY_MS = 1 * 60 * 1000;
@@ -450,6 +459,12 @@ export const authService = {
 
     if (input.role !== undefined) {
       user.role = input.role;
+    }
+
+    if (input.clientProfile !== undefined) {
+      const current = (user.get('client_profile') ?? {}) as Record<string, unknown>;
+      user.set('client_profile', { ...current, ...input.clientProfile });
+      user.markModified('client_profile');
     }
 
     await user.save();

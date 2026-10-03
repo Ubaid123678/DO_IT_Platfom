@@ -26,7 +26,7 @@ verificationRouter.patch('/profile', authenticate, requireRoles('provider', 'adm
 verificationRouter.get('/providers/:providerId/public', authenticate, verificationController.getPublicProfile);
 
 verificationRouter.post('/resume/upload', authenticate, requireRoles('provider', 'admin'), handleResumeUpload, verificationController.uploadResume);
-verificationRouter.post('/profile/avatar', authenticate, requireRoles('provider', 'admin'), handleAvatarUpload, verificationController.uploadAvatar);
+verificationRouter.post('/profile/avatar', authenticate, requireRoles('client', 'provider', 'admin'), handleAvatarUpload, verificationController.uploadAvatar);
 verificationRouter.get('/resume/parse-result/:resultId', authenticate, requireRoles('provider', 'admin'), verificationController.getResumeParseResult);
 
 verificationRouter.post('/oauth/github/connect', authenticate, requireRoles('provider', 'admin'), verificationController.connectGithub);

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
@@ -21,7 +22,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors, type AppColors } from '@/src/theme/colors';
 import { authService } from '@/src/services/authService';
-import { verificationService } from '@/src/services/verificationService';
 
 const LANGUAGE_CODES = ['en', 'es', 'fr', 'ar', 'ur', 'hi', 'zh', 'de', 'pt'];
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -67,9 +67,14 @@ export default function ClientProfileCompletionScreen() {
           setForm((prev) => ({
             ...prev,
             fullName: user.fullName ?? '',
-            bio: user.bio ?? '',
-            city: user.city ?? '',
+            bio: user.client_profile?.bio ?? user.bio ?? '',
+            city: user.client_profile?.city ?? user.city ?? '',
             avatarUrl: user.avatar_url ?? null,
+            languages: user.client_profile?.languages ?? prev.languages,
+            notificationEmail: user.client_profile?.notificationEmail ?? prev.notificationEmail,
+            notificationPush: user.client_profile?.notificationPush ?? prev.notificationPush,
+            notificationSms: user.client_profile?.notificationSms ?? prev.notificationSms,
+            profileVisibility: user.client_profile?.profileVisibility ?? prev.profileVisibility,
           }));
         }
         if (profileRaw) {
@@ -108,13 +113,9 @@ export default function ClientProfileCompletionScreen() {
       const asset = result.assets[0];
       setUploadingAvatar(true);
       const mime = asset.mimeType ?? 'image/jpeg';
-      // Upload avatar via authService or verificationService
-      const updated = await verificationService.uploadAvatar(asset.uri, mime);
-      if (updated.provider_profile.avatar_url) {
-        setForm((prev) => ({ ...prev, avatarUrl: updated.provider_profile.avatar_url ?? null }));
-      } else {
-        setForm((prev) => ({ ...prev, avatarUrl: asset.uri }));
-      }
+      const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const updated = await authService.uploadAvatar(`data:${mime};base64,${base64}`);
+      setForm((prev) => ({ ...prev, avatarUrl: updated.data.data.avatar_url ?? asset.uri }));
     } catch (e) {
       console.error('Avatar upload error:', e);
     } finally {
@@ -130,13 +131,15 @@ export default function ClientProfileCompletionScreen() {
       if (accessToken) {
         await authService.updateMe(accessToken, {
           fullName: form.fullName.trim(),
-          bio: form.bio.trim() || undefined,
-          city: form.city.trim() || undefined,
-          languages: form.languages,
-          notificationEmail: form.notificationEmail,
-          notificationPush: form.notificationPush,
-          notificationSms: form.notificationSms,
-          profileVisibility: form.profileVisibility,
+          clientProfile: {
+            bio: form.bio.trim(),
+            city: form.city.trim(),
+            languages: form.languages,
+            notificationEmail: form.notificationEmail,
+            notificationPush: form.notificationPush,
+            notificationSms: form.notificationSms,
+            profileVisibility: form.profileVisibility,
+          },
         });
       }
 
@@ -292,9 +295,12 @@ export default function ClientProfileCompletionScreen() {
                   </TouchableOpacity>
                 </View>
               ))}
-              <TouchableOpacity onPress={() => setField('languages', [...form.languages, { code: 'es', level: 'fluent' }])} style={styles.addChip}>
-                <Ionicons name="add" size={14} color={C.primary} />
-              </TouchableOpacity>
+              {LANGUAGE_CODES.filter((code) => !form.languages.some((language) => language.code === code)).map((code) => (
+                <TouchableOpacity key={code} onPress={() => setField('languages', [...form.languages, { code, level: 'fluent' }])} style={styles.addChip}>
+                  <Ionicons name="add" size={14} color={C.primary} />
+                  <Text style={styles.addChipText}>{LANGUAGE_NAMES[code]}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
@@ -388,6 +394,7 @@ const makeStyles = (C: AppColors) =>
     chipActive: { backgroundColor: C.primary, borderColor: C.primary },
     chipTextActive: { color: '#fff', fontWeight: '600' },
     addChip: { backgroundColor: C.primaryLight, borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.primary, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center', justifyContent: 'center' },
+    addChipText: { fontSize: 12, color: C.primary, fontWeight: '500' },
     sectionHeader: { marginTop: 24, marginBottom: 12 },
     sectionTitle: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
     notificationToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.divider },
