@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
