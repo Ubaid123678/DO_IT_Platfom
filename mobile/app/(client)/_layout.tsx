@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { authService } from '@/src/services/authService';
 import { verificationService } from '@/src/services/verificationService';
+import { JobCreationProvider } from '@/src/context/JobCreationContext';
 import { Colors } from '@/src/theme/colors';
 
 export default function ClientLayout() {
@@ -63,8 +64,9 @@ export default function ClientLayout() {
 
   if (gate === 'approved') {
     return (
-    <Tabs
-      screenOptions={{
+    <JobCreationProvider>
+      <Tabs
+        screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: C.primary,
@@ -80,8 +82,8 @@ export default function ClientLayout() {
           borderTopWidth: 0.5,
           height: 60,
         },
-      }}
-    >
+        }}
+      >
       <Tabs.Screen
         name="home"
         options={{
@@ -141,7 +143,8 @@ export default function ClientLayout() {
       <Tabs.Screen name="wallet-topup" options={{ href: null }} />
       <Tabs.Screen name="wallet-withdraw" options={{ href: null }} />
       <Tabs.Screen name="verification" options={{ href: null }} />
-    </Tabs>
+      </Tabs>
+    </JobCreationProvider>
     );
   }
 

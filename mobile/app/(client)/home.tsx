@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +12,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import JobCard from '@/src/components/job/JobCard';
 import { Colors, type AppColors } from '@/src/theme/colors';
@@ -75,15 +77,23 @@ export default function ClientHomeScreen() {
         ]);
 
         if (userRes.status === 'fulfilled') {
-          const userData = userRes.value.data.user;
-          setUser({
-            name: userData.fullName,
-            avatarUrl: userData.avatar_url,
-            email: userData.email,
-            memberSince: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'New',
-            profileCompleteness: 0,
-            missingFields: [],
-          });
+          const responseData = userRes.value.data as unknown as {
+            user?: { fullName?: string; avatar_url?: string; email?: string; createdAt?: string };
+            data?: { user?: { fullName?: string; avatar_url?: string; email?: string; createdAt?: string } };
+          };
+          const cachedUser = await AsyncStorage.getItem('user');
+          const userData = responseData.data?.user ?? responseData.user ?? (cachedUser ? JSON.parse(cachedUser) : null);
+
+          if (userData) {
+            setUser({
+              name: userData.fullName ?? 'User',
+              avatarUrl: userData.avatar_url,
+              email: userData.email ?? '',
+              memberSince: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'New',
+              profileCompleteness: 0,
+              missingFields: [],
+            });
+          }
         }
 
         if (walletRes.status === 'fulfilled') {
@@ -120,6 +130,13 @@ export default function ClientHomeScreen() {
     return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
   }, [user?.name]);
 
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }, []);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -139,13 +156,6 @@ export default function ClientHomeScreen() {
       </SafeAreaView>
     );
   }
-
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
