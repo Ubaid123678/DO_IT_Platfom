@@ -228,8 +228,7 @@ export default function ClientHomeScreen() {
 
         <View style={styles.sectionWrap}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsRow}>
-            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(client)/post-job')}>
+          <View style={styles.quickActionsRow}>            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(client)/post-job')}>
               <View style={styles.quickActionIconBox}>
                 <Ionicons name="add-circle" size={24} color={C.primary} />
               </View>
@@ -251,13 +250,6 @@ export default function ClientHomeScreen() {
                 <Ionicons name="document-text" size={24} color={C.primary} />
               </View>
               <Text style={styles.quickActionLabel}>Proposals</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(client)/messages')}>
-              <View style={styles.quickActionIconBox}>
-                <Ionicons name="chatbubbles" size={24} color={C.primary} />
-              </View>
-              <Text style={styles.quickActionLabel}>Messages</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/(client)/wallet')}>
@@ -472,12 +464,12 @@ const makeStyles = (C: AppColors) =>
       justifyContent: 'space-between',
     },
     quickActionItem: {
-      width: 72,
+      width: 56,
       alignItems: 'center',
     },
     quickActionIconBox: {
-      width: 48,
-      height: 48,
+      width: 44,
+      height: 44,
       borderRadius: 12,
       backgroundColor: C.card,
       borderWidth: 1,
@@ -487,7 +479,7 @@ const makeStyles = (C: AppColors) =>
     },
     quickActionLabel: {
       marginTop: 6,
-      fontSize: 10,
+      fontSize: 9,
       fontWeight: '500',
       color: C.textSecondary,
       textAlign: 'center',

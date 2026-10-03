@@ -97,14 +97,11 @@ export default function ClientLayout() {
         name="post-job"
         options={{
           title: 'Browse',
-          tabBarIconStyle: {
-            marginTop: -4,
-          },
-          tabBarIcon: ({ focused }) => (
+          tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? 'search' : 'search-outline'}
-              color={C.primary}
-              size={32}
+              color={color}
+              size={size}
             />
           ),
         }}
@@ -143,6 +140,7 @@ export default function ClientLayout() {
       <Tabs.Screen name="wallet" options={{ href: null }} />
       <Tabs.Screen name="wallet-topup" options={{ href: null }} />
       <Tabs.Screen name="wallet-withdraw" options={{ href: null }} />
+      <Tabs.Screen name="wallet/topup" options={{ href: null }} />
       <Tabs.Screen name="verification" options={{ href: null }} />
       </Tabs>
     </JobCreationProvider>
