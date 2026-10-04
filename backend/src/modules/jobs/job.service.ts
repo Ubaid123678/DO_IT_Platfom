@@ -95,7 +95,7 @@ export const jobService = {
 
     // Validate categories exist
     const categories = await SkillCategoryModel.find({ _id: { $in: baseRequirements.categories } });
-    if (categories.length !== input.requirements.categories.length) {
+    if (categories.length !== baseRequirements.categories.length) {
       throw new AppError('One or more categories not found', 400, 'INVALID_CATEGORY');
     }
 
