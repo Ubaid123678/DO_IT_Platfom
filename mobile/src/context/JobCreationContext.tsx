@@ -39,12 +39,40 @@ export interface JobCreationState {
       preferredShifts: string[];
     };
     requirements: {
+      // Common fields
       categories: string[];
       skillItems: string[];
       experienceLevel: 'entry' | 'intermediate' | 'expert' | '';
       languages: string[];
       certificationsRequired: boolean;
       vehicleRequired: boolean;
+      
+      // Physical-specific
+      yearsExperience?: number;
+      serviceRadiusKm?: number;
+      toolsEquipment?: string[];
+      teamSize?: 'solo' | 'with_helper' | 'with_team';
+      insurance?: boolean;
+      hasTransport?: { yes: boolean; mode?: 'bicycle' | 'motorbike' | 'car' };
+      
+      // Digital-specific
+      techStack?: string[];
+      portfolioUrl?: string;
+      githubUsername?: string;
+      timezone?: string;
+      englishProficiency?: 'basic' | 'intermediate' | 'fluent';
+      workHistory?: Array<{ title: string; company: string; start_date: string; end_date?: string; description?: string }>;
+      education?: Array<{ institution: string; degree: string; field?: string; start_year?: number; end_year?: number }>;
+      
+      // Errand-specific
+      transportMode?: 'on_foot' | 'bicycle' | 'motorbike' | 'car' | 'van';
+      baseFee?: number;
+      perKmFee?: number;
+      sameDayExpress?: boolean;
+      deliveryCapabilities?: string[];
+      maxPayloadKg?: number;
+      maxPackageSize?: string;
+      goodsInsurance?: boolean;
     };
   } & Record<string, any>;
   selectedCategories: Array<{ id: string; name: string; job_type: string }>;
@@ -104,6 +132,33 @@ const initialState: JobCreationState = {
       languages: [],
       certificationsRequired: false,
       vehicleRequired: false,
+      
+      // Physical-specific
+      yearsExperience: undefined,
+      serviceRadiusKm: undefined,
+      toolsEquipment: [],
+      teamSize: undefined,
+      insurance: undefined,
+      hasTransport: undefined,
+      
+      // Digital-specific
+      techStack: [],
+      portfolioUrl: '',
+      githubUsername: '',
+      timezone: 'UTC',
+      englishProficiency: undefined,
+      workHistory: [],
+      education: [],
+      
+      // Errand-specific
+      transportMode: undefined,
+      baseFee: undefined,
+      perKmFee: undefined,
+      sameDayExpress: undefined,
+      deliveryCapabilities: [],
+      maxPayloadKg: undefined,
+      maxPackageSize: '',
+      goodsInsurance: undefined,
     },
   },
   selectedCategories: [],

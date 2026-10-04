@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { ActivityIndicator, View, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -24,10 +24,21 @@ const stepComponents: Record<string, React.FC> = {
 
 const FIRST_STEP = 'job-type';
 
+// Digital jobs don't need location step
+const getStepOrder = (jobType: string | null): string[] => {
+  if (jobType === 'digital') {
+    return ['job-type', 'details', 'budget', 'schedule', 'requirements', 'review', 'complete'];
+  }
+  return ['job-type', 'details', 'location', 'budget', 'schedule', 'requirements', 'review', 'complete'];
+};
+
 export default function PostJobScreen() {
   const { state, dispatch, goBack } = useJobCreation();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  const stepOrder = useMemo(() => getStepOrder(state.jobType), [state.jobType]);
+  const currentIndex = stepOrder.indexOf(state.currentStep);
 
   useEffect(() => {
     // Reset wizard on mount
@@ -60,6 +71,14 @@ export default function PostJobScreen() {
         <Text style={{ marginTop: 16, fontSize: 16 }}>Creating your job...</Text>
       </View>
     );
+  }
+
+  // If somehow on location step for digital, redirect to budget
+  if (state.jobType === 'digital' && state.currentStep === 'location') {
+    React.useEffect(() => {
+      dispatch({ type: 'SET_STEP', step: 'budget' });
+    }, []);
+    return <JobBudgetStep />;
   }
 
   return <StepComponent />;

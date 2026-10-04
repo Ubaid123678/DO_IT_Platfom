@@ -45,6 +45,33 @@ export interface IJobRequirements {
   languages?: string[]; // language codes
   certificationsRequired?: boolean;
   vehicleRequired?: boolean; // for errand jobs
+  
+  // Physical-specific
+  yearsExperience?: number;
+  serviceRadiusKm?: number;
+  toolsEquipment?: string[];
+  teamSize?: 'solo' | 'with_helper' | 'with_team';
+  insurance?: boolean;
+  hasTransport?: { yes: boolean; mode?: 'bicycle' | 'motorbike' | 'car' };
+  
+  // Digital-specific
+  techStack?: string[];
+  portfolioUrl?: string;
+  githubUsername?: string;
+  timezone?: string;
+  englishProficiency?: 'basic' | 'intermediate' | 'fluent';
+  workHistory?: Array<{ title: string; company: string; start_date: string; end_date?: string; description?: string }>;
+  education?: Array<{ institution: string; degree: string; field?: string; start_year?: number; end_year?: number }>;
+  
+  // Errand-specific
+  transportMode?: 'on_foot' | 'bicycle' | 'motorbike' | 'car' | 'van';
+  baseFee?: number;
+  perKmFee?: number;
+  sameDayExpress?: boolean;
+  deliveryCapabilities?: string[];
+  maxPayloadKg?: number;
+  maxPackageSize?: string;
+  goodsInsurance?: boolean;
 }
 
 export interface IJobClientInfo {
@@ -219,6 +246,48 @@ const jobRequirementsSchema = new Schema<IJobRequirements>(
     languages: [{ type: String, trim: true, minlength: 2, maxlength: 10 }],
     certificationsRequired: { type: Boolean, default: false },
     vehicleRequired: { type: Boolean, default: false },
+    
+    // Physical-specific
+    yearsExperience: { type: Number, min: 0, max: 100 },
+    serviceRadiusKm: { type: Number, min: 1, max: 500 },
+    toolsEquipment: [{ type: String, trim: true, maxlength: 60 }],
+    teamSize: { type: String, enum: ['solo', 'with_helper', 'with_team'] },
+    insurance: { type: Boolean },
+    hasTransport: {
+      yes: { type: Boolean },
+      mode: { type: String, enum: ['bicycle', 'motorbike', 'car'] },
+    },
+    
+    // Digital-specific
+    techStack: [{ type: String, trim: true, maxlength: 60 }],
+    portfolioUrl: { type: String, trim: true },
+    githubUsername: { type: String, trim: true, maxlength: 100 },
+    timezone: { type: String, trim: true, maxlength: 60 },
+    englishProficiency: { type: String, enum: ['basic', 'intermediate', 'fluent'] },
+    workHistory: [{
+      title: { type: String, trim: true, maxlength: 120 },
+      company: { type: String, trim: true, maxlength: 120 },
+      start_date: { type: String, trim: true, maxlength: 20 },
+      end_date: { type: String, trim: true, maxlength: 20 },
+      description: { type: String, trim: true, maxlength: 1000 },
+    }],
+    education: [{
+      institution: { type: String, trim: true, maxlength: 160 },
+      degree: { type: String, trim: true, maxlength: 160 },
+      field: { type: String, trim: true, maxlength: 160 },
+      start_year: { type: Number, min: 1900, max: 2100 },
+      end_year: { type: Number, min: 1900, max: 2100 },
+    }],
+    
+    // Errand-specific
+    transportMode: { type: String, enum: ['on_foot', 'bicycle', 'motorbike', 'car', 'van'] },
+    baseFee: { type: Number, min: 0, max: 1000000 },
+    perKmFee: { type: Number, min: 0, max: 100000 },
+    sameDayExpress: { type: Boolean },
+    deliveryCapabilities: [{ type: String, trim: true, maxlength: 60 }],
+    maxPayloadKg: { type: Number, min: 0, max: 1000 },
+    maxPackageSize: { type: String, trim: true, maxlength: 60 },
+    goodsInsurance: { type: Boolean },
   },
   { _id: false }
 );

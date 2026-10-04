@@ -40,6 +40,32 @@ const LANGUAGE_NAMES: Record<string, string> = {
   other: 'Other',
 };
 
+const EXPERIENCE_LABELS: Record<string, string> = {
+  entry: 'Entry Level (0-2 years)',
+  intermediate: 'Intermediate (2-5 years)',
+  expert: 'Expert (5+ years)',
+};
+
+const TEAM_SIZE_LABELS: Record<string, string> = {
+  solo: 'Solo',
+  with_helper: 'With Helper',
+  with_team: 'With Team',
+};
+
+const TRANSPORT_MODE_LABELS: Record<string, string> = {
+  on_foot: 'On Foot',
+  bicycle: 'Bicycle',
+  motorbike: 'Motorbike',
+  car: 'Car',
+  van: 'Van / Truck',
+};
+
+const ENGLISH_LABELS: Record<string, string> = {
+  basic: 'Basic',
+  intermediate: 'Intermediate',
+  fluent: 'Fluent / Native',
+};
+
 export default function JobReviewStep() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -52,6 +78,7 @@ export default function JobReviewStep() {
 
   const formData = state.formData;
   const jobType = state.jobType;
+  const req = formData.requirements;
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -60,7 +87,7 @@ export default function JobReviewStep() {
         title: formData.title,
         description: formData.description,
         type: jobType!,
-        location: {
+        location: jobType === 'digital' ? null : {
           type: 'Point' as const,
           coordinates: formData.location.coordinates || [0, 0] as [number, number],
           address: formData.location.address,
@@ -90,6 +117,33 @@ export default function JobReviewStep() {
           languages: formData.requirements.languages,
           certificationsRequired: formData.requirements.certificationsRequired,
           vehicleRequired: formData.requirements.vehicleRequired,
+          
+          // Physical-specific
+          yearsExperience: formData.requirements.yearsExperience,
+          serviceRadiusKm: formData.requirements.serviceRadiusKm,
+          toolsEquipment: formData.requirements.toolsEquipment,
+          teamSize: formData.requirements.teamSize,
+          insurance: formData.requirements.insurance,
+          hasTransport: formData.requirements.hasTransport,
+          
+          // Digital-specific
+          techStack: formData.requirements.techStack,
+          portfolioUrl: formData.requirements.portfolioUrl,
+          githubUsername: formData.requirements.githubUsername,
+          timezone: formData.requirements.timezone,
+          englishProficiency: formData.requirements.englishProficiency,
+          workHistory: formData.requirements.workHistory,
+          education: formData.requirements.education,
+          
+          // Errand-specific
+          transportMode: formData.requirements.transportMode,
+          baseFee: formData.requirements.baseFee,
+          perKmFee: formData.requirements.perKmFee,
+          sameDayExpress: formData.requirements.sameDayExpress,
+          deliveryCapabilities: formData.requirements.deliveryCapabilities,
+          maxPayloadKg: formData.requirements.maxPayloadKg,
+          maxPackageSize: formData.requirements.maxPackageSize,
+          goodsInsurance: formData.requirements.goodsInsurance,
         },
       });
 
@@ -101,6 +155,147 @@ export default function JobReviewStep() {
       setSubmitting(false);
     }
   };
+
+  const renderPhysicalRequirements = () => (
+    <>
+      {req.yearsExperience && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Years Experience</Text>
+          <Text style={styles.reviewValue}>{req.yearsExperience} years</Text>
+        </View>
+      )}
+      {req.serviceRadiusKm && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Service Radius</Text>
+          <Text style={styles.reviewValue}>{req.serviceRadiusKm} km</Text>
+        </View>
+      )}
+      {req.toolsEquipment?.length && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Tools & Equipment</Text>
+          <Text style={styles.reviewValue}>{req.toolsEquipment.join(', ')}</Text>
+        </View>
+      )}
+      {req.teamSize && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Team Size</Text>
+          <Text style={styles.reviewValue}>{TEAM_SIZE_LABELS[req.teamSize]}</Text>
+        </View>
+      )}
+      {req.insurance && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Insurance Required</Text>
+          <Text style={styles.reviewValue}>Yes</Text>
+        </View>
+      )}
+      {req.hasTransport?.yes && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Transport</Text>
+          <Text style={styles.reviewValue}>{req.hasTransport.mode ? TRANSPORT_MODE_LABELS[req.hasTransport.mode] : 'Required'}</Text>
+        </View>
+      )}
+    </>
+  );
+
+  const renderDigitalRequirements = () => (
+    <>
+      {req.techStack?.length && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Tech Stack</Text>
+          <Text style={styles.reviewValue}>{req.techStack.join(', ')}</Text>
+        </View>
+      )}
+      {req.portfolioUrl && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Portfolio</Text>
+          <Text style={styles.reviewValue}>{req.portfolioUrl}</Text>
+        </View>
+      )}
+      {req.githubUsername && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>GitHub</Text>
+          <Text style={styles.reviewValue}>{req.githubUsername}</Text>
+        </View>
+      )}
+      {req.timezone && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Timezone</Text>
+          <Text style={styles.reviewValue}>{req.timezone}</Text>
+        </View>
+      )}
+      {req.englishProficiency && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>English Proficiency</Text>
+          <Text style={styles.reviewValue}>{ENGLISH_LABELS[req.englishProficiency]}</Text>
+        </View>
+      )}
+      {req.workHistory?.length && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Work History</Text>
+          <Text style={styles.reviewValue}>{req.workHistory.length} entries</Text>
+        </View>
+      )}
+      {req.education?.length && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Education</Text>
+          <Text style={styles.reviewValue}>{req.education.length} entries</Text>
+        </View>
+      )}
+    </>
+  );
+
+  const renderErrandRequirements = () => (
+    <>
+      {req.transportMode && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Transport Mode</Text>
+          <Text style={styles.reviewValue}>{TRANSPORT_MODE_LABELS[req.transportMode]}</Text>
+        </View>
+      )}
+      {req.baseFee && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Base Fee</Text>
+          <Text style={styles.reviewValue}>$${req.baseFee.toFixed(2)}</Text>
+        </View>
+      )}
+      {req.perKmFee && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Per KM Fee</Text>
+          <Text style={styles.reviewValue}>$${req.perKmFee.toFixed(2)}</Text>
+        </View>
+      )}
+      {req.sameDayExpress && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Same-Day Express</Text>
+          <Text style={styles.reviewValue}>Yes</Text>
+        </View>
+      )}
+      {req.deliveryCapabilities?.length && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Delivery Types</Text>
+          <Text style={styles.reviewValue}>{req.deliveryCapabilities.join(', ')}</Text>
+        </View>
+      )}
+      {req.maxPayloadKg && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Max Payload</Text>
+          <Text style={styles.reviewValue}>{req.maxPayloadKg} kg</Text>
+        </View>
+      )}
+      {req.maxPackageSize && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Max Package Size</Text>
+          <Text style={styles.reviewValue}>{req.maxPackageSize}</Text>
+        </View>
+      )}
+      {req.goodsInsurance && (
+        <View style={styles.reviewRow}>
+          <Text style={styles.reviewLabel}>Goods Insurance</Text>
+          <Text style={styles.reviewValue}>Required</Text>
+        </View>
+      )}
+    </>
+  );
 
   return (
     <SafeAreaViewCompat style={styles.container}>
@@ -146,24 +341,26 @@ export default function JobReviewStep() {
           </View>
         </View>
 
-        {/* Location */}
-        <View style={styles.reviewSection}>
-          <View style={styles.reviewRow}>
-            <Ionicons name="location-outline" size={20} color={C.primary} />
-            <View>
-              <Text style={styles.reviewLabel}>Location</Text>
-              <Text style={styles.reviewValue}>
-                {formData.location.city}{formData.location.country ? `, ${formData.location.country}` : ''}
-              </Text>
-            </View>
-          </View>
-          {formData.location.address && (
+        {/* Location - only for physical/errand */}
+        {jobType !== 'digital' && (
+          <View style={styles.reviewSection}>
             <View style={styles.reviewRow}>
-              <Text style={styles.reviewLabel}>Address</Text>
-              <Text style={styles.reviewValue}>{formData.location.address}</Text>
+              <Ionicons name="location-outline" size={20} color={C.primary} />
+              <View>
+                <Text style={styles.reviewLabel}>Location</Text>
+                <Text style={styles.reviewValue}>
+                  {formData.location.city}{formData.location.country ? `, ${formData.location.country}` : ''}
+                </Text>
+              </View>
             </View>
-          )}
-        </View>
+            {formData.location.address && (
+              <View style={styles.reviewRow}>
+                <Text style={styles.reviewLabel}>Address</Text>
+                <Text style={styles.reviewValue}>{formData.location.address}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Budget */}
         <View style={styles.reviewSection}>
@@ -204,7 +401,7 @@ export default function JobReviewStep() {
           )}
         </View>
 
-        {/* Requirements */}
+        {/* Requirements - Common */}
         <View style={styles.reviewSection}>
           <View style={styles.reviewRow}>
             <Ionicons name="star-outline" size={20} color={C.primary} />
@@ -217,7 +414,7 @@ export default function JobReviewStep() {
             <View style={styles.reviewRow}>
               <Text style={styles.reviewLabel}>Experience Level</Text>
               <Text style={styles.reviewValue}>
-                {formData.requirements.experienceLevel.charAt(0).toUpperCase() + formData.requirements.experienceLevel.slice(1)}
+                {EXPERIENCE_LABELS[formData.requirements.experienceLevel]}
               </Text>
             </View>
           )}
@@ -241,6 +438,11 @@ export default function JobReviewStep() {
               <Text style={styles.reviewValue}>Yes</Text>
             </View>
           )}
+
+          {/* Type-specific requirements */}
+          {jobType === 'physical' && renderPhysicalRequirements()}
+          {jobType === 'digital' && renderDigitalRequirements()}
+          {jobType === 'errand' && renderErrandRequirements()}
         </View>
 
         {/* Fee Summary */}

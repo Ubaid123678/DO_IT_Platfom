@@ -72,14 +72,7 @@ export const jobService = {
         preferredDays?: string[];
         preferredShifts?: string[];
       };
-      requirements: {
-        categories: string[];
-        skillItems?: string[];
-        experienceLevel?: 'entry' | 'intermediate' | 'expert';
-        languages?: string[];
-        certificationsRequired?: boolean;
-        vehicleRequired?: boolean;
-      };
+      requirements: Record<string, unknown>;
       metadata?: {
         tags?: string[];
         isUrgent?: boolean;
@@ -90,30 +83,50 @@ export const jobService = {
     if (!client) throw new AppError('Client not found', 404, 'CLIENT_NOT_FOUND');
     if (client.role !== 'client') throw new AppError('Only clients can create jobs', 403, 'CLIENT_REQUIRED');
 
+    // Extract base requirements for validation
+    const baseRequirements = {
+      categories: input.requirements.categories as string[],
+      skillItems: input.requirements.skillItems as string[] | undefined,
+      experienceLevel: input.requirements.experienceLevel as string | undefined,
+      languages: input.requirements.languages as string[] | undefined,
+      certificationsRequired: input.requirements.certificationsRequired as boolean | undefined,
+      vehicleRequired: input.requirements.vehicleRequired as boolean | undefined,
+    };
+
     // Validate categories exist
-    const categories = await SkillCategoryModel.find({ _id: { $in: input.requirements.categories } });
+    const categories = await SkillCategoryModel.find({ _id: { $in: baseRequirements.categories } });
     if (categories.length !== input.requirements.categories.length) {
       throw new AppError('One or more categories not found', 400, 'INVALID_CATEGORY');
     }
 
     // Validate skill items belong to selected categories
-    if (input.requirements.skillItems && input.requirements.skillItems.length > 0) {
+    if (baseRequirements.skillItems && baseRequirements.skillItems.length > 0) {
       // We need to check against SkillItem model, but we'll skip this validation for now
     }
+
+    // Handle location for digital jobs (optional)
+    const locationData = input.type === 'digital' ? {
+      type: 'Point' as const,
+      coordinates: [0, 0] as [number, number],
+      address: '',
+      city: '',
+      country: '',
+      formattedAddress: '',
+    } : {
+      type: 'Point' as const,
+      coordinates: input.location.coordinates,
+      address: input.location.address,
+      city: input.location.city,
+      country: input.location.country,
+      formattedAddress: input.location.formattedAddress,
+    };
 
     const job = await JobModel.create({
       title: input.title,
       description: input.description,
       type: input.type,
       status: 'open',
-      location: {
-        type: 'Point',
-        coordinates: input.location.coordinates,
-        address: input.location.address,
-        city: input.location.city,
-        country: input.location.country,
-        formattedAddress: input.location.formattedAddress,
-      },
+      location: locationData,
       budget: {
         type: input.budget.type,
         amount: input.budget.amount,
@@ -129,14 +142,8 @@ export const jobService = {
         preferredDays: input.schedule.preferredDays,
         preferredShifts: input.schedule.preferredShifts,
       },
-      requirements: {
-        categories: input.requirements.categories,
-        skillItems: input.requirements.skillItems || [],
-        experienceLevel: input.requirements.experienceLevel,
-        languages: input.requirements.languages,
-        certificationsRequired: input.requirements.certificationsRequired,
-        vehicleRequired: input.requirements.vehicleRequired,
-      },
+      // Store all requirements including type-specific fields
+      requirements: input.requirements,
       client: {
         clientId: client._id,
         clientName: client.fullName,
@@ -244,8 +251,8 @@ export const jobService = {
       if (maxBudget !== undefined) (filter['budget.amount'] as Record<string, number>).$lte = maxBudget;
     }
 
-    // Geo query
-    if (latitude !== undefined && longitude !== undefined) {
+    // Geo query - only for physical/errand jobs (digital jobs are remote)
+    if (type !== 'digital' && latitude !== undefined && longitude !== undefined) {
       filter.location = {
         $near: {
           $geometry: {
@@ -255,7 +262,7 @@ export const jobService = {
           $maxDistance: radiusKm * 1000, // Convert km to meters
         },
       };
-    } else if (city) {
+    } else if (type !== 'digital' && city) {
       filter['location.city'] = new RegExp(city, 'i');
     }
 
@@ -268,7 +275,7 @@ export const jobService = {
     let sort: Record<string, 1 | -1> = {};
     const order = sortOrder === 'asc' ? 1 : -1;
 
-    if (sortBy === 'distance' && latitude !== undefined && longitude !== undefined) {
+    if (sortBy === 'distance' && type !== 'digital' && latitude !== undefined && longitude !== undefined) {
       sort = { 'metadata.distance': order };
     } else if (sortBy === 'budget') {
       sort = { 'budget.amount': order };

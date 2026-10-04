@@ -15,13 +15,13 @@ Phase 4 implements the core job marketplace functionality: clients create jobs, 
 ```mermaid
 flowchart TB
     subgraph Client["Client App"]
-        CJW["Job Creation Wizard\n7 Steps"]
+        CJW["Job Creation Wizard\n7 Steps (Dynamic per Job Type)"]
         CJM["My Jobs Dashboard\nStatus Tabs"]
         CJD["Job Detail View\nStatus Actions"]
     end
 
     subgraph Provider["Provider App"]
-        PBF["Browse Jobs Feed\nGeo Filters"]
+        PBF["Browse Jobs Feed\nGeo Filters (Physical/Errand only)"]
         PJM["My Jobs Dashboard\nType/Status Tabs"]
         PJD["Job Detail View\nComplete Actions"]
     end
@@ -45,7 +45,7 @@ flowchart TB
     end
 
     subgraph Location["Location Services"]
-        EXPO["expo-location\nAuto-detect"]
+        EXPO["expo-location\nAuto-detect (Physical/Errand)"]
         GEO["Geo Queries\n$near + radius"]
     end
 
@@ -127,27 +127,49 @@ sequenceDiagram
     U->>App: Selects type
     App->>App: Step 2 - Title & Description (validated)
     U->>App: Enters details
-    App->>App: Step 3 - Location
-    alt Auto-detect
-        App->>Loc: Request current position
-        Loc-->>App: Coordinates + reverse geocode
-        App->>App: Pre-fill city/country/address
-    else Manual
-        U->>App: Enters city/address manually
+    
+    alt Physical or Errand Job
+        App->>App: Step 3 - Location
+        alt Auto-detect
+            App->>Loc: Request current position
+            Loc-->>App: Coordinates + reverse geocode
+            App->>App: Pre-fill city/country/address
+        else Manual
+            U->>App: Enters city/address manually
+        end
+    else Digital Job
+        App->>App: Skip Location Step (not required)
     end
+    
     App->>App: Step 4 - Budget (Fixed/Hourly + fee preview)
     U->>App: Sets amount/rate
     App->>App: Step 5 - Schedule (flexible or dates + preferences)
     U->>App: Sets schedule
-    App->>App: Step 6 - Requirements (categories, experience, languages)
-    U->>App: Selects requirements
-    App->>App: Step 7 - Review & Submit
+    App->>App: Step 6 - Requirements (Type-Specific)
+    
+    alt Physical Job
+        U->>App: Categories, Experience, Years Exp, Service Radius, Tools, Team Size, Insurance, Transport
+    else Digital Job
+        U->>App: Categories, Experience, Tech Stack, Portfolio, GitHub, Timezone, English, Work History, Education
+    else Errand Job
+        U->>App: Categories, Experience, Transport Mode, Base/Per-KM Fee, Same-Day Express, Delivery Types, Payload, Package Size, Insurance
+    end
+    
+    App->>App: Step 7 - Review & Submit (Type-Specific Summary)
     U->>App: Confirms & submits
-    App->>API: POST /jobs {title, type, location, budget, schedule, requirements}
-    API->>DB: Create job document (status: open, 2dsphere index)
+    App->>API: POST /jobs {title, type, location?, budget, schedule, requirements}
+    API->>DB: Create job document (status: open, 2dsphere index for physical/errand)
     API-->>App: Job created
     App->>U: Success → My Jobs dashboard
 ```
+
+### Dynamic Step Flow by Job Type
+
+| Job Type | Steps | Notes |
+|----------|-------|-------|
+| **Physical** | 7 steps | Includes Location (Step 3) |
+| **Digital** | 6 steps | **Skips Location** - remote work |
+| **Errand** | 7 steps | Includes Location (Step 3) |
 
 ---
 
@@ -189,6 +211,14 @@ flowchart TD
         L5[Limit + Skip] --> L6[Return Jobs with distance]
     end
 ```
+
+### Browse Behavior by Job Type
+
+| Job Type | Geo Query | Distance Sort | Location Display |
+|----------|-----------|---------------|------------------|
+| **Physical** | ✅ Enabled | ✅ Enabled | ✅ Shown |
+| **Digital** | ❌ Disabled | ❌ Disabled | ❌ Hidden |
+| **Errand** | ✅ Enabled | ✅ Enabled | ✅ Shown |
 
 ---
 
@@ -254,10 +284,23 @@ erDiagram
         string description
         enum type "physical|digital|errand"
         enum status "open|in_progress|completed|cancelled|disputed|resolved"
-        object location {Point, coordinates, address, city, country}
+        object location {Point, coordinates, address, city, country}  // Optional for digital
         object budget {type, amount, currency, hourlyRate, estimatedHours}
         object schedule {startsAt, endsAt, timezone, isFlexible, preferredDays[], preferredShifts[]}
-        object requirements {categories[], skillItems[], experienceLevel, languages[], certificationsRequired, vehicleRequired}
+        object requirements {
+            // Common
+            categories[], skillItems[], experienceLevel, languages[], 
+            certificationsRequired, vehicleRequired
+            // Physical-specific
+            yearsExperience, serviceRadiusKm, toolsEquipment[], teamSize, 
+            insurance, hasTransport
+            // Digital-specific
+            techStack[], portfolioUrl, githubUsername, timezone, 
+            englishProficiency, workHistory[], education[]
+            // Errand-specific
+            transportMode, baseFee, perKmFee, sameDayExpress, 
+            deliveryCapabilities[], maxPayloadKg, maxPackageSize, goodsInsurance
+        }
         object client {clientId, clientName, clientAvatar}
         object provider {providerId, providerName, providerAvatar, acceptedProposalId, startedAt, completedAt}
         object escrow {lockedAmount, lockedAt, releasedAt, platformFeeAmount, platformFeePercent, transactionId}
@@ -283,7 +326,7 @@ graph LR
         GET_ID["GET /jobs/:id\nDetail"]
         PATCH["PATCH /jobs/:id\nUpdate (client, open)"]
         DELETE["DELETE /jobs/:id\nDelete (client, open/cancelled)"]
-        BROWSE["GET /jobs/browse\nGeo + Filters"]
+        BROWSE["GET /jobs/browse\nGeo + Filters (Physical/Errand)"]
         SEARCH["GET /jobs/search\nText Search"]
         CLIENT["GET /jobs/client\nClient's Jobs"]
         PROVIDER["GET /jobs/provider\nProvider's Jobs"]
@@ -300,7 +343,7 @@ graph LR
 
 ### Request/Response Examples
 
-**Create Job (POST /jobs)**
+**Create Job - Physical (POST /jobs)**
 ```json
 {
   "title": "Living room painting",
@@ -327,15 +370,105 @@ graph LR
     "categories": ["cat-id-1", "cat-id-2"],
     "experienceLevel": "intermediate",
     "languages": ["en"],
-    "certificationsRequired": false,
-    "vehicleRequired": false
+    "certificationsRequired": true,
+    "vehicleRequired": false,
+    "yearsExperience": 5,
+    "serviceRadiusKm": 25,
+    "toolsEquipment": ["Scaffolding", "Paint Sprayer"],
+    "teamSize": "with_helper",
+    "insurance": true,
+    "hasTransport": { "yes": true, "mode": "car" }
   }
 }
 ```
 
-**Browse Jobs (GET /jobs/browse)**
+**Create Job - Digital (POST /jobs)**
+```json
+{
+  "title": "React Native App Development",
+  "description": "Build a cross-platform mobile app...",
+  "type": "digital",
+  "budget": {
+    "type": "fixed",
+    "amount": 1500000,
+    "currency": "USD"
+  },
+  "schedule": {
+    "isFlexible": true,
+    "timezone": "UTC-5",
+    "preferredDays": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    "preferredShifts": ["Morning", "Afternoon"]
+  },
+  "requirements": {
+    "categories": ["cat-digital-1", "cat-digital-2"],
+    "experienceLevel": "expert",
+    "languages": ["en"],
+    "certificationsRequired": false,
+    "vehicleRequired": false,
+    "techStack": ["React Native", "TypeScript", "Expo", "Redux"],
+    "portfolioUrl": "https://portfolio.dev",
+    "githubUsername": "devuser",
+    "timezone": "America/New_York",
+    "englishProficiency": "fluent",
+    "workHistory": [
+      { "title": "Senior Mobile Dev", "company": "TechCorp", "start_date": "2020-01", "end_date": "2023-12", "description": "Led mobile team..." }
+    ],
+    "education": [
+      { "institution": "University", "degree": "BS Computer Science", "field": "Software Engineering", "start_year": 2015, "end_year": 2019 }
+    ]
+  }
+}
+```
+
+**Create Job - Errand (POST /jobs)**
+```json
+{
+  "title": "Grocery Delivery",
+  "description": "Weekly grocery shopping and delivery...",
+  "type": "errand",
+  "location": {
+    "coordinates": [-122.4194, 37.7749],
+    "city": "San Francisco",
+    "country": "US",
+    "formattedAddress": "Downtown SF"
+  },
+  "budget": {
+    "type": "fixed",
+    "amount": 5000,
+    "currency": "USD"
+  },
+  "schedule": {
+    "isFlexible": true,
+    "timezone": "UTC-8",
+    "preferredDays": ["Mon", "Wed", "Fri"],
+    "preferredShifts": ["Morning"]
+  },
+  "requirements": {
+    "categories": ["cat-errand-1"],
+    "experienceLevel": "entry",
+    "languages": ["en"],
+    "certificationsRequired": false,
+    "vehicleRequired": true,
+    "transportMode": "car",
+    "baseFee": 10,
+    "perKmFee": 1.5,
+    "sameDayExpress": true,
+    "deliveryCapabilities": ["Groceries", "Documents"],
+    "maxPayloadKg": 20,
+    "maxPackageSize": "40x30x20 cm",
+    "goodsInsurance": true
+  }
+}
+```
+
+**Browse Jobs - Physical/Errand (GET /jobs/browse)**
 ```bash
 GET /jobs/browse?type=physical&latitude=37.7749&longitude=-122.4194&radiusKm=25&minBudget=10000&maxBudget=100000&sortBy=distance&sortOrder=asc&limit=20
+```
+
+**Browse Jobs - Digital (GET /jobs/browse)**
+```bash
+GET /jobs/browse?type=digital&minBudget=50000&maxBudget=200000&sortBy=budget&sortOrder=desc&limit=20
 ```
 
 **Response**
@@ -405,12 +538,24 @@ graph TD
 
 | Screen | Route | Purpose |
 |--------|-------|---------|
-| Job Creation Wizard | `/post-job` | 7-step flow with validation |
+| Job Creation Wizard | `/post-job` | 6-7 step flow with type-specific validation |
 | Client Job Dashboard | `/my-jobs` | Tabbed view with stats, job cards |
-| Provider Browse Feed | `/browse-jobs` | Geo-aware feed with filters |
+| Provider Browse Feed | `/browse-jobs` | Geo-aware feed with filters (physical/errand) |
 | Provider Job Dashboard | `/browse-jobs` (provider tab) | Assigned jobs with actions |
-| Job Detail | `/job-detail/:id` | Full view + status actions |
+| Job Detail | `/job-detail/:id` | Full view + role-based status actions |
 | Leave Review | `/leave-review/:jobId` | Post-completion rating |
+
+### Job Creation Wizard Steps by Type
+
+| Step | Physical | Digital | Errand |
+|------|----------|---------|--------|
+| 1 | Job Type | Job Type | Job Type |
+| 2 | Title & Description | Title & Description | Title & Description |
+| 3 | **Location** | *(skipped)* | **Location** |
+| 4 | Budget | Budget | Budget |
+| 5 | Schedule | Schedule | Schedule |
+| 6 | **Physical Requirements** | **Digital Requirements** | **Errand Requirements** |
+| 7 | Review & Submit | Review & Submit | Review & Submit |
 
 ---
 
@@ -422,18 +567,19 @@ graph TD
 | Backend Tests (12/12) | ✅ Pass |
 | Mobile TypeScript | ✅ Clean |
 | Job Model & Indexes | ✅ Created |
-| Validation Schemas | ✅ Complete |
+| Validation Schemas | ✅ Complete (Type-Specific) |
 | Service Layer | ✅ Complete |
 | Controller & Routes | ✅ Mounted |
 | Mobile Job Service | ✅ Typed |
-| Job Creation Wizard | ✅ 7 Steps |
-| Browse Feed | ✅ Geo + Filters |
-| Job Detail | ✅ Role-based Actions |
+| Job Creation Wizard | ✅ Dynamic Steps (6-7) |
+| Browse Feed | ✅ Geo + Filters (Type-Aware) |
+| Job Detail | ✅ Role-based Actions + Type-Aware Location |
 | Client Dashboard | ✅ Status Tabs |
 | Provider Dashboard | ✅ Type/Status Tabs |
 | Status State Machine | ✅ Enforced |
-| Geo Queries | ✅ 2dsphere + $near |
-| Auto-location | ✅ expo-location |
+| Geo Queries | ✅ 2dsphere + $near (Physical/Errand) |
+| Auto-location | ✅ expo-location (Physical/Errand) |
+| Android Back Button | ✅ Handled in Wizard |
 
 ---
 
@@ -453,9 +599,9 @@ graph TD
 ### Backend
 ```
 backend/src/modules/jobs/
-├── job.model.ts          # Job schema + indexes + methods
-├── job.validation.ts     # Joi schemas
-├── job.service.ts        # Business logic
+├── job.model.ts          # Job schema + indexes + methods (Type-specific requirements)
+├── job.validation.ts     # Joi schemas (Conditional validation per job type)
+├── job.service.ts        # Business logic (Geo filter skip for digital)
 ├── job.controller.ts     # HTTP handlers
 ├── job.routes.ts         # Route definitions
 backend/src/routes/index.ts  # Mounted jobs router
@@ -464,22 +610,25 @@ backend/src/routes/index.ts  # Mounted jobs router
 ### Mobile
 ```
 mobile/src/services/jobService.ts          # API client
-mobile/src/context/JobCreationContext.tsx  # Wizard state
+mobile/src/context/JobCreationContext.tsx  # Wizard state (Type-specific fields)
 mobile/src/components/jobs/
 ├── JobTypeStep.tsx
 ├── JobDetailsStep.tsx
 ├── JobLocationStep.tsx
 ├── JobBudgetStep.tsx
 ├── JobScheduleStep.tsx
-├── JobRequirementsStep.tsx
-├── JobReviewStep.tsx
+├── JobRequirementsStep.tsx              # Dispatcher (renders type-specific)
+├── PhysicalRequirementsStep.tsx         # NEW: Physical-specific fields
+├── DigitalRequirementsStep.tsx          # NEW: Digital-specific fields
+├── ErrandRequirementsStep.tsx           # NEW: Errand-specific fields
+├── JobReviewStep.tsx                    # UPDATED: Type-specific summary + submit
 mobile/app/(client)/
-├── post-job.tsx          # Wizard entry
+├── post-job.tsx          # Wizard entry (Dynamic step order + BackHandler)
 ├── my-jobs.tsx           # Client dashboard
 mobile/app/(provider)/
 ├── browse-jobs.tsx       # Provider feed + dashboard
 mobile/app/(shared)/
-├── job-detail/[jobId].tsx  # Shared detail
+├── job-detail/[jobId].tsx  # Shared detail (Hides location for digital)
 ├── leave-review/[jobId].tsx  # Review screen
 ```
 
@@ -498,3 +647,34 @@ mobile/app/(shared)/
 5. **Admin Moderation**: Add admin endpoints for job moderation (feature/unfeature, remove inappropriate).
 
 6. **Search Enhancement**: Add Elasticsearch/Algolia for full-text search across title, description, tags.
+
+---
+
+## Summary of Key Changes (Post-Phase 4 Completion)
+
+### Digital Jobs - Location Handling
+- **Step 3 (Location) skipped entirely** for digital jobs
+- Backend validation: `location` optional for digital, required for physical/errand
+- Browse: Geo queries (`$near`, `distance` sort) disabled for digital
+- Job Detail: Location card hidden for digital jobs
+- Model: Location fields optional for digital type
+
+### Type-Specific Requirements (Step 6)
+| Physical | Digital | Errand |
+|----------|---------|--------|
+| Years Experience | Tech Stack | Transport Mode |
+| Service Radius (km) | Portfolio URL | Base Fee |
+| Tools/Equipment | GitHub Username | Per-KM Fee |
+| Team Size | Timezone | Same-Day Express |
+| Insurance | English Proficiency | Delivery Capabilities |
+| Transport (bicycle/motorbike/car) | Work History | Max Payload (kg) |
+| | Education | Max Package Size |
+| | | Goods Insurance |
+
+### Validation & Model
+- **Backend**: Joi alternatives with `when('..type')` for conditional schemas
+- **Mobile**: Separate components per type (`PhysicalRequirementsStep`, `DigitalRequirementsStep`, `ErrandRequirementsStep`)
+- **Context**: Extended `JobCreationState` with all type-specific fields
+- **Review**: Dynamic rendering of type-specific fields in summary
+
+(End of file)

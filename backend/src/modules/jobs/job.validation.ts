@@ -40,6 +40,7 @@ const jobScheduleSchema = Joi.object({
   preferredShifts: Joi.array().items(Joi.string().trim().max(20)).optional(),
 }).required();
 
+// Base requirements (common to all types) - allows any additional fields
 const jobRequirementsSchema = Joi.object({
   categories: Joi.array().items(objectId).min(1).max(3).required(),
   skillItems: Joi.array().items(objectId).optional(),
@@ -47,13 +48,63 @@ const jobRequirementsSchema = Joi.object({
   languages: Joi.array().items(Joi.string().trim().min(2).max(10)).optional(),
   certificationsRequired: Joi.boolean().default(false),
   vehicleRequired: Joi.boolean().default(false),
-}).required();
+  
+  // Physical-specific (optional, validated in controller)
+  yearsExperience: Joi.number().integer().min(0).max(100).optional(),
+  serviceRadiusKm: Joi.number().integer().min(1).max(500).optional(),
+  toolsEquipment: Joi.array().items(Joi.string().trim().max(60)).max(20).optional(),
+  teamSize: Joi.string().valid('solo', 'with_helper', 'with_team').optional(),
+  insurance: Joi.boolean().optional(),
+  hasTransport: Joi.object({
+    yes: Joi.boolean().required(),
+    mode: Joi.string().valid('bicycle', 'motorbike', 'car').optional(),
+  }).optional(),
+  
+  // Digital-specific (optional, validated in controller)
+  techStack: Joi.array().items(Joi.string().trim().max(60)).max(20).optional(),
+  portfolioUrl: Joi.string().uri({ scheme: ['http', 'https'] }).optional().allow(''),
+  githubUsername: Joi.string().trim().max(100).optional().allow(''),
+  timezone: Joi.string().trim().max(60).optional().allow(''),
+  englishProficiency: Joi.string().valid('basic', 'intermediate', 'fluent').optional(),
+  workHistory: Joi.array().items(
+    Joi.object({
+      title: Joi.string().trim().max(120).required(),
+      company: Joi.string().trim().max(120).required(),
+      start_date: Joi.string().trim().max(20).required(),
+      end_date: Joi.string().trim().max(20).optional().allow(''),
+      description: Joi.string().trim().max(1000).optional().allow(''),
+    })
+  ).optional(),
+  education: Joi.array().items(
+    Joi.object({
+      institution: Joi.string().trim().max(160).required(),
+      degree: Joi.string().trim().max(160).required(),
+      field: Joi.string().trim().max(160).optional().allow(''),
+      start_year: Joi.number().integer().min(1900).max(2100).optional(),
+      end_year: Joi.number().integer().min(1900).max(2100).optional(),
+    })
+  ).optional(),
+  
+  // Errand-specific (optional, validated in controller)
+  transportMode: Joi.string().valid('on_foot', 'bicycle', 'motorbike', 'car', 'van').optional(),
+  baseFee: Joi.number().min(0).max(1000000).optional(),
+  perKmFee: Joi.number().min(0).max(100000).optional(),
+  sameDayExpress: Joi.boolean().optional(),
+  deliveryCapabilities: Joi.array().items(Joi.string().trim().max(60)).optional(),
+  maxPayloadKg: Joi.number().min(0).max(1000).optional(),
+  maxPackageSize: Joi.string().trim().max(60).optional().allow(''),
+  goodsInsurance: Joi.boolean().optional(),
+}).unknown(false); // Reject unknown fields not defined above
 
 const createJobSchema = Joi.object({
   title: Joi.string().trim().min(5).max(120).required(),
   description: Joi.string().trim().min(20).max(5000).required(),
   type: Joi.string().valid('physical', 'digital', 'errand').required(),
-  location: jobLocationSchema,
+  location: jobLocationSchema.when('type', {
+    is: Joi.string().valid('physical', 'errand'),
+    then: Joi.required(),
+    otherwise: Joi.optional().allow(null),
+  }),
   budget: jobBudgetSchema,
   schedule: jobScheduleSchema,
   requirements: jobRequirementsSchema,

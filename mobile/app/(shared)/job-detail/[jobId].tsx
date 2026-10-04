@@ -198,7 +198,7 @@ export default function JobDetailScreen() {
             <Text style={styles.metaLabel}>Posted</Text>
             <Text style={styles.metaValue}>{formatDate(job.createdAt)}</Text>
           </View>
-          {job.location.city && (
+          {job.type !== 'digital' && job.location.city && (
             <View style={styles.metaCard}>
               <Ionicons name="location-outline" size={20} color={C.primary} />
               <Text style={styles.metaLabel}>Location</Text>
