@@ -11,6 +11,26 @@ export interface JobLocation {
   city?: string;
   country?: string;
   formattedAddress?: string;
+  
+  // Errand-specific: pickup location
+  pickupLocation?: {
+    type: 'Point';
+    coordinates: [number, number] | null;
+    address?: string;
+    city?: string;
+    country?: string;
+    formattedAddress?: string;
+  } | null;
+  
+  // Errand-specific: delivery location
+  deliveryLocation?: {
+    type: 'Point';
+    coordinates: [number, number] | null;
+    address?: string;
+    city?: string;
+    country?: string;
+    formattedAddress?: string;
+  } | null;
 }
 
 export interface JobBudget {
@@ -37,6 +57,33 @@ export interface JobRequirements {
   languages?: string[];
   certificationsRequired?: boolean;
   vehicleRequired?: boolean;
+  
+  // Physical-specific
+  yearsExperience?: number;
+  serviceRadiusKm?: number;
+  toolsEquipment?: string[];
+  teamSize?: 'solo' | 'with_helper' | 'with_team';
+  insurance?: boolean;
+  hasTransport?: { yes: boolean; mode?: 'bicycle' | 'motorbike' | 'car' };
+  
+  // Digital-specific
+  techStack?: string[];
+  portfolioUrl?: string;
+  githubUsername?: string;
+  timezone?: string;
+  englishProficiency?: 'basic' | 'intermediate' | 'fluent';
+  workHistory?: Array<{ title: string; company: string; start_date: string; end_date?: string; description?: string }>;
+  education?: Array<{ institution: string; degree: string; field?: string; start_year?: number; end_year?: number }>;
+  
+  // Errand-specific
+  transportMode?: 'on_foot' | 'bicycle' | 'motorbike' | 'car' | 'van';
+  baseFee?: number;
+  perKmFee?: number;
+  sameDayExpress?: boolean;
+  deliveryCapabilities?: string[];
+  maxPayloadKg?: number;
+  maxPackageSize?: string;
+  goodsInsurance?: boolean;
 }
 
 export interface JobClientInfo {

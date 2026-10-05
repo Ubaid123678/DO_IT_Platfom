@@ -17,11 +17,28 @@ export interface JobCreationState {
     title: string;
     description: string;
     location: {
+      // Single location (physical jobs)
       coordinates: [number, number] | null;
       address: string;
       city: string;
       country: string;
       formattedAddress: string;
+      // Errand jobs - pickup location
+      pickupLocation?: {
+        coordinates: [number, number] | null;
+        address: string;
+        city: string;
+        country: string;
+        formattedAddress: string;
+      };
+      // Errand jobs - delivery location
+      deliveryLocation?: {
+        coordinates: [number, number] | null;
+        address: string;
+        city: string;
+        country: string;
+        formattedAddress: string;
+      };
     };
     budget: {
       type: 'fixed' | 'hourly';
@@ -109,6 +126,20 @@ const initialState: JobCreationState = {
       city: '',
       country: '',
       formattedAddress: '',
+      pickupLocation: {
+        coordinates: null,
+        address: '',
+        city: '',
+        country: '',
+        formattedAddress: '',
+      },
+      deliveryLocation: {
+        coordinates: null,
+        address: '',
+        city: '',
+        country: '',
+        formattedAddress: '',
+      },
     },
     budget: {
       type: 'fixed',
@@ -233,6 +264,14 @@ export const JobCreationProvider = ({ children }: { children: ReactNode }) => {
       case 'details':
         return state.formData.title.trim().length >= 5 && state.formData.description.trim().length >= 20;
       case 'location':
+        if (state.jobType === 'errand') {
+          // Errand jobs need both pickup and delivery locations
+          return (
+            state.formData.location.pickupLocation?.city?.trim().length > 0 &&
+            state.formData.location.deliveryLocation?.city?.trim().length > 0
+          );
+        }
+        // Physical jobs need single location
         return state.formData.location.city.trim().length > 0;
       case 'budget':
         if (state.formData.budget.type === 'hourly') {

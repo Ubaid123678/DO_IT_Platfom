@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { AppError } from '../../common/errors/AppError.js';
-import { JobModel, type IJob, type JobStatus, type JobType } from './job.model.js';
+import { JobModel, type IJob, type IJobLocation, type JobStatus, type JobType } from './job.model.js';
 import UserModel from '../auth/auth.model.js';
 import { SkillCategoryModel } from '../verification/verification.model.js';
 import { walletService } from '../wallet/wallet.service.js';
@@ -50,13 +50,7 @@ export const jobService = {
       title: string;
       description: string;
       type: JobType;
-      location: {
-        coordinates: [number, number];
-        address?: string;
-        city?: string;
-        country?: string;
-        formattedAddress?: string;
-      };
+      location: IJobLocation | null;
       budget: {
         type: 'fixed' | 'hourly';
         amount: number;
@@ -104,22 +98,57 @@ export const jobService = {
       // We need to check against SkillItem model, but we'll skip this validation for now
     }
 
-    // Handle location for digital jobs (optional)
-    const locationData = input.type === 'digital' ? {
-      type: 'Point' as const,
-      coordinates: [0, 0] as [number, number],
-      address: '',
-      city: '',
-      country: '',
-      formattedAddress: '',
-    } : {
-      type: 'Point' as const,
-      coordinates: input.location.coordinates,
-      address: input.location.address,
-      city: input.location.city,
-      country: input.location.country,
-      formattedAddress: input.location.formattedAddress,
-    };
+    // Handle location for different job types
+    let locationData: any;
+    
+    if (input.type === 'digital') {
+      locationData = {
+        type: 'Point' as const,
+        coordinates: [0, 0] as [number, number],
+        address: '',
+        city: '',
+        country: '',
+        formattedAddress: '',
+      };
+    } else if (input.type === 'errand') {
+      // Errand jobs have pickup and delivery locations
+      const loc = input.location!;
+      locationData = {
+        type: 'Point' as const,
+        coordinates: loc.coordinates || [0, 0],
+        address: loc.address || '',
+        city: loc.city || '',
+        country: loc.country || '',
+        formattedAddress: loc.formattedAddress || '',
+        pickupLocation: loc.pickupLocation ? {
+          type: 'Point' as const,
+          coordinates: loc.pickupLocation.coordinates,
+          address: loc.pickupLocation.address,
+          city: loc.pickupLocation.city,
+          country: loc.pickupLocation.country,
+          formattedAddress: loc.pickupLocation.formattedAddress,
+        } : undefined,
+        deliveryLocation: loc.deliveryLocation ? {
+          type: 'Point' as const,
+          coordinates: loc.deliveryLocation.coordinates,
+          address: loc.deliveryLocation.address,
+          city: loc.deliveryLocation.city,
+          country: loc.deliveryLocation.country,
+          formattedAddress: loc.deliveryLocation.formattedAddress,
+        } : undefined,
+      };
+    } else {
+      // Physical jobs - single location
+      const loc = input.location!;
+      locationData = {
+        type: 'Point' as const,
+        coordinates: loc.coordinates,
+        address: loc.address,
+        city: loc.city,
+        country: loc.country,
+        formattedAddress: loc.formattedAddress,
+      };
+    }
 
     const job = await JobModel.create({
       title: input.title,

@@ -25,11 +25,11 @@ const TRANSPORT_MODE_LABELS: Record<string, string> = {
 };
 
 const TRANSPORT_ICONS: Record<string, string> = {
-  on_foot: 'walk',
-  bicycle: 'bicycle',
-  motorbike: 'flash',
-  car: 'car',
-  van: 'truck',
+  on_foot: 'walk-outline',
+  bicycle: 'bicycle-outline',
+  motorbike: 'flash-outline',
+  car: 'car-outline',
+  van: 'truck-outline',
 };
 
 const DELIVERY_CAPABILITIES = [
@@ -186,7 +186,7 @@ export default function ErrandRequirementsStep() {
                     dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'transportMode', value: mode });
                   }}
                 >
-                  <Ionicons name={TRANSPORT_ICONS[mode]} size={20} color={transportMode === mode ? '#fff' : C.primary} />
+                  <Ionicons name={TRANSPORT_ICONS[mode] as any} size={20} color={transportMode === mode ? '#fff' : C.primary} />
                   <Text style={[styles.transportChipText, transportMode === mode && styles.transportChipTextActive]}>{TRANSPORT_MODE_LABELS[mode]}</Text>
                 </TouchableOpacity>
               ))}

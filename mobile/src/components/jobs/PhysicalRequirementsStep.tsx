@@ -93,7 +93,7 @@ export default function PhysicalRequirementsStep() {
     dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'toolsEquipment', value: next });
   };
 
-  const handleTransportChange = (mode: string) => {
+  const handleTransportChange = (mode: 'bicycle' | 'motorbike' | 'car') => {
     setTransportMode(mode);
     setHasTransport({ yes: true, mode });
     dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'hasTransport', value: { yes: true, mode } });
@@ -283,7 +283,7 @@ export default function PhysicalRequirementsStep() {
                 onPress={() => handleTransportChange(mode)}
               >
                 <View style={[styles.transportIcon, hasTransport.mode === mode && styles.transportIconActive]}>
-                  <Ionicons name={mode === 'bicycle' ? 'bicycle' : mode === 'motorbike' ? 'flash' : 'car'} size={24} color={hasTransport.mode === mode ? '#fff' : C.primary} />
+                  <Ionicons name={(mode === 'bicycle' ? 'bicycle' : mode === 'motorbike' ? 'flash' : 'car') as any} size={24} color={hasTransport.mode === mode ? '#fff' : C.primary} />
                 </View>
                 <Text style={[styles.transportLabel, hasTransport.mode === mode && styles.transportLabelActive]}>{TRANSPORT_MODE_LABELS[mode]}</Text>
                 <View style={[styles.transportRadio, hasTransport.mode === mode && styles.transportRadioActive]} />

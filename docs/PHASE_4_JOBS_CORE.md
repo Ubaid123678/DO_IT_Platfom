@@ -284,7 +284,7 @@ erDiagram
         string description
         enum type "physical|digital|errand"
         enum status "open|in_progress|completed|cancelled|disputed|resolved"
-        object location {Point, coordinates, address, city, country}  // Optional for digital
+        object location {Point, coordinates, address, city, country, pickupLocation?, deliveryLocation?}  // Optional for digital; pickup/delivery for errand
         object budget {type, amount, currency, hourlyRate, estimatedHours}
         object schedule {startsAt, endsAt, timezone, isFlexible, preferredDays[], preferredShifts[]}
         object requirements {
@@ -658,6 +658,13 @@ mobile/app/(shared)/
 - Browse: Geo queries (`$near`, `distance` sort) disabled for digital
 - Job Detail: Location card hidden for digital jobs
 - Model: Location fields optional for digital type
+
+### Errand Jobs - Pickup & Delivery Locations
+- **Step 3 (Location) shows two location pickers**: Pickup Location & Delivery Location
+- Both locations required for errand jobs
+- Map-based picker with current location detection for each
+- Backend validation: `pickupLocation` and `deliveryLocation` required for errand jobs
+- Model: `pickupLocation` and `deliveryLocation` embedded in location object
 
 ### Type-Specific Requirements (Step 6)
 | Physical | Digital | Errand |

@@ -19,6 +19,26 @@ export interface IJobLocation {
   city?: string;
   country?: string;
   formattedAddress?: string;
+  
+  // Errand-specific: pickup location
+  pickupLocation?: {
+    type: 'Point';
+    coordinates: [number, number];
+    address?: string;
+    city?: string;
+    country?: string;
+    formattedAddress?: string;
+  };
+  
+  // Errand-specific: delivery location
+  deliveryLocation?: {
+    type: 'Point';
+    coordinates: [number, number];
+    address?: string;
+    city?: string;
+    country?: string;
+    formattedAddress?: string;
+  };
 }
 
 export interface IJobBudget {
@@ -175,6 +195,46 @@ const jobLocationSchema = new Schema<IJobLocation>(
     city: { type: String, trim: true, index: true },
     country: { type: String, trim: true, uppercase: true, minlength: 2, maxlength: 2 },
     formattedAddress: { type: String, trim: true },
+    
+    // Errand-specific: pickup location
+    pickupLocation: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point',
+      },
+      coordinates: {
+        type: [Number],
+        validate: {
+          validator: (v: number[]) => v.length === 2,
+          message: 'Pickup coordinates must be [longitude, latitude]',
+        },
+      },
+      address: { type: String, trim: true },
+      city: { type: String, trim: true },
+      country: { type: String, trim: true, uppercase: true, minlength: 2, maxlength: 2 },
+      formattedAddress: { type: String, trim: true },
+    },
+    
+    // Errand-specific: delivery location
+    deliveryLocation: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point',
+      },
+      coordinates: {
+        type: [Number],
+        validate: {
+          validator: (v: number[]) => v.length === 2,
+          message: 'Delivery coordinates must be [longitude, latitude]',
+        },
+      },
+      address: { type: String, trim: true },
+      city: { type: String, trim: true },
+      country: { type: String, trim: true, uppercase: true, minlength: 2, maxlength: 2 },
+      formattedAddress: { type: String, trim: true },
+    },
   },
   { _id: false }
 );

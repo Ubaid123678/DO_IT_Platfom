@@ -83,18 +83,51 @@ export default function JobReviewStep() {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      await jobService.createJob({
-        title: formData.title,
-        description: formData.description,
-        type: jobType!,
-        location: jobType === 'digital' ? null : {
+      let locationData: any;
+      
+      if (jobType === 'digital') {
+        locationData = null;
+      } else if (jobType === 'errand') {
+        locationData = {
           type: 'Point' as const,
           coordinates: formData.location.coordinates || [0, 0] as [number, number],
           address: formData.location.address,
           city: formData.location.city,
           country: formData.location.country,
           formattedAddress: formData.location.formattedAddress,
-        },
+          pickupLocation: formData.location.pickupLocation ? {
+            type: 'Point' as const,
+            coordinates: formData.location.pickupLocation.coordinates,
+            address: formData.location.pickupLocation.address,
+            city: formData.location.pickupLocation.city,
+            country: formData.location.pickupLocation.country,
+            formattedAddress: formData.location.pickupLocation.formattedAddress,
+          } : null,
+          deliveryLocation: formData.location.deliveryLocation ? {
+            type: 'Point' as const,
+            coordinates: formData.location.deliveryLocation.coordinates,
+            address: formData.location.deliveryLocation.address,
+            city: formData.location.deliveryLocation.city,
+            country: formData.location.deliveryLocation.country,
+            formattedAddress: formData.location.deliveryLocation.formattedAddress,
+          } : null,
+        };
+      } else {
+        locationData = {
+          type: 'Point' as const,
+          coordinates: formData.location.coordinates || [0, 0] as [number, number],
+          address: formData.location.address,
+          city: formData.location.city,
+          country: formData.location.country,
+          formattedAddress: formData.location.formattedAddress,
+        };
+      }
+      
+      await jobService.createJob({
+        title: formData.title,
+        description: formData.description,
+        type: jobType!,
+        location: locationData,
         budget: {
           type: formData.budget.type,
           amount: Math.round(parseFloat(formData.budget.amount) * 100),
@@ -344,20 +377,61 @@ export default function JobReviewStep() {
         {/* Location - only for physical/errand */}
         {jobType !== 'digital' && (
           <View style={styles.reviewSection}>
-            <View style={styles.reviewRow}>
-              <Ionicons name="location-outline" size={20} color={C.primary} />
-              <View>
-                <Text style={styles.reviewLabel}>Location</Text>
-                <Text style={styles.reviewValue}>
-                  {formData.location.city}{formData.location.country ? `, ${formData.location.country}` : ''}
-                </Text>
-              </View>
-            </View>
-            {formData.location.address && (
-              <View style={styles.reviewRow}>
-                <Text style={styles.reviewLabel}>Address</Text>
-                <Text style={styles.reviewValue}>{formData.location.address}</Text>
-              </View>
+            {jobType === 'errand' ? (
+              <>
+                {/* Pickup Location */}
+                <View style={styles.reviewRow}>
+                  <Ionicons name={"arrow-down-outline" as any} size={20} color={C.primary} />
+                  <View>
+                    <Text style={styles.reviewLabel}>Pickup Location</Text>
+                    <Text style={styles.reviewValue}>
+                      {formData.location.pickupLocation?.city}{formData.location.pickupLocation?.country ? `, ${formData.location.pickupLocation.country}` : ''}
+                    </Text>
+                  </View>
+                </View>
+                {formData.location.pickupLocation?.address && (
+                  <View style={styles.reviewRow}>
+                    <Text style={styles.reviewLabel}>Pickup Address</Text>
+                    <Text style={styles.reviewValue}>{formData.location.pickupLocation.address}</Text>
+                  </View>
+                )}
+                
+                {/* Delivery Location */}
+                <View style={styles.reviewRow}>
+                  <Ionicons name={"arrow-up-outline" as any} size={20} color={C.primary} />
+                  <View>
+                    <Text style={styles.reviewLabel}>Delivery Location</Text>
+                    <Text style={styles.reviewValue}>
+                      {formData.location.deliveryLocation?.city}{formData.location.deliveryLocation?.country ? `, ${formData.location.deliveryLocation.country}` : ''}
+                    </Text>
+                  </View>
+                </View>
+                {formData.location.deliveryLocation?.address && (
+                  <View style={styles.reviewRow}>
+                    <Text style={styles.reviewLabel}>Delivery Address</Text>
+                    <Text style={styles.reviewValue}>{formData.location.deliveryLocation.address}</Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Physical Job Location */}
+                <View style={styles.reviewRow}>
+                  <Ionicons name="location-outline" size={20} color={C.primary} />
+                  <View>
+                    <Text style={styles.reviewLabel}>Location</Text>
+                    <Text style={styles.reviewValue}>
+                      {formData.location.city}{formData.location.country ? `, ${formData.location.country}` : ''}
+                    </Text>
+                  </View>
+                </View>
+                {formData.location.address && (
+                  <View style={styles.reviewRow}>
+                    <Text style={styles.reviewLabel}>Address</Text>
+                    <Text style={styles.reviewValue}>{formData.location.address}</Text>
+                  </View>
+                )}
+              </>
             )}
           </View>
         )}

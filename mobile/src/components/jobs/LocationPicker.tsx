@@ -1,0 +1,490 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity, Platform, useColorScheme, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
+import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
+import MapView, { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Colors, type AppColors } from '@/src/theme/colors';
+
+interface LocationPickerProps {
+  title: string;
+  subtitle?: string;
+  initialRegion?: {
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  };
+  onLocationSelect: (location: {
+    coordinates: [number, number];
+    address: string;
+    city: string;
+    country: string;
+    formattedAddress: string;
+  }) => void;
+  onCancel: () => void;
+  onUseCurrentLocation?: () => Promise<void>;
+  visible?: boolean;
+}
+
+const DEFAULT_REGION = {
+  latitude: 37.7749,
+  longitude: -122.4194,
+  latitudeDelta: 0.0922,
+  longitudeDelta: 0.0421,
+};
+
+// Use Nominatim (OpenStreetMap) for free geocoding - no API key needed
+const GEOCODE_URL = 'https://nominatim.openstreetmap.org/search';
+const REVERSE_GEOCODE_URL = 'https://nominatim.openstreetmap.org/reverse';
+
+export default function LocationPicker({
+  title,
+  subtitle,
+  initialRegion = DEFAULT_REGION,
+  onLocationSelect,
+  onCancel,
+  onUseCurrentLocation,
+  visible = true,
+}: LocationPickerProps & { visible?: boolean }) {
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
+  const C = isDark ? Colors.dark : Colors.light;
+  const styles = makeStyles(C);
+  
+  const mapRef = useRef<MapView>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [address, setAddress] = useState<string>('');
+  const [city, setCity] = useState<string>('');
+  const [country, setCountry] = useState<string>('');
+  const [formattedAddress, setFormattedAddress] = useState<string>('');
+  const [loadingAddress, setLoadingAddress] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<Array<{
+    place_id: number;
+    display_name: string;
+    lat: string;
+    lon: string;
+  }>>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
+  useEffect(() => {
+    if (initialRegion) {
+      setSelectedLocation({
+        latitude: initialRegion.latitude,
+        longitude: initialRegion.longitude,
+      });
+    }
+  }, [initialRegion]);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (visible && initialRegion) {
+      setSelectedLocation({
+        latitude: initialRegion.latitude,
+        longitude: initialRegion.longitude,
+      });
+      setAddress('');
+      setCity('');
+      setCountry('');
+      setFormattedAddress('');
+      setSearchQuery('');
+      setSearchResults([]);
+      setShowSearchResults(false);
+    }
+  }, [visible, initialRegion]);
+
+  const reverseGeocode = async (latitude: number, longitude: number) => {
+    setLoadingAddress(true);
+    try {
+      // Try expo-location first (works offline/cached)
+      const reverseGeo = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (reverseGeo.length > 0) {
+        const place = reverseGeo[0];
+        const addr = place.street || '';
+        const cityName = place.city || place.subregion || '';
+        const countryCode = place.isoCountryCode || 'US';
+        const formatted = [place.street, place.city, place.region, place.postalCode].filter(Boolean).join(', ');
+        
+        setAddress(addr);
+        setCity(cityName);
+        setCountry(countryCode);
+        setFormattedAddress(formatted);
+        
+        return {
+          coordinates: [longitude, latitude] as [number, number],
+          address: addr,
+          city: cityName,
+          country: countryCode,
+          formattedAddress: formatted,
+        };
+      }
+    } catch (error) {
+      console.warn('expo-location reverse geocode failed, trying Nominatim:', error);
+    }
+
+    // Fallback to Nominatim (OpenStreetMap)
+    try {
+      const response = await fetch(
+        `${REVERSE_GEOCODE_URL}?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+        { headers: { 'User-Agent': 'DoItPlatform/1.0' } }
+      );
+      const data = await response.json();
+      if (data && data.address) {
+        const addr = data.address.road || data.address.pedestrian || data.address.footway || '';
+        const cityName = data.address.city || data.address.town || data.address.village || data.address.suburb || '';
+        const countryCode = data.address.country_code?.toUpperCase() || 'US';
+        const formatted = data.display_name || '';
+        
+        setAddress(addr);
+        setCity(cityName);
+        setCountry(countryCode);
+        setFormattedAddress(formatted);
+        
+        return {
+          coordinates: [longitude, latitude] as [number, number],
+          address: addr,
+          city: cityName,
+          country: countryCode,
+          formattedAddress: formatted,
+        };
+      }
+    } catch (error) {
+      console.error('Nominatim reverse geocode failed:', error);
+    } finally {
+      setLoadingAddress(false);
+    }
+    return null;
+  };
+
+  const searchLocations = async (query: string) => {
+    if (!query.trim() || query.length < 3) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${GEOCODE_URL}?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
+        { headers: { 'User-Agent': 'DoItPlatform/1.0' } }
+      );
+      const data = await response.json();
+      setSearchResults(data);
+      setShowSearchResults(true);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setSearchResults([]);
+    }
+  };
+
+  const selectSearchResult = (result: any) => {
+    const latitude = parseFloat(result.lat);
+    const longitude = parseFloat(result.lon);
+    setSelectedLocation({ latitude, longitude });
+    setSearchQuery(result.display_name);
+    setShowSearchResults(false);
+    setSearchResults([]);
+    
+    // Get detailed address
+    reverseGeocode(latitude, longitude).then((locationData) => {
+      if (locationData) {
+        onLocationSelect(locationData);
+      }
+    });
+  };
+
+  const onMapPress = async (event: any) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    setSelectedLocation({ latitude, longitude });
+    setShowSearchResults(false);
+    
+    const locationData = await reverseGeocode(latitude, longitude);
+    if (locationData) {
+      onLocationSelect(locationData);
+    }
+  };
+
+  const handleUseCurrentLocation = async () => {
+    if (onUseCurrentLocation) {
+      await onUseCurrentLocation();
+    } else {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission denied', 'Location permission is required to use current location');
+          return;
+        }
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        const latitude = loc.coords.latitude;
+        const longitude = loc.coords.longitude;
+        
+        setSelectedLocation({ latitude, longitude });
+        mapRef.current?.animateToRegion({
+          latitude,
+          longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }, 1000);
+        
+        const locationData = await reverseGeocode(latitude, longitude);
+        if (locationData) {
+          onLocationSelect(locationData);
+        }
+      } catch (error) {
+        console.error('Current location error:', error);
+        Alert.alert('Error', 'Failed to get current location');
+      }
+    }
+  };
+
+  const handleConfirm = () => {
+    if (selectedLocation && city) {
+      // Location already selected via map press or search
+      return;
+    }
+    if (!city) {
+      Alert.alert('Select Location', 'Please tap on the map or search for a location');
+      return;
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onCancel}>
+      <SafeAreaViewCompat style={styles.container}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search address, city, or landmark..."
+            value={searchQuery}
+            onChangeText={(text) => {
+              setSearchQuery(text);
+              searchLocations(text);
+            }}
+            onFocus={() => setShowSearchResults(searchResults.length > 0)}
+            onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
+            autoCapitalize="words"
+            returnKeyType="search"
+            underlineColorAndroid="transparent"
+          />
+          <TouchableOpacity style={styles.searchIcon} onPress={() => searchLocations(searchQuery)}>
+            <Ionicons name="search" size={24} color={C.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {showSearchResults && searchResults.length > 0 && (
+          <View style={styles.searchResultsContainer}>
+            {searchResults.map((result) => (
+              <TouchableOpacity
+                key={result.place_id}
+                style={styles.searchResultItem}
+                onPress={() => selectSearchResult(result)}
+              >
+                <Ionicons name="location-outline" size={20} color={C.primary} />
+                <Text style={styles.searchResultText} numberOfLines={2}>{result.display_name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onCancel}>
+            <Ionicons name="close" size={28} color={C.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{title}</Text>
+          <TouchableOpacity onPress={handleConfirm} disabled={!city || loadingAddress}>
+            <Text style={[
+              styles.confirmBtn, 
+              (!city || loadingAddress) && styles.confirmBtnDisabled
+            ]}>
+              Confirm
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Map */}
+        <View style={styles.mapContainer}>
+          <MapView
+            ref={mapRef}
+            provider={Platform.OS === 'ios' ? undefined : 'google'} // Use default provider
+            style={styles.map}
+            initialRegion={selectedLocation ? {
+              latitude: selectedLocation.latitude,
+              longitude: selectedLocation.longitude,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            } : initialRegion}
+            onPress={onMapPress}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
+            loadingEnabled={true}
+            zoomEnabled={true}
+            scrollEnabled={true}
+            pitchEnabled={true}
+            rotateEnabled={true}
+          >
+            {selectedLocation && (
+              <Marker
+                coordinate={selectedLocation}
+                title={title}
+                description={formattedAddress || 'Selected location'}
+                pinColor={C.primary}
+              />
+            )}
+          </MapView>
+
+          {loadingAddress && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={C.primary} />
+              <Text style={styles.loadingText}>Getting address...</Text>
+            </View>
+          )}
+
+          {city && (
+            <View style={styles.selectedLocationCard}>
+              <Ionicons name="location-outline" size={20} color={C.primary} />
+              <View style={styles.locationInfo}>
+                <Text style={styles.locationLabel}>{title}</Text>
+                <Text style={styles.locationAddress}>{formattedAddress || `${city}, ${country}`}</Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.currentLocationBtn} onPress={handleUseCurrentLocation}>
+            <Ionicons name="locate" size={20} color={C.primary} />
+            <Text style={styles.currentLocationBtnText}>Use Current Location</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaViewCompat>
+    </Modal>
+  );
+}
+
+const makeStyles = (C: AppColors) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: C.background,
+      borderBottomWidth: 1,
+      borderBottomColor: C.divider,
+    },
+    searchInput: {
+      flex: 1,
+      height: 44,
+      backgroundColor: C.inputBg,
+      borderRadius: 8,
+      paddingHorizontal: 16,
+      fontSize: 16,
+      color: C.textPrimary,
+      paddingRight: 48,
+    },
+    searchIcon: {
+      position: 'absolute',
+      right: 16,
+      padding: 8,
+    },
+    searchResultsContainer: {
+      position: 'absolute',
+      top: 60,
+      left: 16,
+      right: 16,
+      backgroundColor: C.card,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 8,
+      zIndex: 100,
+      maxHeight: 300,
+    },
+    searchResultItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: C.divider,
+    },
+    searchResultText: { flex: 1, fontSize: 14, color: C.textPrimary },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: C.divider,
+    },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary, flex: 1, textAlign: 'center', marginRight: 44 },
+    confirmBtn: { fontSize: 16, fontWeight: '600', color: C.primary },
+    confirmBtnDisabled: { color: C.textHint },
+    mapContainer: { flex: 1 },
+    map: { flex: 1 },
+    loadingOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.3)',
+      zIndex: 10,
+    },
+    loadingText: { marginTop: 8, color: '#fff', fontSize: 14 },
+    selectedLocationCard: {
+      position: 'absolute',
+      bottom: 100,
+      left: 16,
+      right: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: C.card,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    locationInfo: { flex: 1 },
+    locationLabel: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
+    locationAddress: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
+    actions: {
+      flexDirection: 'row',
+      gap: 12,
+      padding: 16,
+      paddingBottom: 32,
+      backgroundColor: C.background,
+    },
+    currentLocationBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 14,
+      borderRadius: 12,
+      backgroundColor: C.primaryLight,
+      borderWidth: 1,
+      borderColor: C.primary,
+    },
+    currentLocationBtnText: { fontSize: 14, fontWeight: '600', color: C.primary },
+  });

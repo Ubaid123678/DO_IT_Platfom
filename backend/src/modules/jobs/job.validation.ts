@@ -13,6 +13,26 @@ const jobLocationSchema = Joi.object({
   city: Joi.string().trim().max(100).optional().allow(''),
   country: Joi.string().trim().uppercase().min(2).max(2).optional().allow(''),
   formattedAddress: Joi.string().trim().max(300).optional().allow(''),
+  
+  // Errand-specific: pickup location
+  pickupLocation: Joi.object({
+    type: Joi.string().valid('Point').default('Point'),
+    coordinates: Joi.array().items(Joi.number()).length(2).optional(),
+    address: Joi.string().trim().max(200).optional().allow(''),
+    city: Joi.string().trim().max(100).optional().allow(''),
+    country: Joi.string().trim().uppercase().min(2).max(2).optional().allow(''),
+    formattedAddress: Joi.string().trim().max(300).optional().allow(''),
+  }).optional(),
+  
+  // Errand-specific: delivery location
+  deliveryLocation: Joi.object({
+    type: Joi.string().valid('Point').default('Point'),
+    coordinates: Joi.array().items(Joi.number()).length(2).optional(),
+    address: Joi.string().trim().max(200).optional().allow(''),
+    city: Joi.string().trim().max(100).optional().allow(''),
+    country: Joi.string().trim().uppercase().min(2).max(2).optional().allow(''),
+    formattedAddress: Joi.string().trim().max(300).optional().allow(''),
+  }).optional(),
 }).required();
 
 const jobBudgetSchema = Joi.object({
@@ -100,7 +120,7 @@ const createJobSchema = Joi.object({
   title: Joi.string().trim().min(5).max(120).required(),
   description: Joi.string().trim().min(20).max(5000).required(),
   type: Joi.string().valid('physical', 'digital', 'errand').required(),
-  location: jobLocationSchema.when('type', {
+  location: jobLocationSchema.when('..type', {
     is: Joi.string().valid('physical', 'errand'),
     then: Joi.required(),
     otherwise: Joi.optional().allow(null),

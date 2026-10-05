@@ -4,7 +4,7 @@ import { asyncHandler } from '../../common/utils/asyncHandler.js';
 import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js';
 import { jobService } from './job.service.js';
 import { jobValidators } from './job.validation.js';
-import type { JobStatus, JobType } from './job.model.js';
+import type { IJobLocation, JobStatus, JobType } from './job.model.js';
 
 const validate = <T>(
   schema: { validate: (value: unknown) => { error?: { message: string }; value: T } },
@@ -97,13 +97,7 @@ type CreateJobPayload = {
   title: string;
   description: string;
   type: JobType;
-  location: {
-    coordinates: [number, number];
-    address?: string;
-    city?: string;
-    country?: string;
-    formattedAddress?: string;
-  };
+  location: IJobLocation | null;
   budget: {
     type: 'fixed' | 'hourly';
     amount: number;
