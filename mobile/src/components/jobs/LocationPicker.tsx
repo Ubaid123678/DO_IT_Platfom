@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Platform, useColorScheme, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
-import MapView, { Marker, UrlTile } from 'react-native-maps';
+import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import * as Location from 'expo-location';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors, type AppColors } from '@/src/theme/colors';
@@ -39,9 +39,64 @@ const DEFAULT_REGION = {
 const GEOCODE_URL = 'https://nominatim.openstreetmap.org/search';
 const REVERSE_GEOCODE_URL = 'https://nominatim.openstreetmap.org/reverse';
 const MAPTILER_KEY = (Constants.expoConfig?.extra?.mapTilerKey || process.env.EXPO_PUBLIC_MAPTILER_KEY) as string | undefined;
-const MAPTILER_TILE_URL = MAPTILER_KEY
-  ? `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`
-  : undefined;
+const MAPTILER_STYLE_URL = MAPTILER_KEY
+  ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
+  : '';
+
+const createMapHtml = (latitude: number, longitude: number) => `
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }</style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script>
+      const map = new maplibregl.Map({
+        container: 'map',
+        style: ${JSON.stringify(MAPTILER_STYLE_URL)},
+        center: [${longitude}, ${latitude}],
+        zoom: 13,
+        attributionControl: true,
+      });
+      const selected = {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [${longitude}, ${latitude}] },
+        properties: {},
+      };
+      map.on('load', () => {
+        map.addSource('selected-location', { type: 'geojson', data: selected });
+        map.addLayer({
+          id: 'selected-location-point',
+          type: 'circle',
+          source: 'selected-location',
+          paint: {
+            'circle-radius': 9,
+            'circle-color': '#0d9488',
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': 3,
+          },
+        });
+      });
+      map.on('click', (event) => {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'mapPress',
+          latitude: event.lngLat.lat,
+          longitude: event.lngLat.lng,
+        }));
+      });
+      window.setLocation = (nextLatitude, nextLongitude) => {
+        map.flyTo({ center: [nextLongitude, nextLatitude], zoom: 15, essential: true });
+        selected.geometry.coordinates = [nextLongitude, nextLatitude];
+        const source = map.getSource('selected-location');
+        if (source) source.setData(selected);
+      };
+    </script>
+  </body>
+</html>`;
 
 export default function LocationPicker({
   title,
@@ -57,7 +112,7 @@ export default function LocationPicker({
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
   
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<WebView>(null);
   const [selectedLocation, setSelectedLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -200,6 +255,7 @@ export default function LocationPicker({
     const longitude = parseFloat(result.lon);
     setSelectedLocation({ latitude, longitude });
     setMapRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
+    mapRef.current?.injectJavaScript(`window.setLocation?.(${latitude}, ${longitude}); true;`);
     setSearchQuery(result.display_name);
     setShowSearchResults(false);
     setSearchResults([]);
@@ -216,6 +272,7 @@ export default function LocationPicker({
     const { latitude, longitude } = event.nativeEvent.coordinate;
     setSelectedLocation({ latitude, longitude });
     setMapRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
+    mapRef.current?.injectJavaScript(`window.setLocation?.(${latitude}, ${longitude}); true;`);
     setShowSearchResults(false);
     
     const locationData = await reverseGeocode(latitude, longitude);
@@ -240,12 +297,7 @@ export default function LocationPicker({
         
         setSelectedLocation({ latitude, longitude });
         setMapRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
-        mapRef.current?.animateToRegion({
-          latitude,
-          longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }, 1000);
+        mapRef.current?.injectJavaScript(`window.setLocation?.(${latitude}, ${longitude}); true;`);
         
         const locationData = await reverseGeocode(latitude, longitude);
         if (locationData) {
@@ -255,6 +307,17 @@ export default function LocationPicker({
         console.error('Current location error:', error);
         Alert.alert('Error', 'Failed to get current location');
       }
+    }
+  };
+
+  const handleMapMessage = (event: WebViewMessageEvent) => {
+    try {
+      const message = JSON.parse(event.nativeEvent.data);
+      if (message.type === 'mapPress') {
+        onMapPress({ nativeEvent: { coordinate: message } });
+      }
+    } catch (error) {
+      console.warn('Invalid map message:', error);
     }
   };
 
@@ -326,36 +389,16 @@ export default function LocationPicker({
 
         {/* Map */}
         <View style={styles.mapContainer}>
-          <MapView
+          <WebView
             ref={mapRef}
             style={styles.map}
-            region={mapRegion}
-            mapType={MAPTILER_TILE_URL ? 'none' : 'standard'}
-            onPress={onMapPress}
-            showsUserLocation={true}
-            showsMyLocationButton={true}
-            loadingEnabled={true}
-            zoomEnabled={true}
-            scrollEnabled={true}
-            pitchEnabled={true}
-            rotateEnabled={true}
-          >
-            {MAPTILER_TILE_URL && (
-              <UrlTile
-                urlTemplate={MAPTILER_TILE_URL}
-                maximumZ={19}
-                flipY={false}
-              />
-            )}
-            {selectedLocation && (
-              <Marker
-                coordinate={selectedLocation}
-                title={title}
-                description={formattedAddress || 'Selected location'}
-                pinColor={C.primary}
-              />
-            )}
-          </MapView>
+            originWhitelist={['*']}
+            source={{ html: createMapHtml(mapRegion.latitude, mapRegion.longitude) }}
+            javaScriptEnabled
+            domStorageEnabled
+            onMessage={handleMapMessage}
+            onError={(event) => console.error('MapTiler WebView error:', event.nativeEvent)}
+          />
 
           {loadingAddress && (
             <View style={styles.loadingOverlay}>
