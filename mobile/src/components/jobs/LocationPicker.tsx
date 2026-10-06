@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Platform, useColorScheme, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
-import MapView, { Marker } from 'react-native-maps';
+import Constants from 'expo-constants';
+import MapView, { Marker, UrlTile } from 'react-native-maps';
 import * as Location from 'expo-location';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors, type AppColors } from '@/src/theme/colors';
@@ -32,11 +33,15 @@ const DEFAULT_REGION = {
   longitude: -122.4194,
   latitudeDelta: 0.0922,
   longitudeDelta: 0.0421,
-};
+} as const;
 
 // Use Nominatim (OpenStreetMap) for free geocoding - no API key needed
 const GEOCODE_URL = 'https://nominatim.openstreetmap.org/search';
 const REVERSE_GEOCODE_URL = 'https://nominatim.openstreetmap.org/reverse';
+const MAPTILER_KEY = (Constants.expoConfig?.extra?.mapTilerKey || process.env.EXPO_PUBLIC_MAPTILER_KEY) as string | undefined;
+const MAPTILER_TILE_URL = MAPTILER_KEY
+  ? `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`
+  : undefined;
 
 export default function LocationPicker({
   title,
@@ -70,22 +75,32 @@ export default function LocationPicker({
     lon: string;
   }>>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: initialRegion.latitude,
+    longitude: initialRegion.longitude,
+    latitudeDelta: initialRegion.latitudeDelta,
+    longitudeDelta: initialRegion.longitudeDelta,
+  });
+  const hasOpenedRef = useRef(false);
 
+  // Reset state when modal opens
   useEffect(() => {
-    if (initialRegion) {
+    if (!visible) {
+      hasOpenedRef.current = false;
+      return;
+    }
+
+    if (!hasOpenedRef.current) {
+      hasOpenedRef.current = true;
       setSelectedLocation({
         latitude: initialRegion.latitude,
         longitude: initialRegion.longitude,
       });
-    }
-  }, [initialRegion]);
-
-  // Reset state when modal opens
-  useEffect(() => {
-    if (visible && initialRegion) {
-      setSelectedLocation({
+      setMapRegion({
         latitude: initialRegion.latitude,
         longitude: initialRegion.longitude,
+        latitudeDelta: initialRegion.latitudeDelta,
+        longitudeDelta: initialRegion.longitudeDelta,
       });
       setAddress('');
       setCity('');
@@ -95,7 +110,7 @@ export default function LocationPicker({
       setSearchResults([]);
       setShowSearchResults(false);
     }
-  }, [visible, initialRegion]);
+  }, [visible, initialRegion.latitude, initialRegion.longitude, initialRegion.latitudeDelta, initialRegion.longitudeDelta]);
 
   const reverseGeocode = async (latitude: number, longitude: number) => {
     setLoadingAddress(true);
@@ -184,6 +199,7 @@ export default function LocationPicker({
     const latitude = parseFloat(result.lat);
     const longitude = parseFloat(result.lon);
     setSelectedLocation({ latitude, longitude });
+    setMapRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
     setSearchQuery(result.display_name);
     setShowSearchResults(false);
     setSearchResults([]);
@@ -199,6 +215,7 @@ export default function LocationPicker({
   const onMapPress = async (event: any) => {
     const { latitude, longitude } = event.nativeEvent.coordinate;
     setSelectedLocation({ latitude, longitude });
+    setMapRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
     setShowSearchResults(false);
     
     const locationData = await reverseGeocode(latitude, longitude);
@@ -222,6 +239,7 @@ export default function LocationPicker({
         const longitude = loc.coords.longitude;
         
         setSelectedLocation({ latitude, longitude });
+        setMapRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
         mapRef.current?.animateToRegion({
           latitude,
           longitude,
@@ -310,14 +328,9 @@ export default function LocationPicker({
         <View style={styles.mapContainer}>
           <MapView
             ref={mapRef}
-            provider={Platform.OS === 'ios' ? undefined : 'google'} // Use default provider
             style={styles.map}
-            initialRegion={selectedLocation ? {
-              latitude: selectedLocation.latitude,
-              longitude: selectedLocation.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            } : initialRegion}
+            region={mapRegion}
+            mapType={MAPTILER_TILE_URL ? 'none' : 'standard'}
             onPress={onMapPress}
             showsUserLocation={true}
             showsMyLocationButton={true}
@@ -327,6 +340,13 @@ export default function LocationPicker({
             pitchEnabled={true}
             rotateEnabled={true}
           >
+            {MAPTILER_TILE_URL && (
+              <UrlTile
+                urlTemplate={MAPTILER_TILE_URL}
+                maximumZ={19}
+                flipY={false}
+              />
+            )}
             {selectedLocation && (
               <Marker
                 coordinate={selectedLocation}
@@ -353,6 +373,7 @@ export default function LocationPicker({
               </View>
             </View>
           )}
+
         </View>
 
         <View style={styles.actions}>
@@ -368,7 +389,7 @@ export default function LocationPicker({
 
 const makeStyles = (C: AppColors) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.background },
+    container: { flex: 1, backgroundColor: C.background, width: '100%', height: '100%' },
     searchContainer: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -431,8 +452,8 @@ const makeStyles = (C: AppColors) =>
     headerTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary, flex: 1, textAlign: 'center', marginRight: 44 },
     confirmBtn: { fontSize: 16, fontWeight: '600', color: C.primary },
     confirmBtnDisabled: { color: C.textHint },
-    mapContainer: { flex: 1 },
-    map: { flex: 1 },
+    mapContainer: { flex: 1, width: '100%', height: '100%' },
+    map: { ...StyleSheet.absoluteFill },
     loadingOverlay: {
       position: 'absolute',
       top: 0,
