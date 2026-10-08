@@ -8,7 +8,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useJobCreation } from '@/src/context/JobCreationContext';
 import { jobService } from '@/src/services/jobService';
 import { Colors, type AppColors } from '@/src/theme/colors';
-import { getCurrencyFromLocale, formatCurrency, PLATFORM_FEE_PERCENT } from '@/src/utils/currency';
+import { getCurrencyFromLocaleObject, formatCurrency, PLATFORM_FEE_PERCENT } from '@/src/utils/currency';
 
 const JOB_TYPE_LABELS: Record<string, string> = {
   physical: 'Physical Service',
