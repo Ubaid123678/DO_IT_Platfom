@@ -74,8 +74,12 @@ export const getCurrencyFromLocale = (locale: string): { code: string; symbol: s
   return CURRENCY_MAP.default;
 };
 
-export const getCurrencyFromLocaleObject = (localeObj: { languageTag?: string; regionCode?: string }): { code: string; symbol: string; locale: string } => {
-  // Try regionCode first (more accurate for country detection)
+export const getCurrencyFromLocaleObject = (localeObj: { languageTag?: string; regionCode?: string | null; currencyCode?: string | null; currencySymbol?: string | null }): { code: string; symbol: string; locale: string } => {
+  // Use currencyCode and currencySymbol directly from locale object if available (most accurate)
+  if (localeObj.currencyCode && localeObj.currencySymbol) {
+    return { code: localeObj.currencyCode, symbol: localeObj.currencySymbol, locale: localeObj.languageTag || 'en-US' };
+  }
+  // Try regionCode (more accurate for country detection)
   if (localeObj.regionCode) {
     const countryCode = localeObj.regionCode.toUpperCase();
     if (CURRENCY_MAP[countryCode]) {

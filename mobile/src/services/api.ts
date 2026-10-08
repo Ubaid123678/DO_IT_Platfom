@@ -65,6 +65,9 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Note: AuthProvider now handles token initialization and refresh.
+// This interceptor is kept for request/response logging if needed.
+
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (token: string) => void;
@@ -82,62 +85,21 @@ const processQueue = (error: unknown, token: string | null) => {
   failedQueue = [];
 };
 
+// Note: Token refresh is now handled by AuthProvider.
+// This interceptor only logs errors.
 api.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+  (error: AxiosError) => {
+    // Log all errors for debugging
+    console.error('[API Error]', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      url: error.config?.url,
+      method: error.config?.method,
+      data: error.response?.data,
+      message: error.message,
+    });
 
-    if (error.response?.status !== 401 || originalRequest._retry) {
-      return Promise.reject(error);
-    }
-
-    if (originalRequest.url?.includes('/auth/refresh-token')) {
-      return Promise.reject(error);
-    }
-
-    originalRequest._retry = true;
-
-    if (isRefreshing) {
-      return new Promise<string>((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      }).then((token) => {
-        originalRequest.headers.Authorization = `Bearer ${token}`;
-        return api(originalRequest);
-      });
-    }
-
-    isRefreshing = true;
-
-    try {
-      const refreshToken = await AsyncStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        throw new Error('No refresh token');
-      }
-
-      const response = await axios.post<{
-        success: boolean;
-        data: { accessToken: string; refreshToken: string };
-      }>(`${resolveApiBaseUrl()}/auth/refresh-token`, { refreshToken }, {
-        timeout: 10000,
-      });
-
-      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-
-      await AsyncStorage.multiSet([
-        ['accessToken', accessToken],
-        ['refreshToken', newRefreshToken],
-      ]);
-
-      processQueue(null, accessToken);
-
-      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-      return api(originalRequest);
-    } catch (refreshError) {
-      processQueue(refreshError, null);
-      await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'role', 'user']);
-      return Promise.reject(refreshError);
-    } finally {
-      isRefreshing = false;
-    }
+    return Promise.reject(error);
   },
 );

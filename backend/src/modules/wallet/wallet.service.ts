@@ -696,7 +696,7 @@ try {
 
   // Get wallet stats
   getWalletStats: async (userId: string) => {
-    const wallet = await walletService.getWallet(userId);
+    const wallet = await walletService.getOrCreateWallet(userId);
 
     const stats = await TransactionModel.aggregate([
       { $match: { userId: new mongoose.Types.ObjectId(userId) } },

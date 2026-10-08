@@ -9,6 +9,7 @@ import { useJobCreation } from '@/src/context/JobCreationContext';
 import { jobService } from '@/src/services/jobService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 import { getCurrencyFromLocaleObject, formatCurrency, PLATFORM_FEE_PERCENT } from '@/src/utils/currency';
+import type { Locale } from 'expo-localization';
 
 const JOB_TYPE_LABELS: Record<string, string> = {
   physical: 'Physical Service',
@@ -64,7 +65,8 @@ export default function JobReviewStep() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
-  const currency = getCurrencyFromLocale(Localization.getLocales()[0]?.languageTag || 'en-US');
+  const localeObj = Localization.getLocales()[0] as Locale;
+  const currency = getCurrencyFromLocaleObject(localeObj);
   const styles = makeStyles(C);
   const { state, dispatch, goBack, goNext } = useJobCreation();
   const router = useRouter();

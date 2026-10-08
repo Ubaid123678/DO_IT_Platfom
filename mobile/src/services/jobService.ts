@@ -230,8 +230,20 @@ export const jobService = {
     requirements: JobRequirements;
     metadata?: { tags?: string[]; isUrgent?: boolean };
   }): Promise<Job> => {
-    const res = await api.post('/jobs', payload);
-    return res.data.data.job;
+    console.log('[jobService.createJob] Payload:', JSON.stringify(payload, null, 2));
+    try {
+      const res = await api.post('/jobs', payload);
+      console.log('[jobService.createJob] Success:', res.data);
+      return res.data.data.job;
+    } catch (error: any) {
+      console.error('[jobService.createJob] Error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+      });
+      throw error;
+    }
   },
 
   // Get single job by ID

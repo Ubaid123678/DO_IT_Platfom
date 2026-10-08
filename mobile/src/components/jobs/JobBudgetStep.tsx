@@ -8,12 +8,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useJobCreation } from '@/src/context/JobCreationContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 import { getCurrencyFromLocaleObject, formatCurrency, PLATFORM_FEE_PERCENT } from '@/src/utils/currency';
+import type { Locale } from 'expo-localization';
 
 export default function JobBudgetStep() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
-  const localeObj = Localization.getLocales()[0] || { languageTag: 'en-US' };
+  const localeObj = Localization.getLocales()[0] as Locale;
   const currency = getCurrencyFromLocaleObject(localeObj);
   const styles = makeStyles(C);
   const { state, dispatch, goNext, goBack, canGoNext } = useJobCreation();
