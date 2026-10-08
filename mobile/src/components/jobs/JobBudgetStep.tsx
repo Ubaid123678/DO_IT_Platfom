@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 import * as Localization from 'expo-localization';
@@ -29,6 +29,13 @@ export default function JobBudgetStep() {
   const providerAmount = amount ? parseFloat(amount) - platformFeeAmount : 0;
   const platformFeeDisplay = amount ? `${currency.symbol}${platformFeeAmount.toFixed(2)}` : null;
   const providerAmountDisplay = amount ? `${currency.symbol}${providerAmount.toFixed(2)}` : null;
+
+  // Update currency in form data when step mounts
+  useEffect(() => {
+    if (state.formData.budget.currency !== currency.code) {
+      dispatch({ type: 'UPDATE_NESTED_FORM', section: 'budget', field: 'currency', value: currency.code });
+    }
+  }, [currency.code]);
 
   return (
     <SafeAreaViewCompat style={styles.container}>
