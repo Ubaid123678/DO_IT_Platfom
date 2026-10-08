@@ -23,16 +23,16 @@ export interface JobCreationState {
       city: string;
       country: string;
       formattedAddress: string;
-      // Errand jobs - pickup location
-      pickupLocation?: {
+      // Errand jobs - pickup location (always present, empty for non-errand)
+      pickupLocation: {
         coordinates: [number, number] | null;
         address: string;
         city: string;
         country: string;
         formattedAddress: string;
       };
-      // Errand jobs - delivery location
-      deliveryLocation?: {
+      // Errand jobs - delivery location (always present, empty for non-errand)
+      deliveryLocation: {
         coordinates: [number, number] | null;
         address: string;
         city: string;
@@ -83,8 +83,6 @@ export interface JobCreationState {
       
       // Errand-specific
       transportMode?: 'on_foot' | 'bicycle' | 'motorbike' | 'car' | 'van';
-      baseFee?: number;
-      perKmFee?: number;
       sameDayExpress?: boolean;
       deliveryCapabilities?: string[];
       maxPayloadKg?: number;
@@ -103,6 +101,8 @@ export interface JobCreationContextType {
   goBack: () => void;
   goToStep: (step: JobCreationStep) => void;
   canGoNext: () => boolean;
+  clearForward: (fromStep: JobCreationStep) => void;
+  clearAll: () => void;
 }
 
 type JobCreationAction =
@@ -112,7 +112,9 @@ type JobCreationAction =
   | { type: 'UPDATE_NESTED_FORM'; section: keyof JobCreationState['formData']; field: string; value: any }
   | { type: 'SET_CATEGORIES'; categories: JobCreationState['selectedCategories'] }
   | { type: 'SET_SKILL_ITEMS'; skillItems: JobCreationState['selectedSkillItems'] }
-  | { type: 'RESET' };
+  | { type: 'RESET' }
+  | { type: 'CLEAR_FORWARD'; fromStep: JobCreationStep }
+  | { type: 'CLEAR_ALL' };
 
 const initialState: JobCreationState = {
   currentStep: 'job-type',
@@ -121,20 +123,20 @@ const initialState: JobCreationState = {
     title: '',
     description: '',
     location: {
-      coordinates: null,
+      coordinates: null as [number, number] | null,
       address: '',
       city: '',
       country: '',
       formattedAddress: '',
       pickupLocation: {
-        coordinates: null,
+        coordinates: null as [number, number] | null,
         address: '',
         city: '',
         country: '',
         formattedAddress: '',
       },
       deliveryLocation: {
-        coordinates: null,
+        coordinates: null as [number, number] | null,
         address: '',
         city: '',
         country: '',
@@ -183,8 +185,6 @@ const initialState: JobCreationState = {
       
       // Errand-specific
       transportMode: undefined,
-      baseFee: undefined,
-      perKmFee: undefined,
       sameDayExpress: undefined,
       deliveryCapabilities: [],
       maxPayloadKg: undefined,
@@ -207,12 +207,94 @@ const stepOrder: JobCreationStep[] = [
   'complete',
 ];
 
+// Helper to get initial form data for a job type (preserves jobType)
+const getInitialFormData = (jobType: JobCreationState['jobType']) => ({
+  title: '',
+  description: '',
+  location: {
+    coordinates: null as [number, number] | null,
+    address: '',
+    city: '',
+    country: '',
+    formattedAddress: '',
+    pickupLocation: {
+      coordinates: null as [number, number] | null,
+      address: '',
+      city: '',
+      country: '',
+      formattedAddress: '',
+    },
+    deliveryLocation: {
+      coordinates: null as [number, number] | null,
+      address: '',
+      city: '',
+      country: '',
+      formattedAddress: '',
+    },
+  },
+  budget: {
+    type: 'fixed' as const,
+    amount: '',
+    currency: 'USD',
+    hourlyRate: '',
+    estimatedHours: '',
+  },
+  schedule: {
+    startsAt: '',
+    endsAt: '',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    isFlexible: true,
+    preferredDays: [],
+    preferredShifts: [],
+  },
+  requirements: {
+    categories: [],
+    skillItems: [],
+    experienceLevel: '' as '' | 'entry' | 'intermediate' | 'expert',
+    languages: [],
+    certificationsRequired: false,
+    vehicleRequired: false,
+    
+    // Physical-specific
+    yearsExperience: undefined,
+    serviceRadiusKm: undefined,
+    toolsEquipment: [],
+    teamSize: undefined,
+    insurance: undefined,
+    hasTransport: undefined,
+    
+    // Digital-specific
+    techStack: [],
+    portfolioUrl: '',
+    githubUsername: '',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    englishProficiency: undefined,
+    workHistory: [],
+    education: [],
+    
+    // Errand-specific
+    transportMode: undefined,
+    sameDayExpress: undefined,
+    deliveryCapabilities: [],
+    maxPayloadKg: undefined,
+    maxPackageSize: '',
+    goodsInsurance: undefined,
+  },
+});
+
 const jobCreationReducer = (state: JobCreationState, action: JobCreationAction): JobCreationState => {
   switch (action.type) {
     case 'SET_STEP':
       return { ...state, currentStep: action.step };
     case 'SET_JOB_TYPE':
-      return { ...state, jobType: action.jobType };
+      // Changing job type clears all form data except jobType
+      return { 
+        ...state, 
+        jobType: action.jobType,
+        formData: getInitialFormData(action.jobType),
+        selectedCategories: [],
+        selectedSkillItems: [],
+      };
     case 'UPDATE_FORM':
       return { ...state, formData: { ...state.formData, [action.field]: action.value } };
     case 'UPDATE_NESTED_FORM':
@@ -229,10 +311,108 @@ const jobCreationReducer = (state: JobCreationState, action: JobCreationAction):
       return { ...state, selectedSkillItems: action.skillItems };
     case 'RESET':
       return initialState;
+    case 'CLEAR_FORWARD':
+      // Clear form data for steps after the given step
+      const fromIndex = stepOrder.indexOf(action.fromStep);
+      if (fromIndex === -1) return state;
+      
+      const clearedState = { ...state };
+      // Clear steps after the current one
+      for (let i = fromIndex + 1; i < stepOrder.length; i++) {
+        const step = stepOrder[i];
+        clearStepData(clearedState, step);
+      }
+      return clearedState;
+    case 'CLEAR_ALL':
+      return { ...initialState, jobType: state.jobType };
     default:
       return state;
   }
 };
+
+// Helper to clear data for a specific step
+function clearStepData(state: JobCreationState, step: JobCreationStep) {
+  switch (step) {
+    case 'details':
+      state.formData.title = '';
+      state.formData.description = '';
+      break;
+    case 'location':
+      state.formData.location = {
+        coordinates: null as [number, number] | null,
+        address: '',
+        city: '',
+        country: '',
+        formattedAddress: '',
+        pickupLocation: {
+          coordinates: null as [number, number] | null,
+          address: '',
+          city: '',
+          country: '',
+          formattedAddress: '',
+        },
+        deliveryLocation: {
+          coordinates: null as [number, number] | null,
+          address: '',
+          city: '',
+          country: '',
+          formattedAddress: '',
+        },
+      };
+      break;
+    case 'budget':
+      state.formData.budget = {
+        type: 'fixed',
+        amount: '',
+        currency: 'USD',
+        hourlyRate: '',
+        estimatedHours: '',
+      };
+      break;
+    case 'schedule':
+      state.formData.schedule = {
+        startsAt: '',
+        endsAt: '',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+        isFlexible: true,
+        preferredDays: [],
+        preferredShifts: [],
+      };
+      break;
+    case 'requirements':
+      state.formData.requirements = {
+        categories: [],
+        skillItems: [],
+        experienceLevel: '',
+        languages: [],
+        certificationsRequired: false,
+        vehicleRequired: false,
+        yearsExperience: undefined,
+        serviceRadiusKm: undefined,
+        toolsEquipment: [],
+        teamSize: undefined,
+        insurance: undefined,
+        hasTransport: undefined,
+        techStack: [],
+        portfolioUrl: '',
+        githubUsername: '',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+        englishProficiency: undefined,
+        workHistory: [],
+        education: [],
+        transportMode: undefined,
+        maxPayloadKg: undefined,
+        maxPackageSize: '',
+        goodsInsurance: undefined,
+      };
+      state.selectedCategories = [];
+      state.selectedSkillItems = [];
+      break;
+    case 'review':
+      // Don't clear review - it's computed from other steps
+      break;
+  }
+}
 
 const JobCreationContext = createContext<JobCreationContextType | null>(null);
 
@@ -249,7 +429,15 @@ export const JobCreationProvider = ({ children }: { children: ReactNode }) => {
 
   const goBack = () => {
     if (currentIndex > 0) {
-      dispatch({ type: 'SET_STEP', step: stepOrder[currentIndex - 1] });
+      const targetStep = stepOrder[currentIndex - 1];
+      // If going back to job-type, clear everything
+      if (targetStep === 'job-type') {
+        dispatch({ type: 'CLEAR_ALL' });
+      } else {
+        // Clear forward steps before going back
+        dispatch({ type: 'CLEAR_FORWARD', fromStep: targetStep });
+      }
+      dispatch({ type: 'SET_STEP', step: targetStep });
     }
   };
 
@@ -267,8 +455,8 @@ export const JobCreationProvider = ({ children }: { children: ReactNode }) => {
         if (state.jobType === 'errand') {
           // Errand jobs need both pickup and delivery locations
           return (
-            state.formData.location.pickupLocation?.city?.trim().length > 0 &&
-            state.formData.location.deliveryLocation?.city?.trim().length > 0
+            state.formData.location.pickupLocation.city?.trim().length > 0 &&
+            state.formData.location.deliveryLocation.city?.trim().length > 0
           );
         }
         // Physical jobs need single location
@@ -293,6 +481,14 @@ export const JobCreationProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const clearForward = (fromStep: JobCreationStep) => {
+    dispatch({ type: 'CLEAR_FORWARD', fromStep });
+  };
+
+  const clearAll = () => {
+    dispatch({ type: 'CLEAR_ALL' });
+  };
+
   return (
     <JobCreationContext.Provider
       value={{
@@ -302,6 +498,8 @@ export const JobCreationProvider = ({ children }: { children: ReactNode }) => {
         goBack,
         goToStep,
         canGoNext,
+        clearForward,
+        clearAll,
       }}
     >
       {children}

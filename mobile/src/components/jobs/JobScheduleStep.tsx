@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
@@ -9,7 +9,6 @@ import { Colors, type AppColors } from '@/src/theme/colors';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const SHIFTS = ['Morning', 'Afternoon', 'Evening', 'Night'];
-const TIMEZONES = ['UTC-8', 'UTC-5', 'UTC-4', 'UTC-3', 'UTC', 'UTC+1', 'UTC+3', 'UTC+5', 'UTC+8', 'UTC+9', 'Other'];
 
 export default function JobScheduleStep() {
   const scheme = useColorScheme();
@@ -21,7 +20,20 @@ export default function JobScheduleStep() {
 
   const { isFlexible, startsAt, endsAt, timezone, preferredDays, preferredShifts } = state.formData.schedule;
   const [showDatePicker, setShowDatePicker] = useState<'start' | 'end' | null>(null);
-  const [showTimezoneModal, setShowTimezoneModal] = useState(false);
+
+  // Auto-detect timezone on mount
+  useEffect(() => {
+    if (!timezone || timezone === 'UTC') {
+      try {
+        const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (deviceTimezone && deviceTimezone !== 'UTC') {
+          dispatch({ type: 'UPDATE_NESTED_FORM', section: 'schedule', field: 'timezone', value: deviceTimezone });
+        }
+      } catch {
+        // Fallback to UTC if detection fails
+      }
+    }
+  }, []);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Select date';
@@ -46,10 +58,6 @@ export default function JobScheduleStep() {
       ? preferredShifts.filter((s) => s !== shift)
       : [...preferredShifts, shift];
     dispatch({ type: 'UPDATE_NESTED_FORM', section: 'schedule', field: 'preferredShifts', value: next });
-  };
-
-  const handleTimezoneChange = (tz: string) => {
-    dispatch({ type: 'UPDATE_NESTED_FORM', section: 'schedule', field: 'timezone', value: tz });
   };
 
   return (
@@ -105,13 +113,15 @@ export default function JobScheduleStep() {
             </>
           )}
 
+          {/* Timezone - auto-detected, read-only */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Timezone</Text>
-            <TouchableOpacity style={styles.dropdownBtn} onPress={() => setShowTimezoneModal(true)}>
+            <Text style={styles.fieldLabel}>Timezone (Auto-detected)</Text>
+            <View style={styles.dropdownBtn}>
               <Ionicons name="globe-outline" size={20} color={C.textSecondary} />
-              <Text style={styles.dropdownText}>{timezone}</Text>
-              <Ionicons name="chevron-down" size={20} color={C.textHint} />
-            </TouchableOpacity>
+              <Text style={styles.dropdownText}>{timezone || 'Detecting...'}</Text>
+              <Ionicons name="checkmark-circle-outline" size={20} color={C.primary} />
+            </View>
+            <Text style={styles.fieldHint}>Automatically detected from your device</Text>
           </View>
 
           <View style={styles.fieldGroup}>
@@ -208,6 +218,7 @@ const makeStyles = (C: AppColors) =>
     dateBtnTextEmpty: { color: C.textHint },
     dropdownBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.inputBorder, borderRadius: 10 },
     dropdownText: { fontSize: 16, color: C.textPrimary, flex: 1 },
+    fieldHint: { fontSize: 11, color: C.textHint, marginTop: 4 },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: C.inputBorder, backgroundColor: C.inputBg },
     chipActive: { backgroundColor: C.primary, borderColor: C.primary },

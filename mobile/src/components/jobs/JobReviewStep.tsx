@@ -2,11 +2,13 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme, Alert } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
+import * as Localization from 'expo-localization';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useJobCreation } from '@/src/context/JobCreationContext';
 import { jobService } from '@/src/services/jobService';
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { getCurrencyFromLocale, formatCurrency, PLATFORM_FEE_PERCENT } from '@/src/utils/currency';
 
 const JOB_TYPE_LABELS: Record<string, string> = {
   physical: 'Physical Service',
@@ -17,14 +19,6 @@ const JOB_TYPE_LABELS: Record<string, string> = {
 const BUDGET_TYPE_LABELS: Record<string, string> = {
   fixed: 'Fixed Price',
   hourly: 'Hourly Rate',
-};
-
-const formatBudget = (budget: any) => {
-  const amount = parseFloat(budget.amount) / 100;
-  if (budget.type === 'hourly') {
-    return `$${amount.toFixed(2)}/hr × ${budget.estimatedHours}hrs = $${(amount * parseFloat(budget.estimatedHours)).toFixed(2)}`;
-  }
-  return `$${amount.toFixed(2)} fixed`;
 };
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -70,6 +64,7 @@ export default function JobReviewStep() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
+  const currency = getCurrencyFromLocale(Localization.getLocales()[0]?.languageTag || 'en-US');
   const styles = makeStyles(C);
   const { state, dispatch, goBack, goNext } = useJobCreation();
   const router = useRouter();
@@ -79,6 +74,14 @@ export default function JobReviewStep() {
   const formData = state.formData;
   const jobType = state.jobType;
   const req = formData.requirements;
+
+  // Platform fee is deducted from provider, not added to client
+  const budgetAmount = parseFloat(formData.budget.amount); // in dollars (from TextInput)
+  const platformFeeAmount = Math.round(budgetAmount * (PLATFORM_FEE_PERCENT / 100) * 100) / 100; // in dollars
+  const providerAmount = budgetAmount - platformFeeAmount; // in dollars
+  const platformFeeDisplay = `${currency.symbol}${platformFeeAmount.toFixed(2)}`;
+  const providerAmountDisplay = `${currency.symbol}${providerAmount.toFixed(2)}`;
+  const totalBudgetDisplay = `${currency.symbol}${budgetAmount.toFixed(2)}`;
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -170,8 +173,6 @@ export default function JobReviewStep() {
           
           // Errand-specific
           transportMode: formData.requirements.transportMode,
-          baseFee: formData.requirements.baseFee,
-          perKmFee: formData.requirements.perKmFee,
           sameDayExpress: formData.requirements.sameDayExpress,
           deliveryCapabilities: formData.requirements.deliveryCapabilities,
           maxPayloadKg: formData.requirements.maxPayloadKg,
@@ -278,23 +279,11 @@ export default function JobReviewStep() {
   );
 
   const renderErrandRequirements = () => (
-    <>
+    <View>
       {req.transportMode && (
         <View style={styles.reviewRow}>
           <Text style={styles.reviewLabel}>Transport Mode</Text>
           <Text style={styles.reviewValue}>{TRANSPORT_MODE_LABELS[req.transportMode]}</Text>
-        </View>
-      )}
-      {req.baseFee && (
-        <View style={styles.reviewRow}>
-          <Text style={styles.reviewLabel}>Base Fee</Text>
-          <Text style={styles.reviewValue}>$${req.baseFee.toFixed(2)}</Text>
-        </View>
-      )}
-      {req.perKmFee && (
-        <View style={styles.reviewRow}>
-          <Text style={styles.reviewLabel}>Per KM Fee</Text>
-          <Text style={styles.reviewValue}>$${req.perKmFee.toFixed(2)}</Text>
         </View>
       )}
       {req.sameDayExpress && (
@@ -327,7 +316,7 @@ export default function JobReviewStep() {
           <Text style={styles.reviewValue}>Required</Text>
         </View>
       )}
-    </>
+    </View>
   );
 
   return (
@@ -443,7 +432,7 @@ export default function JobReviewStep() {
             <View>
               <Text style={styles.reviewLabel}>Budget</Text>
               <Text style={styles.reviewValue}>
-                {BUDGET_TYPE_LABELS[formData.budget.type]}: {formatBudget(formData.budget)}
+                {BUDGET_TYPE_LABELS[formData.budget.type]}: {formatCurrency(budgetAmount * 100, currency)}
               </Text>
             </View>
           </View>
@@ -523,22 +512,26 @@ export default function JobReviewStep() {
         <View style={styles.feeSummary}>
           <Text style={styles.feeTitle}>Cost Summary</Text>
           <View style={styles.feeRow}>
-            <Text style={styles.feeLabel}>Job Budget</Text>
-            <Text style={styles.feeValue}>${(parseFloat(formData.budget.amount) / 100).toFixed(2)}</Text>
+            <Text style={styles.feeLabel}>Your Budget</Text>
+            <Text style={styles.feeValue}>{totalBudgetDisplay}</Text>
           </View>
           <View style={styles.feeRow}>
-            <Text style={styles.feeLabel}>Platform Fee (10%)</Text>
-            <Text style={styles.feeValue}>${(parseFloat(formData.budget.amount) * 0.1 / 100).toFixed(2)}</Text>
+            <Text style={styles.feeLabel}>Platform Fee ({PLATFORM_FEE_PERCENT}%)</Text>
+            <Text style={styles.feeValue}>{platformFeeDisplay}</Text>
+          </View>
+          <View style={styles.feeRow}>
+            <Text style={styles.feeLabel}>Provider Receives</Text>
+            <Text style={styles.feeValue}>{providerAmountDisplay}</Text>
           </View>
           <View style={[styles.feeRow, styles.feeTotal]}>
-            <Text style={styles.feeLabel}>Total You Pay</Text>
-            <Text style={styles.feeValue}>${(parseFloat(formData.budget.amount) * 1.1 / 100).toFixed(2)}</Text>
+            <Text style={styles.feeLabel}>You Pay</Text>
+            <Text style={styles.feeValue}>{totalBudgetDisplay}</Text>
           </View>
         </View>
 
         <View style={styles.terms}>
           <Text style={styles.termsText}>
-            By posting this job, you agree to our <Text style={styles.termsLink}>Terms of Service</Text> and <Text style={styles.termsLink}>Payment Policy</Text>. Funds will be held in escrow until work is completed.
+            By posting this job, you agree to our <Text style={styles.termsLink}>Terms of Service</Text> and <Text style={styles.termsLink}>Payment Policy</Text>. You pay exactly your budget. A {PLATFORM_FEE_PERCENT}% platform fee is deducted from the provider's earnings. Funds are held in escrow until work is completed.
           </Text>
         </View>
       </ScrollView>

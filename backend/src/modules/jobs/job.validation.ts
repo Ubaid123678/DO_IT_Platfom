@@ -107,8 +107,6 @@ const jobRequirementsSchema = Joi.object({
   
   // Errand-specific (optional, validated in controller)
   transportMode: Joi.string().valid('on_foot', 'bicycle', 'motorbike', 'car', 'van').optional(),
-  baseFee: Joi.number().min(0).max(1000000).optional(),
-  perKmFee: Joi.number().min(0).max(100000).optional(),
   sameDayExpress: Joi.boolean().optional(),
   deliveryCapabilities: Joi.array().items(Joi.string().trim().max(60)).optional(),
   maxPayloadKg: Joi.number().min(0).max(1000).optional(),

@@ -94,6 +94,7 @@ const createMapHtml = (latitude: number, longitude: number) => `
         const source = map.getSource('selected-location');
         if (source) source.setData(selected);
       };
+      window.zoomMap = (amount) => map.zoomTo(map.getZoom() + amount, { duration: 250 });
     </script>
   </body>
 </html>`;
@@ -170,60 +171,60 @@ export default function LocationPicker({
   const reverseGeocode = async (latitude: number, longitude: number) => {
     setLoadingAddress(true);
     try {
-      // Try expo-location first (works offline/cached)
-      const reverseGeo = await Location.reverseGeocodeAsync({ latitude, longitude });
-      if (reverseGeo.length > 0) {
-        const place = reverseGeo[0];
-        const addr = place.street || '';
-        const cityName = place.city || place.subregion || '';
-        const countryCode = place.isoCountryCode || 'US';
-        const formatted = [place.street, place.city, place.region, place.postalCode].filter(Boolean).join(', ');
-        
-        setAddress(addr);
-        setCity(cityName);
-        setCountry(countryCode);
-        setFormattedAddress(formatted);
-        
-        return {
-          coordinates: [longitude, latitude] as [number, number],
-          address: addr,
-          city: cityName,
-          country: countryCode,
-          formattedAddress: formatted,
-        };
-      }
-    } catch (error) {
-      console.warn('expo-location reverse geocode failed, trying Nominatim:', error);
-    }
+      try {
+        const reverseGeo = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (reverseGeo.length > 0) {
+          const place = reverseGeo[0];
+          const addr = place.street || '';
+          const cityName = place.city || place.subregion || '';
+          const countryCode = place.isoCountryCode || 'US';
+          const formatted = [place.street, place.city, place.region, place.postalCode].filter(Boolean).join(', ');
 
-    // Fallback to Nominatim (OpenStreetMap)
-    try {
-      const response = await fetch(
-        `${REVERSE_GEOCODE_URL}?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
-        { headers: { 'User-Agent': 'DoItPlatform/1.0' } }
-      );
-      const data = await response.json();
-      if (data && data.address) {
-        const addr = data.address.road || data.address.pedestrian || data.address.footway || '';
-        const cityName = data.address.city || data.address.town || data.address.village || data.address.suburb || '';
-        const countryCode = data.address.country_code?.toUpperCase() || 'US';
-        const formatted = data.display_name || '';
-        
-        setAddress(addr);
-        setCity(cityName);
-        setCountry(countryCode);
-        setFormattedAddress(formatted);
-        
-        return {
-          coordinates: [longitude, latitude] as [number, number],
-          address: addr,
-          city: cityName,
-          country: countryCode,
-          formattedAddress: formatted,
-        };
+          setAddress(addr);
+          setCity(cityName);
+          setCountry(countryCode);
+          setFormattedAddress(formatted);
+
+          return {
+            coordinates: [longitude, latitude] as [number, number],
+            address: addr,
+            city: cityName,
+            country: countryCode,
+            formattedAddress: formatted,
+          };
+        }
+      } catch (error) {
+        console.warn('expo-location reverse geocode failed, trying Nominatim:', error);
       }
-    } catch (error) {
-      console.error('Nominatim reverse geocode failed:', error);
+
+      try {
+        const response = await fetch(
+          `${REVERSE_GEOCODE_URL}?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+          { headers: { 'User-Agent': 'DoItPlatform/1.0' } }
+        );
+        const data = await response.json();
+        if (data && data.address) {
+          const addr = data.address.road || data.address.pedestrian || data.address.footway || '';
+          const cityName = data.address.city || data.address.town || data.address.village || data.address.suburb || '';
+          const countryCode = data.address.country_code?.toUpperCase() || 'US';
+          const formatted = data.display_name || '';
+
+          setAddress(addr);
+          setCity(cityName);
+          setCountry(countryCode);
+          setFormattedAddress(formatted);
+
+          return {
+            coordinates: [longitude, latitude] as [number, number],
+            address: addr,
+            city: cityName,
+            country: countryCode,
+            formattedAddress: formatted,
+          };
+        }
+      } catch (error) {
+        console.error('Nominatim reverse geocode failed:', error);
+      }
     } finally {
       setLoadingAddress(false);
     }
@@ -262,9 +263,7 @@ export default function LocationPicker({
     
     // Get detailed address
     reverseGeocode(latitude, longitude).then((locationData) => {
-      if (locationData) {
-        onLocationSelect(locationData);
-      }
+      if (!locationData) Alert.alert('Address unavailable', 'The location is selected, but its address could not be loaded yet.');
     });
   };
 
@@ -276,37 +275,29 @@ export default function LocationPicker({
     setShowSearchResults(false);
     
     const locationData = await reverseGeocode(latitude, longitude);
-    if (locationData) {
-      onLocationSelect(locationData);
-    }
+    if (!locationData) Alert.alert('Address unavailable', 'The location is selected, but its address could not be loaded yet.');
   };
 
   const handleUseCurrentLocation = async () => {
-    if (onUseCurrentLocation) {
-      await onUseCurrentLocation();
-    } else {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permission denied', 'Location permission is required to use current location');
-          return;
-        }
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        const latitude = loc.coords.latitude;
-        const longitude = loc.coords.longitude;
-        
-        setSelectedLocation({ latitude, longitude });
-        setMapRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
-        mapRef.current?.injectJavaScript(`window.setLocation?.(${latitude}, ${longitude}); true;`);
-        
-        const locationData = await reverseGeocode(latitude, longitude);
-        if (locationData) {
-          onLocationSelect(locationData);
-        }
-      } catch (error) {
-        console.error('Current location error:', error);
-        Alert.alert('Error', 'Failed to get current location');
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Location permission is required to use current location');
+        return;
       }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const latitude = loc.coords.latitude;
+      const longitude = loc.coords.longitude;
+
+      setSelectedLocation({ latitude, longitude });
+      setMapRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
+      mapRef.current?.injectJavaScript(`window.setLocation?.(${latitude}, ${longitude}); true;`);
+
+      const locationData = await reverseGeocode(latitude, longitude);
+      if (!locationData) Alert.alert('Address unavailable', 'Your location is selected, but its address could not be loaded yet.');
+    } catch (error) {
+      console.error('Current location error:', error);
+      Alert.alert('Error', 'Failed to get current location');
     }
   };
 
@@ -322,14 +313,18 @@ export default function LocationPicker({
   };
 
   const handleConfirm = () => {
-    if (selectedLocation && city) {
-      // Location already selected via map press or search
-      return;
-    }
-    if (!city) {
+    if (!selectedLocation || loadingAddress) {
       Alert.alert('Select Location', 'Please tap on the map or search for a location');
       return;
     }
+
+    onLocationSelect({
+      coordinates: [selectedLocation.longitude, selectedLocation.latitude],
+      address,
+      city: city || 'Selected location',
+      country,
+      formattedAddress: formattedAddress || city || 'Selected location',
+    });
   };
 
   return (
@@ -400,8 +395,32 @@ export default function LocationPicker({
             onError={(event) => console.error('MapTiler WebView error:', event.nativeEvent)}
           />
 
+          <View style={styles.mapControls}>
+            <TouchableOpacity
+              accessibilityLabel="Zoom in"
+              style={styles.mapControlButton}
+              onPress={() => mapRef.current?.injectJavaScript('window.zoomMap?.(1); true;')}
+            >
+              <Ionicons name="add" size={24} color={C.textPrimary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityLabel="Zoom out"
+              style={styles.mapControlButton}
+              onPress={() => mapRef.current?.injectJavaScript('window.zoomMap?.(-1); true;')}
+            >
+              <Ionicons name="remove" size={24} color={C.textPrimary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityLabel="Use current location"
+              style={styles.mapControlButton}
+              onPress={handleUseCurrentLocation}
+            >
+              <Ionicons name="locate" size={21} color={C.primary} />
+            </TouchableOpacity>
+          </View>
+
           {loadingAddress && (
-            <View style={styles.loadingOverlay}>
+            <View pointerEvents="none" style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color={C.primary} />
               <Text style={styles.loadingText}>Getting address...</Text>
             </View>
@@ -497,6 +516,27 @@ const makeStyles = (C: AppColors) =>
     confirmBtnDisabled: { color: C.textHint },
     mapContainer: { flex: 1, width: '100%', height: '100%' },
     map: { ...StyleSheet.absoluteFill },
+    mapControls: {
+      position: 'absolute',
+      top: 16,
+      right: 16,
+      gap: 8,
+    },
+    mapControlButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: C.card,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      elevation: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.18,
+      shadowRadius: 4,
+    },
     loadingOverlay: {
       position: 'absolute',
       top: 0,

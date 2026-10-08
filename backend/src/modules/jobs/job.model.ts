@@ -85,8 +85,6 @@ export interface IJobRequirements {
   
   // Errand-specific
   transportMode?: 'on_foot' | 'bicycle' | 'motorbike' | 'car' | 'van';
-  baseFee?: number;
-  perKmFee?: number;
   sameDayExpress?: boolean;
   deliveryCapabilities?: string[];
   maxPayloadKg?: number;
@@ -341,8 +339,6 @@ const jobRequirementsSchema = new Schema<IJobRequirements>(
     
     // Errand-specific
     transportMode: { type: String, enum: ['on_foot', 'bicycle', 'motorbike', 'car', 'van'] },
-    baseFee: { type: Number, min: 0, max: 1000000 },
-    perKmFee: { type: Number, min: 0, max: 100000 },
     sameDayExpress: { type: Boolean },
     deliveryCapabilities: [{ type: String, trim: true, maxlength: 60 }],
     maxPayloadKg: { type: Number, min: 0, max: 1000 },

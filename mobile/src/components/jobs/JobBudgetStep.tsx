@@ -2,15 +2,18 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
+import * as Localization from 'expo-localization';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useJobCreation } from '@/src/context/JobCreationContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { getCurrencyFromLocale, formatCurrency, PLATFORM_FEE_PERCENT } from '@/src/utils/currency';
 
 export default function JobBudgetStep() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
+  const currency = getCurrencyFromLocale(Localization.getLocales()[0]?.languageTag || 'en-US');
   const styles = makeStyles(C);
   const { state, dispatch, goNext, goBack, canGoNext } = useJobCreation();
   const router = useRouter();
@@ -20,6 +23,12 @@ export default function JobBudgetStep() {
   const totalHourly = hourlyRate && estimatedHours
     ? (parseFloat(hourlyRate) * parseFloat(estimatedHours)).toFixed(2)
     : null;
+
+  // Platform fee is deducted from provider, not added to client
+  const platformFeeAmount = amount ? Math.round(parseFloat(amount) * (10 / 100) * 100) / 100 : 0;
+  const providerAmount = amount ? parseFloat(amount) - platformFeeAmount : 0;
+  const platformFeeDisplay = amount ? `${currency.symbol}${platformFeeAmount.toFixed(2)}` : null;
+  const providerAmountDisplay = amount ? `${currency.symbol}${providerAmount.toFixed(2)}` : null;
 
   return (
     <SafeAreaViewCompat style={styles.container}>
@@ -53,8 +62,10 @@ export default function JobBudgetStep() {
               onPress={() => dispatch({ type: 'UPDATE_NESTED_FORM', section: 'budget', field: 'type', value: 'fixed' })}
             >
               <Ionicons name="cash-outline" size={20} color={type === 'fixed' ? '#fff' : C.primary} />
-              <Text style={[styles.budgetTypeLabel, type === 'fixed' && styles.budgetTypeLabelActive]}>Fixed Price</Text>
-              <Text style={[styles.budgetTypeDesc, type === 'fixed' && styles.budgetTypeDescActive]}>One total amount</Text>
+              <View style={styles.budgetTypeTextContainer}>
+                <Text style={[styles.budgetTypeLabel, type === 'fixed' && styles.budgetTypeLabelActive]}>Fixed Price</Text>
+                <Text style={[styles.budgetTypeDesc, type === 'fixed' && styles.budgetTypeDescActive]}>One total amount</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -64,8 +75,10 @@ export default function JobBudgetStep() {
               onPress={() => dispatch({ type: 'UPDATE_NESTED_FORM', section: 'budget', field: 'type', value: 'hourly' })}
             >
               <Ionicons name="time-outline" size={20} color={type === 'hourly' ? '#fff' : C.primary} />
-              <Text style={[styles.budgetTypeLabel, type === 'hourly' && styles.budgetTypeLabelActive]}>Hourly Rate</Text>
-              <Text style={[styles.budgetTypeDesc, type === 'hourly' && styles.budgetTypeDescActive]}>Pay per hour worked</Text>
+              <View style={styles.budgetTypeTextContainer}>
+                <Text style={[styles.budgetTypeLabel, type === 'hourly' && styles.budgetTypeLabelActive]}>Hourly Rate</Text>
+                <Text style={[styles.budgetTypeDesc, type === 'hourly' && styles.budgetTypeDescActive]}>Pay per hour worked</Text>
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -74,7 +87,7 @@ export default function JobBudgetStep() {
               {type === 'fixed' ? 'Total Budget' : 'Hourly Rate'} <Text style={styles.required}>*</Text>
             </Text>
             <View style={styles.currencyInput}>
-              <Text style={styles.currencySymbol}>$</Text>
+              <Text style={styles.currencySymbol}>{currency.symbol}</Text>
               <TextInput
                 style={styles.currencyInputField}
                 placeholder={type === 'fixed' ? 'e.g. 500' : 'e.g. 50'}
@@ -85,12 +98,39 @@ export default function JobBudgetStep() {
               />
             </View>
             {type === 'fixed' && amount && (
-              <Text style={styles.estimatedTotal}>Platform fee (10%): ${(parseFloat(amount) * 0.1).toFixed(2)} | You pay: ${(parseFloat(amount) * 1.1).toFixed(2)}</Text>
+              <View style={styles.feeBreakdown}>
+                <Text style={styles.feeRow}>
+                  <Text style={styles.feeLabel}>Your Budget</Text>
+                  <Text style={styles.feeValue}>{currency.symbol}{parseFloat(amount).toFixed(2)}</Text>
+                </Text>
+                <Text style={styles.feeRow}>
+                  <Text style={styles.feeLabel}>Platform Fee ({PLATFORM_FEE_PERCENT}%)</Text>
+                  <Text style={styles.feeValue}>{platformFeeDisplay}</Text>
+                </Text>
+                <Text style={styles.feeRow}>
+                  <Text style={styles.feeLabel}>Provider Receives</Text>
+                  <Text style={styles.feeValue}>{providerAmountDisplay}</Text>
+                </Text>
+              </View>
             )}
           </View>
 
           {type === 'hourly' && (
             <>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Hourly Rate <Text style={styles.required}>*</Text></Text>
+                <View style={styles.currencyInput}>
+                  <Text style={styles.currencySymbol}>{currency.symbol}</Text>
+                  <TextInput
+                    style={styles.currencyInputField}
+                    placeholder="e.g. 50"
+                    value={hourlyRate}
+                    onChangeText={(v) => dispatch({ type: 'UPDATE_NESTED_FORM', section: 'budget', field: 'hourlyRate', value: v })}
+                    keyboardType="decimal-pad"
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>Estimated Hours <Text style={styles.required}>*</Text></Text>
                 <View style={styles.currencyInput}>
@@ -106,8 +146,19 @@ export default function JobBudgetStep() {
                 </View>
               </View>
               {totalHourly && (
-                <View style={styles.estimatedTotal}>
-                  Estimated total: ${totalHourly} | Platform fee (10%): ${(parseFloat(totalHourly) * 0.1).toFixed(2)} | You pay: ${(parseFloat(totalHourly) * 1.1).toFixed(2)}
+                <View style={styles.feeBreakdown}>
+                  <Text style={styles.feeRow}>
+                    <Text style={styles.feeLabel}>Estimated Total</Text>
+                    <Text style={styles.feeValue}>{currency.symbol}{totalHourly}</Text>
+                  </Text>
+                  <Text style={styles.feeRow}>
+                    <Text style={styles.feeLabel}>Platform Fee ({PLATFORM_FEE_PERCENT}%)</Text>
+                    <Text style={styles.feeValue}>{currency.symbol}${(parseFloat(totalHourly) * 0.1).toFixed(2)}</Text>
+                  </Text>
+                  <Text style={styles.feeRow}>
+                    <Text style={styles.feeLabel}>Provider Receives</Text>
+                    <Text style={styles.feeValue}>{currency.symbol}${(parseFloat(totalHourly) * 0.9).toFixed(2)}</Text>
+                  </Text>
                 </View>
               )}
             </>
@@ -116,7 +167,7 @@ export default function JobBudgetStep() {
           <View style={styles.note}>
             <Ionicons name="information-circle-outline" size={16} color={C.textHint} />
             <Text style={styles.noteText}>
-              A 10% platform fee will be added to your payment. Funds are held in escrow until work is completed.
+              You pay exactly your budget. A {PLATFORM_FEE_PERCENT}% platform fee is deducted from the provider's earnings. Funds are held in escrow until work is completed.
             </Text>
           </View>
         </ScrollView>
@@ -162,12 +213,17 @@ const makeStyles = (C: AppColors) =>
     budgetTypeLabelActive: { color: '#fff' },
     budgetTypeDesc: { fontSize: 11, color: C.textHint },
     budgetTypeDescActive: { color: 'rgba(255,255,255,0.8)' },
+    budgetTypeTextContainer: { flex: 1 },
     fieldGroup: { marginBottom: 20 },
     fieldLabel: { fontSize: 14, fontWeight: '600', color: C.textPrimary, marginBottom: 8 },
     required: { color: C.error },
     currencyInput: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.inputBorder, borderRadius: 10 },
     currencySymbol: { fontSize: 18, fontWeight: '600', color: C.textPrimary, paddingHorizontal: 16 },
     currencyInputField: { flex: 1, height: 52, paddingHorizontal: 16, fontSize: 18, fontWeight: '600', color: C.textPrimary },
+    feeBreakdown: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.divider },
+    feeRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+    feeLabel: { fontSize: 12, color: C.textSecondary },
+    feeValue: { fontSize: 12, fontWeight: '600', color: C.textPrimary },
     estimatedTotal: { fontSize: 12, color: C.textSecondary, marginTop: 6, fontWeight: '500' },
     note: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 12, backgroundColor: C.primaryLight, borderRadius: 10, marginTop: 16 },
     noteText: { fontSize: 12, color: C.textSecondary, flex: 1 },

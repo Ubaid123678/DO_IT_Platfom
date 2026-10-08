@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
@@ -7,6 +7,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useJobCreation } from '@/src/context/JobCreationContext';
 import { verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { getCategoryFieldConfig, CategoryFieldConfig } from '@/src/utils/categoryFields';
 
 const EXPERIENCE_LEVELS = ['entry', 'intermediate', 'expert'];
 const EXPERIENCE_LABELS: Record<string, string> = {
@@ -29,7 +30,7 @@ const TRANSPORT_ICONS: Record<string, string> = {
   bicycle: 'bicycle-outline',
   motorbike: 'flash-outline',
   car: 'car-outline',
-  van: 'truck-outline',
+  van: 'cube-outline',
 };
 
 const DELIVERY_CAPABILITIES = [
@@ -71,8 +72,6 @@ export default function ErrandRequirementsStep() {
 
   const [availableCategories, setAvailableCategories] = React.useState<Array<{ id: string; name: string; job_type: string }>>([]);
   const [transportMode, setTransportMode] = useState(req.transportMode || 'bicycle');
-  const [baseFee, setBaseFee] = useState(req.baseFee?.toString() || '');
-  const [perKmFee, setPerKmFee] = useState(req.perKmFee?.toString() || '');
   const [sameDayExpress, setSameDayExpress] = useState(req.sameDayExpress || false);
   const [deliveryCapabilities, setDeliveryCapabilities] = useState<string[]>(req.deliveryCapabilities || []);
   const [maxPayloadKg, setMaxPayloadKg] = useState(req.maxPayloadKg?.toString() || '');
@@ -92,6 +91,25 @@ export default function ErrandRequirementsStep() {
   React.useEffect(() => {
     loadCategories();
   }, [state.jobType]);
+
+  // Determine which fields to show based on selected categories
+  const fieldConfig = useMemo(() => {
+    if (categories.length === 0) return {} as CategoryFieldConfig;
+    
+    const merged: CategoryFieldConfig = {};
+    for (const catId of categories) {
+      const cat = availableCategories.find(c => c.id === catId);
+      if (cat) {
+        const config = getCategoryFieldConfig(cat.name);
+        for (const [key, value] of Object.entries(config)) {
+          if (value === true) {
+            (merged as any)[key] = true;
+          }
+        }
+      }
+    }
+    return merged;
+  }, [categories, availableCategories]);
 
   const toggleCategory = (catId: string) => {
     const next = categories.includes(catId)
@@ -173,7 +191,7 @@ export default function ErrandRequirementsStep() {
             </View>
           </View>
 
-          {/* Transport Mode */}
+          {/* Transport Mode - Always required for errand */}
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Transport Mode <Text style={styles.required}>*</Text></Text>
             <View style={styles.chipRow}>
@@ -193,123 +211,95 @@ export default function ErrandRequirementsStep() {
             </View>
           </View>
 
-          {/* Base Fee */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Base Fee (USD)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 10"
-              value={baseFee}
-              onChangeText={(v) => {
-                setBaseFee(v);
-                const num = parseFloat(v) || 0;
-                dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'baseFee', value: num > 0 ? num : undefined });
-              }}
-              keyboardType="decimal-pad"
-            />
-            <Text style={styles.fieldHint}>Minimum charge per delivery</Text>
-          </View>
-
-          {/* Per KM Fee */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Per KM Fee (USD)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 1.50"
-              value={perKmFee}
-              onChangeText={(v) => {
-                setPerKmFee(v);
-                const num = parseFloat(v) || 0;
-                dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'perKmFee', value: num > 0 ? num : undefined });
-              }}
-              keyboardType="decimal-pad"
-            />
-            <Text style={styles.fieldHint}>Additional charge per kilometer</Text>
-          </View>
-
-          {/* Same Day Express */}
-          <View style={styles.fieldGroup}>
-            <TouchableOpacity style={styles.boolRow} onPress={() => {
-              const next = !sameDayExpress;
-              setSameDayExpress(next);
-              dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'sameDayExpress', value: next });
-            }}>
-              <View style={styles.boolContent}>
-                <Text style={styles.boolTitle}>Same-Day Express Delivery</Text>
-                <Text style={styles.boolSubtitle}>Offer urgent same-day delivery option</Text>
-              </View>
-              <View style={[styles.boolCheckbox, sameDayExpress && styles.boolCheckboxChecked]}>
-                {sameDayExpress && <Ionicons name="checkmark" size={20} color="#fff" />}
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* Delivery Capabilities */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Delivery Capabilities</Text>
-            <Text style={styles.fieldHint}>Select types of items you can deliver</Text>
-            <View style={styles.chipRow}>
-              {DELIVERY_CAPABILITIES.map((cap) => (
-                <TouchableOpacity
-                  key={cap}
-                  style={[styles.chip, deliveryCapabilities.includes(cap) && styles.chipActive]}
-                  onPress={() => toggleDeliveryCapability(cap)}
-                >
-                  <Text style={[styles.chipText, deliveryCapabilities.includes(cap) && styles.chipTextActive]}>{cap}</Text>
-                </TouchableOpacity>
-              ))}
+          {/* Dynamic Fields - Only show if ANY selected category needs them */}
+          {fieldConfig.sameDayExpress && (
+            <View style={styles.fieldGroup}>
+              <TouchableOpacity style={styles.boolRow} onPress={() => {
+                const next = !sameDayExpress;
+                setSameDayExpress(next);
+                dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'sameDayExpress', value: next });
+              }}>
+                <View style={styles.boolContent}>
+                  <Text style={styles.boolTitle}>Same-Day Express Delivery</Text>
+                  <Text style={styles.boolSubtitle}>Offer urgent same-day delivery option</Text>
+                </View>
+                <View style={[styles.boolCheckbox, sameDayExpress && styles.boolCheckboxChecked]}>
+                  {sameDayExpress && <Ionicons name="checkmark" size={20} color="#fff" />}
+                </View>
+              </TouchableOpacity>
             </View>
-          </View>
+          )}
 
-          {/* Max Payload */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Max Payload (kg)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 20"
-              value={maxPayloadKg}
-              onChangeText={(v) => {
-                setMaxPayloadKg(v);
-                const num = parseInt(v) || 0;
-                dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'maxPayloadKg', value: num > 0 ? num : undefined });
-              }}
-              keyboardType="numeric"
-              maxLength={4}
-            />
-            <Text style={styles.fieldHint}>Maximum weight per delivery</Text>
-          </View>
-
-          {/* Max Package Size */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Max Package Size</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 30x30x30 cm"
-              value={maxPackageSize}
-              onChangeText={(v) => {
-                setMaxPackageSize(v);
-                dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'maxPackageSize', value: v });
-              }}
-            />
-            <Text style={styles.fieldHint}>Maximum dimensions (LxWxH)</Text>
-          </View>
-
-          {/* Goods Insurance */}
-          <View style={styles.fieldGroup}>
-            <TouchableOpacity style={styles.boolRow} onPress={() => {
-              const next = !goodsInsurance;
-              setGoodsInsurance(next);
-              dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'goodsInsurance', value: next });
-            }}>
-              <View style={styles.boolContent}>
-                <Text style={styles.boolTitle}>Goods Insurance Required</Text>
-                <Text style={styles.boolSubtitle}>Provider must have insurance for delivered items</Text>
+          {fieldConfig.deliveryCapabilities && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Delivery Capabilities</Text>
+              <Text style={styles.fieldHint}>Select types of items you can deliver</Text>
+              <View style={styles.chipRow}>
+                {DELIVERY_CAPABILITIES.map((cap) => (
+                  <TouchableOpacity
+                    key={cap}
+                    style={[styles.chip, deliveryCapabilities.includes(cap) && styles.chipActive]}
+                    onPress={() => toggleDeliveryCapability(cap)}
+                  >
+                    <Text style={[styles.chipText, deliveryCapabilities.includes(cap) && styles.chipTextActive]}>{cap}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <View style={[styles.boolCheckbox, goodsInsurance && styles.boolCheckboxChecked]}>
-                {goodsInsurance && <Ionicons name="checkmark" size={20} color="#fff" />}
-              </View>
-            </TouchableOpacity>
-          </View>
+            </View>
+          )}
+
+          {fieldConfig.maxPayloadKg && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Max Payload (kg)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 20"
+                value={maxPayloadKg}
+                onChangeText={(v) => {
+                  setMaxPayloadKg(v);
+                  const num = parseInt(v) || 0;
+                  dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'maxPayloadKg', value: num > 0 ? num : undefined });
+                }}
+                keyboardType="numeric"
+                maxLength={4}
+              />
+              <Text style={styles.fieldHint}>Maximum weight per delivery</Text>
+            </View>
+          )}
+
+          {fieldConfig.maxPackageSize && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Max Package Size</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 30x30x30 cm"
+                value={maxPackageSize}
+                onChangeText={(v) => {
+                  setMaxPackageSize(v);
+                  dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'maxPackageSize', value: v });
+                }}
+              />
+              <Text style={styles.fieldHint}>Maximum dimensions (LxWxH)</Text>
+            </View>
+          )}
+
+          {fieldConfig.goodsInsurance && (
+            <View style={styles.fieldGroup}>
+              <TouchableOpacity style={styles.boolRow} onPress={() => {
+                const next = !goodsInsurance;
+                setGoodsInsurance(next);
+                dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'goodsInsurance', value: next });
+              }}>
+                <View style={styles.boolContent}>
+                  <Text style={styles.boolTitle}>Goods Insurance Required</Text>
+                  <Text style={styles.boolSubtitle}>Provider must have insurance for delivered items</Text>
+                </View>
+                <View style={[styles.boolCheckbox, goodsInsurance && styles.boolCheckboxChecked]}>
+                  {goodsInsurance && <Ionicons name="checkmark" size={20} color="#fff" />}
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Languages */}
           <View style={styles.fieldGroup}>

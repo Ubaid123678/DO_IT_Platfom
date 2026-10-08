@@ -43,6 +43,8 @@ export default function PostJobScreen() {
   useEffect(() => {
     // Reset wizard on mount
     dispatch({ type: 'RESET' });
+    // Reset on unmount (user leaves wizard)
+    return () => dispatch({ type: 'RESET' });
   }, []);
 
   // Handle Android hardware back button

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
@@ -7,6 +7,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useJobCreation } from '@/src/context/JobCreationContext';
 import { verificationService } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { getCategoryFieldConfig, CategoryFieldConfig } from '@/src/utils/categoryFields';
 
 const EXPERIENCE_LEVELS = ['entry', 'intermediate', 'expert'];
 const EXPERIENCE_LABELS: Record<string, string> = {
@@ -63,6 +64,26 @@ export default function PhysicalRequirementsStep() {
   React.useEffect(() => {
     loadCategories();
   }, [state.jobType]);
+
+  // Determine which fields to show based on selected categories
+  const fieldConfig = useMemo(() => {
+    if (categories.length === 0) return {} as CategoryFieldConfig;
+    
+    // Merge configs from all selected categories
+    const merged: CategoryFieldConfig = {};
+    for (const catId of categories) {
+      const cat = availableCategories.find(c => c.id === catId);
+      if (cat) {
+        const config = getCategoryFieldConfig(cat.name);
+        for (const [key, value] of Object.entries(config)) {
+          if (value === true) {
+            (merged as any)[key] = true;
+          }
+        }
+      }
+    }
+    return merged;
+  }, [categories, availableCategories]);
 
   const toggleCategory = (catId: string) => {
     const next = categories.includes(catId)
@@ -163,133 +184,140 @@ export default function PhysicalRequirementsStep() {
             </View>
           </View>
 
-          {/* Years Experience */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Years of Experience Required</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 5"
-              value={yearsExperience}
-              onChangeText={(v) => {
-                setYearsExperience(v);
-                const num = parseInt(v) || 0;
-                dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'yearsExperience', value: num > 0 ? num : undefined });
-              }}
-              keyboardType="numeric"
-              maxLength={3}
-            />
-            <Text style={styles.fieldHint}>Minimum years of professional experience</Text>
-          </View>
-
-          {/* Service Radius */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Service Radius (km)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 25"
-              value={serviceRadiusKm}
-              onChangeText={(v) => {
-                setServiceRadiusKm(v);
-                const num = parseInt(v) || 0;
-                dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'serviceRadiusKm', value: num > 0 ? num : undefined });
-              }}
-              keyboardType="numeric"
-              maxLength={3}
-            />
-            <Text style={styles.fieldHint}>How far you're willing to travel</Text>
-          </View>
-
-          {/* Tools & Equipment */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Required Tools / Equipment</Text>
-            <View style={styles.chipRow}>
-              {toolsEquipment.map((tool) => (
-                <View key={tool} style={styles.chipWithRemove}>
-                  <Text style={styles.chipText}>{tool}</Text>
-                  <TouchableOpacity onPress={() => removeTool(tool)} style={styles.removeBtn}>
-                    <Ionicons name="close" size={16} color={C.textSecondary} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-            <View style={styles.inputRow}>
+          {/* Dynamic Fields - Only show if ANY selected category needs them */}
+          {fieldConfig.yearsExperience && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Years of Experience Required</Text>
               <TextInput
-                style={[styles.input, styles.flex1]}
-                placeholder="Add tool/equipment"
-                value={toolInput}
-                onChangeText={setToolInput}
-                onSubmitEditing={addTool}
+                style={styles.input}
+                placeholder="e.g. 5"
+                value={yearsExperience}
+                onChangeText={(v) => {
+                  setYearsExperience(v);
+                  const num = parseInt(v) || 0;
+                  dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'yearsExperience', value: num > 0 ? num : undefined });
+                }}
+                keyboardType="numeric"
+                maxLength={3}
               />
-              <TouchableOpacity style={styles.addBtn} onPress={addTool}>
-                <Ionicons name="add" size={24} color={C.primary} />
+              <Text style={styles.fieldHint}>Minimum years of professional experience</Text>
+            </View>
+          )}
+
+          {fieldConfig.serviceRadiusKm && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Service Radius (km)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 25"
+                value={serviceRadiusKm}
+                onChangeText={(v) => {
+                  setServiceRadiusKm(v);
+                  const num = parseInt(v) || 0;
+                  dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'serviceRadiusKm', value: num > 0 ? num : undefined });
+                }}
+                keyboardType="numeric"
+                maxLength={3}
+              />
+              <Text style={styles.fieldHint}>How far you're willing to travel</Text>
+            </View>
+          )}
+
+          {fieldConfig.toolsEquipment && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Required Tools / Equipment</Text>
+              <View style={styles.chipRow}>
+                {toolsEquipment.map((tool) => (
+                  <View key={tool} style={styles.chipWithRemove}>
+                    <Text style={styles.chipText}>{tool}</Text>
+                    <TouchableOpacity onPress={() => removeTool(tool)} style={styles.removeBtn}>
+                      <Ionicons name="close" size={16} color={C.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={[styles.input, styles.flex1]}
+                  placeholder="Add tool/equipment"
+                  value={toolInput}
+                  onChangeText={setToolInput}
+                  onSubmitEditing={addTool}
+                />
+                <TouchableOpacity style={styles.addBtn} onPress={addTool}>
+                  <Ionicons name="add" size={24} color={C.primary} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.fieldHint}>e.g. Scaffolding, Power Drill, Pressure Washer</Text>
+            </View>
+          )}
+
+          {fieldConfig.teamSize && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Team Size</Text>
+              <View style={styles.chipRow}>
+                {TEAM_SIZES.map((size) => (
+                  <TouchableOpacity
+                    key={size}
+                    style={[styles.chip, teamSize === size && styles.chipActive]}
+                    onPress={() => {
+                      setTeamSize(size);
+                      dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'teamSize', value: size });
+                    }}
+                  >
+                    <Text style={[styles.chipText, teamSize === size && styles.chipTextActive]}>{TEAM_SIZE_LABELS[size]}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {fieldConfig.insurance && (
+            <View style={styles.fieldGroup}>
+              <TouchableOpacity style={styles.boolRow} onPress={() => {
+                const next = !insurance;
+                setInsurance(next);
+                dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'insurance', value: next });
+              }}>
+                <View style={styles.boolContent}>
+                  <Text style={styles.boolTitle}>Insurance Required</Text>
+                  <Text style={styles.boolSubtitle}>Provider must have liability insurance</Text>
+                </View>
+                <View style={[styles.boolCheckbox, insurance && styles.boolCheckboxChecked]}>
+                  {insurance && <Ionicons name="checkmark" size={20} color="#fff" />}
+                </View>
               </TouchableOpacity>
             </View>
-            <Text style={styles.fieldHint}>e.g. Scaffolding, Power Drill, Pressure Washer</Text>
-          </View>
+          )}
 
-          {/* Team Size */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Team Size</Text>
-            <View style={styles.chipRow}>
-              {TEAM_SIZES.map((size) => (
+          {fieldConfig.hasTransport && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Vehicle / Transport</Text>
+              <TouchableOpacity style={styles.boolRow} onPress={handleTransportNo}>
+                <View style={styles.boolContent}>
+                  <Text style={styles.boolTitle}>No Vehicle Required</Text>
+                  <Text style={styles.boolSubtitle}>Job can be done without provider's vehicle</Text>
+                </View>
+                <View style={[styles.boolCheckbox, !hasTransport.yes && styles.boolCheckboxChecked]}>
+                  {!hasTransport.yes && <Ionicons name="checkmark" size={20} color="#fff" />}
+                </View>
+              </TouchableOpacity>
+              
+              {TRANSPORT_MODES.map((mode) => (
                 <TouchableOpacity
-                  key={size}
-                  style={[styles.chip, teamSize === size && styles.chipActive]}
-                  onPress={() => {
-                    setTeamSize(size);
-                    dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'teamSize', value: size });
-                  }}
+                  key={mode}
+                  style={styles.transportOption}
+                  onPress={() => handleTransportChange(mode)}
                 >
-                  <Text style={[styles.chipText, teamSize === size && styles.chipTextActive]}>{TEAM_SIZE_LABELS[size]}</Text>
+                  <View style={[styles.transportIcon, hasTransport.mode === mode && styles.transportIconActive]}>
+                    <Ionicons name={(mode === 'bicycle' ? 'bicycle' : mode === 'motorbike' ? 'flash' : 'car') as any} size={24} color={hasTransport.mode === mode ? '#fff' : C.primary} />
+                  </View>
+                  <Text style={[styles.transportLabel, hasTransport.mode === mode && styles.transportLabelActive]}>{TRANSPORT_MODE_LABELS[mode]}</Text>
+                  <View style={[styles.transportRadio, hasTransport.mode === mode && styles.transportRadioActive]} />
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
-
-          {/* Insurance */}
-          <View style={styles.fieldGroup}>
-            <TouchableOpacity style={styles.boolRow} onPress={() => {
-              const next = !insurance;
-              setInsurance(next);
-              dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'insurance', value: next });
-            }}>
-              <View style={styles.boolContent}>
-                <Text style={styles.boolTitle}>Insurance Required</Text>
-                <Text style={styles.boolSubtitle}>Provider must have liability insurance</Text>
-              </View>
-              <View style={[styles.boolCheckbox, insurance && styles.boolCheckboxChecked]}>
-                {insurance && <Ionicons name="checkmark" size={20} color="#fff" />}
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* Transport */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Vehicle / Transport</Text>
-            <TouchableOpacity style={styles.boolRow} onPress={handleTransportNo}>
-              <View style={styles.boolContent}>
-                <Text style={styles.boolTitle}>No Vehicle Required</Text>
-                <Text style={styles.boolSubtitle}>Job can be done without provider's vehicle</Text>
-              </View>
-              <View style={[styles.boolCheckbox, !hasTransport.yes && styles.boolCheckboxChecked]}>
-                {!hasTransport.yes && <Ionicons name="checkmark" size={20} color="#fff" />}
-              </View>
-            </TouchableOpacity>
-            
-            {TRANSPORT_MODES.map((mode) => (
-              <TouchableOpacity
-                key={mode}
-                style={styles.transportOption}
-                onPress={() => handleTransportChange(mode)}
-              >
-                <View style={[styles.transportIcon, hasTransport.mode === mode && styles.transportIconActive]}>
-                  <Ionicons name={(mode === 'bicycle' ? 'bicycle' : mode === 'motorbike' ? 'flash' : 'car') as any} size={24} color={hasTransport.mode === mode ? '#fff' : C.primary} />
-                </View>
-                <Text style={[styles.transportLabel, hasTransport.mode === mode && styles.transportLabelActive]}>{TRANSPORT_MODE_LABELS[mode]}</Text>
-                <View style={[styles.transportRadio, hasTransport.mode === mode && styles.transportRadioActive]} />
-              </TouchableOpacity>
-            ))}
-          </View>
+          )}
 
           {/* Certifications & Vehicle (common) */}
           <View style={styles.fieldGroup}>
