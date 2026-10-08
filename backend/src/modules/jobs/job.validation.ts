@@ -63,7 +63,7 @@ const jobScheduleSchema = Joi.object({
 // Base requirements (common to all types) - allows any additional fields
 const jobRequirementsSchema = Joi.object({
   categories: Joi.array().items(objectId).min(1).max(3).required(),
-  skillItems: Joi.array().items(objectId).optional(),
+  skillItems: Joi.array().items(objectId).min(0).optional(),
   experienceLevel: Joi.string().valid('entry', 'intermediate', 'expert').optional(),
   languages: Joi.array().items(Joi.string().trim().min(2).max(10)).optional(),
   certificationsRequired: Joi.boolean().default(false),
