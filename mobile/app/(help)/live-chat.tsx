@@ -657,7 +657,7 @@ const makeStyles = (C: AppColors, isDark: boolean) =>
       backgroundColor: C.textHint,
     },
     ratingOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: C.overlay,
       alignItems: 'center',
       justifyContent: 'center',

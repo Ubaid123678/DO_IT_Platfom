@@ -84,6 +84,16 @@ export interface IUser extends Document {
   countryCode: string;
   emailVerified: boolean;
   phoneVerified: boolean;
+  avatar_url?: string;
+  client_profile?: {
+    bio?: string;
+    city?: string;
+    languages?: LanguageItem[];
+    notificationEmail?: boolean;
+    notificationPush?: boolean;
+    notificationSms?: boolean;
+    profileVisibility?: 'public' | 'private';
+  };
   tokenVersion: number;
   failedLoginAttempts: number;
   lockUntil?: Date;
@@ -135,6 +145,8 @@ const userSchema = new Schema<IUser>(
     countryCode: { type: String, required: true, uppercase: true, trim: true, minlength: 2, maxlength: 3 },
     emailVerified: { type: Boolean, default: false },
     phoneVerified: { type: Boolean, default: false },
+    avatar_url: { type: String, required: false },
+    client_profile: { type: Schema.Types.Mixed, required: false, default: {} },
     tokenVersion: { type: Number, default: 0 },
     failedLoginAttempts: { type: Number, default: 0 },
     lockUntil: { type: Date, required: false },

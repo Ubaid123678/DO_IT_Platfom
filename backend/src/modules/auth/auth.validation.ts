@@ -48,5 +48,17 @@ export const authValidators = {
   updateMe: Joi.object({
     fullName: Joi.string().trim().min(2).max(120),
     role: Joi.string().valid('client', 'provider'),
+    clientProfile: Joi.object({
+      bio: Joi.string().allow('').max(500),
+      city: Joi.string().allow('').max(120),
+      languages: Joi.array().items(Joi.object({
+        code: Joi.string().trim().min(2).max(10).required(),
+        level: Joi.string().valid('basic', 'intermediate', 'fluent').required(),
+      })),
+      notificationEmail: Joi.boolean(),
+      notificationPush: Joi.boolean(),
+      notificationSms: Joi.boolean(),
+      profileVisibility: Joi.string().valid('public', 'private'),
+    }),
   }).min(1),
 };

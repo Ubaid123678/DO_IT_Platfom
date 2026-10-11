@@ -1,433 +1,318 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  useColorScheme,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme, ActivityIndicator } from 'react-native';
+import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { walletService, type Wallet, type Transaction, type TransactionType, type TransactionStatus } from '@/src/services/walletService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
-type TransactionType = 'topup' | 'payment' | 'refund';
-type FilterTab = 'all' | 'topup' | 'payment' | 'refund';
-
-type WalletTransaction = {
-  id: string;
-  type: TransactionType;
-  label: string;
-  date: string;
-  amount: number;
+const TYPE_LABELS: Record<TransactionType, string> = {
+  topup: 'Top-up',
+  topup_reversal: 'Top-up Reversal',
+  escrow_lock: 'Escrow Locked',
+  escrow_release: 'Escrow Released',
+  escrow_refund: 'Escrow Refunded',
+  platform_fee: 'Platform Fee',
+  payout: 'Payout',
+  payout_reversal: 'Payout Reversal',
+  adjustment: 'Adjustment',
+  refund: 'Refund',
 };
 
-const tabs: Array<{ key: FilterTab; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'topup', label: 'Top Up' },
-  { key: 'payment', label: 'Payments' },
-  { key: 'refund', label: 'Refunds' },
-];
-
-const mockTransactions: WalletTransaction[] = [
-  {
-    id: 't-1',
-    type: 'topup',
-    label: 'Card Top Up',
-    date: 'Apr 11, 10:20 AM',
-    amount: 50,
-  },
-  {
-    id: 't-2',
-    type: 'payment',
-    label: 'Payment for AC Servicing',
-    date: 'Apr 10, 3:45 PM',
-    amount: -30,
-  },
-  {
-    id: 't-3',
-    type: 'refund',
-    label: 'Dispute Refund',
-    date: 'Apr 09, 2:10 PM',
-    amount: 20,
-  },
-  {
-    id: 't-4',
-    type: 'payment',
-    label: 'Advance Payment for Delivery',
-    date: 'Apr 08, 11:12 AM',
-    amount: -15,
-  },
-];
-
-const getAmountLabel = (value: number) => {
-  const abs = Math.abs(value);
-  return `${value >= 0 ? '+' : '-'}$${abs.toFixed(0)}`;
+const STATUS_COLORS: Record<TransactionStatus, string> = {
+  completed: '#27AE60',
+  pending: '#F39C12',
+  failed: '#E74C3C',
+  cancelled: '#95A5A6',
 };
 
-export default function ClientWalletScreen() {
-  const router = useRouter();
+const formatCurrency = (cents: number, currency = 'USD'): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+  }).format(cents / 100);
+};
+
+const formatDate = (dateString: string): string => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+export default function WalletScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
-  const styles = makeStyles(C, isDark);
+  const styles = makeStyles(C);
+  const router = useRouter();
 
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [filterTab, setFilterTab] = useState<FilterTab>('all');
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [skip, setSkip] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [activeTab, setActiveTab] = useState<'all' | TransactionType>('all');
+  const [stats, setStats] = useState<{ balance: number; escrowBalance: number; availableBalance: number } | null>(null);
+
+  const loadWallet = useCallback(async (reset = false) => {
+    if (reset) {
+      setSkip(0);
+      setTransactions([]);
+      setHasMore(true);
+    }
+    if (!hasMore && !reset) return;
+
+    try {
+      const currentSkip = reset ? 0 : skip;
+      const [walletRes, txnsRes, statsRes] = await Promise.all([
+        walletService.getWallet(),
+        walletService.getTransactionHistory({ skip: currentSkip, limit: 20 }),
+        walletService.getWalletStats(),
+      ]);
+      
+      if (reset) {
+        setWallet(walletRes);
+        setTransactions(txnsRes.transactions);
+      } else {
+        setTransactions((prev) => [...prev, ...txnsRes.transactions]);
+      }
+      setTotal(txnsRes.total);
+      setHasMore(txnsRes.transactions.length === 20);
+      setSkip(currentSkip + txnsRes.transactions.length);
+      setStats({ balance: statsRes.balance, escrowBalance: statsRes.escrowBalance, availableBalance: statsRes.availableBalance });
+    } catch (e) {
+      console.error('Failed to load wallet:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setLoadingMore(false);
+    }
+  }, [skip, hasMore]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadWallet(true);
+  }, [loadWallet]);
+
+  const onEndReached = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      setLoadingMore(true);
+      loadWallet(false);
+    }
+  }, [loadingMore, hasMore, loadWallet]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setTransactions(mockTransactions);
-      setLoading(false);
-    }, 350);
-
-    return () => clearTimeout(timer);
+    loadWallet(true);
   }, []);
 
-  const filteredTransactions = useMemo(() => {
-    if (filterTab === 'all') {
-      return transactions;
+  const getTypeIcon = (type: TransactionType) => {
+    switch (type) {
+      case 'topup': return 'card-outline';
+      case 'escrow_lock': return 'lock-closed-outline';
+      case 'escrow_release': return 'lock-open-outline';
+      case 'escrow_refund': return 'cash-outline';
+      case 'payout': return 'send-outline';
+      case 'platform_fee': return 'cash-outline';
+      default: return 'swap-horizontal-outline';
     }
-    return transactions.filter((item) => item.type === filterTab);
-  }, [transactions, filterTab]);
+  };
 
-  if (loading) {
+  const getTypeColor = (type: TransactionType, C: AppColors) => {
+    switch (type) {
+      case 'topup': return C.success;
+      case 'escrow_lock': return C.warning;
+      case 'escrow_release': return C.primary;
+      case 'escrow_refund': return C.success;
+      case 'payout': return C.primary;
+      case 'platform_fee': return C.warning;
+      default: return C.textSecondary;
+    }
+  };
+
+  const formatAmount = (amount: number, type: TransactionType) => {
+    const isCredit = ['topup', 'escrow_release', 'escrow_refund'].includes(type);
+    const prefix = isCredit ? '+' : '-';
+    return `${prefix}${formatCurrency(Math.abs(amount))}`;
+  };
+
+  const renderTransaction = ({ item }: { item: Transaction }) => (
+    <TouchableOpacity style={styles.txnCard} activeOpacity={0.7}>
+      <View style={styles.txnHeader}>
+        <View style={styles.txnType}>
+          <View style={[styles.typeIcon, { backgroundColor: getTypeColor(item.type, C) }]}>
+            <Ionicons name={getTypeIcon(item.type)} size={18} color="#fff" />
+          </View>
+          <View>
+            <Text style={styles.txnTypeLabel}>{TYPE_LABELS[item.type] || item.type}</Text>
+            <Text style={styles.txnDescription}>{item.description}</Text>
+          </View>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] }]}>
+          <Text style={styles.statusBadgeText}>{item.status}</Text>
+        </View>
+      </View>
+
+      <View style={styles.txnAmountRow}>
+        <Text style={[styles.txnAmount, { color: ['topup', 'escrow_release', 'escrow_refund'].includes(item.type) ? C.success : C.error }]}>
+          {formatCurrency(item.amount)}
+        </Text>
+        <Text style={styles.txnDate}>{new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text>
+      </View>
+
+      {item.metadata?.jobId && (
+        <View style={styles.txnMeta}>
+          <Text style={styles.txnMetaText}>Job: {item.metadata.jobId.substring(0, 8)}...</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
+  const TYPE_FILTERS: (TransactionType | 'all')[] = ['all', 'topup', 'escrow_lock', 'escrow_release', 'escrow_refund', 'payout', 'platform_fee', 'adjustment', 'refund'];
+
+  if (loading && wallet === null) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaViewCompat style={styles.container}>
         <View style={styles.loaderWrap}>
           <ActivityIndicator size="large" color={C.primary} />
         </View>
-      </SafeAreaView>
+      </SafeAreaViewCompat>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaViewCompat style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Wallet</Text>
+        <TouchableOpacity style={styles.topUpBtn} onPress={() => router.push('/wallet/topup')}>
+          <Ionicons name="add-circle-outline" size={24} color={C.primary} />
+          <Text style={styles.topUpBtnText}>Top Up</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Balance Cards */}
+      <ScrollView horizontal contentContainerStyle={styles.balanceContainer} showsHorizontalScrollIndicator={false}>
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>Available</Text>
+          <Text style={styles.balanceAmount}>{formatCurrency(stats?.availableBalance || 0)}</Text>
+        </View>
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>In Escrow</Text>
+          <Text style={styles.balanceAmount}>{formatCurrency(stats?.escrowBalance || 0)}</Text>
+        </View>
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>Total</Text>
+          <Text style={styles.balanceAmount}>{formatCurrency(stats?.balance || 0)}</Text>
+        </View>
+      </ScrollView>
+
+      {/* Filter Tabs */}
+      <ScrollView horizontal contentContainerStyle={styles.filterContainer} showsHorizontalScrollIndicator={false}>
+        {TYPE_FILTERS.map((type) => (
+          <TouchableOpacity
+            key={type}
+            style={[
+              styles.filterTab,
+              activeTab === type && styles.filterTabActive,
+            ]}
+            onPress={() => setActiveTab(type)}
+          >
+            <Text style={[styles.filterTabLabel, activeTab === type && styles.filterTabLabelActive]}>
+              {type === 'all' ? 'All' : TYPE_LABELS[type as TransactionType] || type}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Transaction List */}
       <FlatList
-        data={filteredTransactions}
-        keyExtractor={(item) => item.id}
+        data={transactions}
+        renderItem={renderTransaction}
+        keyExtractor={(item) => item._id}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.5}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
-        ListHeaderComponent={
-          <View>
-            <View style={styles.headerRow}>
-              <Text style={styles.headerTitle}>Wallet</Text>
-              <TouchableOpacity style={styles.headerIconButton} onPress={() => router.push('/(shared)/settings')}>
-                <Ionicons name="settings-outline" size={22} color={C.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.balanceCard}>
-              <Text style={styles.balanceLabel}>Available Balance</Text>
-              <Text style={styles.balanceValue}>$240.00</Text>
-              <Text style={styles.balanceSubValue}>≈ PKR 66,840</Text>
-
-              <View style={styles.balanceActionsRow}>
-                <TouchableOpacity
-                  style={styles.balanceActionButton}
-                  onPress={() => router.push('/(client)/wallet-topup')}
-                >
-                  <Text style={styles.balanceActionText}>Top Up</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.balanceActionButton}
-                  onPress={() => router.push('/(client)/wallet-withdraw')}
-                >
-                  <Text style={styles.balanceActionText}>Withdraw</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.balanceActionButton}
-                  onPress={() => router.push('/(client)/wallet-withdraw')}
-                >
-                  <Text style={styles.balanceActionText}>Transfer</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>In Escrow</Text>
-                <Text style={[styles.statValue, { color: C.amber }]}>$50.00</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>Spent This Month</Text>
-                <Text style={[styles.statValue, { color: C.primary }]}>$180.00</Text>
-              </View>
-
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>Pending</Text>
-                <Text style={[styles.statValue, { color: C.textHint }]}>$0.00</Text>
-              </View>
-            </View>
-
-            <View style={styles.filterTabsRow}>
-              {tabs.map((tab) => {
-                const active = filterTab === tab.key;
-                return (
-                  <TouchableOpacity
-                    key={tab.key}
-                    style={styles.filterTabButton}
-                    onPress={() => setFilterTab(tab.key)}
-                  >
-                    <Text style={active ? styles.filterTabTextActive : styles.filterTabTextInactive}>
-                      {tab.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const iconName: keyof typeof Ionicons.glyphMap =
-            item.type === 'topup'
-              ? 'arrow-down'
-              : item.type === 'payment'
-                ? 'arrow-up'
-                : 'return-up-back';
-
-          const iconBg =
-            item.type === 'topup'
-              ? C.primaryLight
-              : item.type === 'payment'
-                ? C.amberLight
-                : isDark
-                  ? '#0F2E1F'
-                  : '#E8F8F2';
-
-          const iconColor = item.type === 'payment' ? C.amber : item.type === 'topup' ? C.primary : C.success;
-
-          const amountColor = item.type === 'payment' ? C.error : C.success;
-
-          return (
-            <View style={styles.transactionRow}>
-              <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>
-                <Ionicons name={iconName} size={20} color={iconColor} />
-              </View>
-
-              <View style={styles.centerCol}>
-                <Text style={styles.itemLabel}>{item.label}</Text>
-                <Text style={styles.itemDate}>{item.date}</Text>
-              </View>
-
-              <View style={styles.rightCol}>
-                <Text style={[styles.amountText, { color: amountColor }]}>{getAmountLabel(item.amount)}</Text>
-                <View style={styles.completedPill}>
-                  <Text style={styles.completedPillText}>Completed</Text>
-                </View>
-              </View>
-            </View>
-          );
-        }}
         ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <View style={styles.emptyIllustration}>
-              <Ionicons name="wallet-outline" size={42} color={C.primary} />
+          !loading ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="receipt-outline" size={48} color={C.textHint} />
+              <Text style={styles.emptyTitle}>No transactions yet</Text>
+              <Text style={styles.emptySubtitle}>
+                {activeTab === 'all' ? 'Your transactions will appear here' : `No ${TYPE_LABELS[activeTab]?.toLowerCase() || activeTab} transactions`}
+              </Text>
             </View>
-            <Text style={styles.emptyText}>No transactions yet</Text>
-          </View>
+          ) : null
         }
       />
-    </SafeAreaView>
+
+      {loadingMore && (
+        <View style={styles.loadMoreWrapper}>
+          <ActivityIndicator size="small" color={C.primary} />
+        </View>
+      )}
+    </SafeAreaViewCompat>
   );
 }
 
-const makeStyles = (C: AppColors, isDark: boolean) =>
+const makeStyles = (C: AppColors) =>
   StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: C.background,
-    },
-    loaderWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    listContent: {
-      paddingHorizontal: 20,
-      paddingTop: 8,
-      paddingBottom: 30,
-      flexGrow: 1,
-    },
-    headerRow: {
+    container: { flex: 1, backgroundColor: C.background },
+    loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    header: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 14,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: C.divider,
     },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: C.textPrimary,
-    },
-    headerIconButton: {
-      width: 34,
-      height: 34,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: 17,
-    },
-    balanceCard: {
-      backgroundColor: C.primary,
+    headerTitle: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
+    topUpBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: C.primary, borderRadius: 20 },
+    topUpBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+    balanceContainer: { paddingHorizontal: 20, paddingVertical: 16, gap: 12 },
+    balanceCard: { flex: 1, minWidth: 100, backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, alignItems: 'center' },
+    balanceLabel: { fontSize: 12, color: C.textHint, marginBottom: 4 },
+    balanceAmount: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
+    filterContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8 },
+    filterTab: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
       borderRadius: 20,
-      padding: 24,
-      marginBottom: 20,
-    },
-    balanceLabel: {
-      fontSize: 12,
-      color: 'white',
-      opacity: 0.7,
-      marginBottom: 4,
-    },
-    balanceValue: {
-      fontSize: 36,
-      fontWeight: '800',
-      color: 'white',
-    },
-    balanceSubValue: {
-      fontSize: 13,
-      color: 'white',
-      opacity: 0.6,
-      marginTop: 2,
-    },
-    balanceActionsRow: {
-      flexDirection: 'row',
-      gap: 10,
-      marginTop: 16,
-    },
-    balanceActionButton: {
-      flex: 1,
-      height: 40,
-      borderRadius: 10,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    balanceActionText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: 'white',
-    },
-    statsRow: {
-      flexDirection: 'row',
-      gap: 10,
-      marginBottom: 20,
-    },
-    statCard: {
-      flex: 1,
       backgroundColor: C.card,
-      borderRadius: 12,
       borderWidth: 1,
       borderColor: C.cardBorder,
-      padding: 12,
     },
-    statLabel: {
-      fontSize: 11,
-      color: C.textSecondary,
-      marginBottom: 4,
-    },
-    statValue: {
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    filterTabsRow: {
-      flexDirection: 'row',
-      gap: 12,
-      marginBottom: 14,
-    },
-    filterTabButton: {
-      paddingBottom: 4,
-    },
-    filterTabTextActive: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: C.primary,
-      borderBottomWidth: 2,
-      borderBottomColor: C.primary,
-      paddingBottom: 4,
-    },
-    filterTabTextInactive: {
-      fontSize: 13,
-      color: C.textSecondary,
-      paddingBottom: 4,
-    },
-    itemSeparator: {
-      height: 0,
-    },
-    transactionRow: {
-      height: 64,
-      alignItems: 'center',
-      flexDirection: 'row',
-      borderBottomWidth: 0.5,
-      borderBottomColor: C.divider,
-      backgroundColor: 'transparent',
-    },
-    iconCircle: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    centerCol: {
-      flex: 1,
-      marginLeft: 12,
-    },
-    itemLabel: {
-      fontSize: 14,
-      fontWeight: '500',
-      color: C.textPrimary,
-    },
-    itemDate: {
-      marginTop: 2,
-      fontSize: 12,
-      color: C.textSecondary,
-    },
-    rightCol: {
-      alignItems: 'flex-end',
-    },
-    amountText: {
-      fontSize: 15,
-      fontWeight: '700',
-    },
-    completedPill: {
-      borderRadius: 10,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      marginTop: 2,
-      backgroundColor: isDark ? '#0F2E1F' : '#E8F8F2',
-    },
-    completedPillText: {
-      fontSize: 10,
-      fontWeight: '500',
-      color: C.success,
-    },
-    emptyWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingTop: 56,
-    },
-    emptyIllustration: {
-      width: 84,
-      height: 84,
-      borderRadius: 42,
-      backgroundColor: C.primaryLight,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 12,
-    },
-    emptyText: {
-      fontSize: 14,
-      color: C.textSecondary,
-      fontWeight: '500',
-    },
+    filterTabActive: { backgroundColor: C.primary, borderColor: C.primary },
+    filterTabLabel: { fontSize: 12, fontWeight: '600', color: C.textSecondary },
+    filterTabLabelActive: { color: '#fff' },
+    txnCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 12, marginHorizontal: 20 },
+    txnHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+    txnType: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+    typeIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    txnTypeLabel: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
+    txnDescription: { fontSize: 12, color: C.textSecondary, marginTop: 1 },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    statusBadgeText: { fontSize: 10, fontWeight: '600', color: '#fff' },
+    txnAmountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+    txnAmount: { fontSize: 16, fontWeight: '700' },
+    txnDate: { fontSize: 11, color: C.textHint },
+    txnMeta: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.divider },
+    txnMetaText: { fontSize: 11, color: C.textHint },
+    listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+    emptyTitle: { fontSize: 16, fontWeight: '600', color: C.textPrimary, marginTop: 16 },
+    emptySubtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', marginTop: 8 },
+    loadMoreWrapper: { padding: 20, alignItems: 'center' },
   });

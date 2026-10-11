@@ -14,7 +14,7 @@ export default function ProviderLayout() {
   const C = scheme === 'dark' ? Colors.dark : Colors.light;
   const router = useRouter();
 
-  const [gate, setGate] = useState<'loading' | 'kyc' | 'verification' | 'approved'>('loading');
+  const [gate, setGate] = useState<'loading' | 'kyc' | 'approved'>('loading');
   const gateRanRef = useRef(false);
 
   const checkGate = useCallback(async () => {
@@ -25,28 +25,21 @@ export default function ProviderLayout() {
         return;
       }
 
+      // KYC approved → check if skill verification is complete
       const verifDone = await verificationService.isVerificationComplete();
       if (verifDone) {
         setGate('approved');
         return;
       }
 
-      // The verification wizard decides the correct starting step (category,
-      // pending review, profile completion, etc.).
+      // Not complete → go to verification wizard
       router.replace('/(provider-verification)');
     } catch {
-      const verifDone = await verificationService.isVerificationComplete().catch(() => false);
-      if (verifDone) {
-        setGate('approved');
-      } else {
-        router.replace('/(provider-verification)');
-      }
+      router.replace('/(provider-verification)');
     }
   }, [router]);
 
-  // Runs once per mount (StrictMode-safe) so the wizard isn't entered twice.
-  // A ref resets on a real remount, so re-entering the provider group after the
-  // wizard still re-checks instead of being stuck on the loading gate.
+  // Runs once per mount (StrictMode-safe)
   useEffect(() => {
     if (gateRanRef.current) return;
     gateRanRef.current = true;
@@ -54,8 +47,6 @@ export default function ProviderLayout() {
   }, [checkGate]);
 
   if (gate === 'loading') {
-    // No visible loader here — the wizard immediately shows its own single
-    // loading spinner, so this only renders during the brief KYC check.
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: C.background }}>
         <View style={{ flex: 1 }} />
@@ -140,5 +131,7 @@ export default function ProviderLayout() {
     </Tabs>
     );
   }
+
+  return null;
 }
 

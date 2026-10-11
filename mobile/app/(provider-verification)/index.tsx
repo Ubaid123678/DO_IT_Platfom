@@ -56,15 +56,16 @@ export default function VerificationWizardScreen() {
           dispatch({ type: 'SET_STEP', step: 'pending-review' });
           return;
         }
-        if (status.overall_status === 'verified') {
-          // Profile completion is the first screen for a fully verified provider.
-          // Skipping it sets the completion flag, so the dashboard becomes the
-          // home screen on subsequent launches; it remains reachable from the
-          // profile tab.
+        // Check if any category is incomplete (skill verification not done)
+        const hasIncompleteCategories = status.categories?.some(
+          (c: { status?: string }) => c.status === 'incomplete'
+        );
+        if (status.overall_status === 'verified' && !hasIncompleteCategories) {
+          // All categories verified → profile completion
           dispatch({ type: 'SET_STEP', step: 'review-approved' });
           return;
         }
-        // Not verified and nothing pending → start category selection.
+        // Not verified, or verified but has incomplete categories → start category selection
         dispatch({ type: 'SET_STEP', step: 'category-selection' });
       } catch {
         // Start from beginning if error

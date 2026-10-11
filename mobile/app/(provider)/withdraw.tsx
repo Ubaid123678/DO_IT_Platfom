@@ -495,7 +495,7 @@ const makeStyles = (C: AppColors, isDark: boolean) =>
       textAlign: 'center',
     },
     modalOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: C.overlay,
       alignItems: 'center',
       justifyContent: 'center',

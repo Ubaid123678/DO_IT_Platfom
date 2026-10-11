@@ -78,7 +78,12 @@ const computeCompleteness = (
   required.push({ label: 'Headline', done: hasValue(profile.headline) });
   required.push({ label: 'Bio', done: hasValue(profile.bio) });
   required.push({ label: 'Languages', done: hasValue(profile.languages) });
-  required.push({ label: 'City', done: hasValue(profile.city) });
+  // City is required for physical (on-site) and errand (service area), but optional for digital (remote work)
+  if (track === 'physical' || track === 'errand') {
+    required.push({ label: 'City', done: hasValue(profile.city) });
+  } else {
+    optional.push({ label: 'City', done: hasValue(profile.city) });
+  }
   required.push({ label: 'Availability', done: hasValue(profile.availability) });
 
   if (track === 'physical') {
@@ -91,17 +96,17 @@ const computeCompleteness = (
     optional.push({ label: 'Team size', done: hasValue(td.team_size) });
     optional.push({ label: 'Insurance', done: hasValue(td.insurance) });
     optional.push({ label: 'Transport', done: hasValue(td.has_transport) });
-  } else if (track === 'digital') {
-    const td = (trackData.digital ?? {}) as Record<string, unknown>;
-    required.push({ label: 'Skills', done: hasValue(td.skills) });
-    required.push({ label: 'Tech stack', done: hasValue(td.tech_stack) });
-    required.push({ label: 'Hourly rate', done: hasValue(td.hourly_rate) });
-    required.push({ label: 'Timezone', done: hasValue(td.timezone) });
-    required.push({ label: 'English proficiency', done: hasValue(td.english_proficiency) });
-    required.push({ label: 'Work history', done: hasValue(td.work_history) });
-    optional.push({ label: 'Project rate', done: hasValue(td.project_rate) });
-    optional.push({ label: 'Education', done: hasValue(td.education) });
-    optional.push({ label: 'Resume', done: hasValue(td.resume_file_url) });
+} else if (track === 'digital') {
+      const td = (trackData.digital ?? {}) as Record<string, unknown>;
+      required.push({ label: 'Skills', done: hasValue(td.skills) });
+      required.push({ label: 'Tech stack', done: hasValue(td.tech_stack) });
+      required.push({ label: 'Hourly rate', done: hasValue(td.hourly_rate) });
+      required.push({ label: 'Timezone', done: hasValue(td.timezone) });
+      required.push({ label: 'English proficiency', done: hasValue(td.english_proficiency) });
+      optional.push({ label: 'Work history', done: hasValue(td.work_history) });
+      optional.push({ label: 'Project rate', done: hasValue(td.project_rate) });
+      required.push({ label: 'Education', done: hasValue(td.education) });
+      optional.push({ label: 'Resume', done: hasValue(td.resume_file_url) });
   } else if (track === 'errand') {
     const td = (trackData.errand ?? {}) as Record<string, unknown>;
     required.push({ label: 'Service area', done: hasValue(td.service_area) });
@@ -128,28 +133,31 @@ const computeCompleteness = (
 };
 
 const serializeProviderProfile = (user: { toJSON?: () => Record<string, unknown> } | null, track: ProviderTrack | null) => {
-  const json = user?.toJSON?.() ?? {};
-  const profile = (json.provider_profile ?? {}) as Record<string, unknown>;
-  const trackData = (json.track_data ?? {}) as Record<string, unknown>;
+    const json = user?.toJSON?.() ?? {};
+    const profile = (json.provider_profile ?? {}) as Record<string, unknown>;
+    const trackData = (json.track_data ?? {}) as Record<string, unknown>;
 
-  // Surface availability from the track mirror (working_hours / on_site_availability)
-  // when the universal availability isn't stored yet (legacy/partial saves) so the
-  // client always receives a consistent `provider_profile.availability`.
-  if (!hasValue(profile.availability) && track) {
-    const td = (trackData[track] ?? {}) as Record<string, unknown>;
-    const mirror = track === 'errand' ? td.working_hours : track === 'physical' ? td.on_site_availability : undefined;
-    if (hasValue(mirror)) profile.availability = mirror;
-  }
+    // Surface availability from the track mirror (working_hours / on_site_availability)
+    // when the universal availability isn't stored yet (legacy/partial saves) so the
+    // client always receives a consistent `provider_profile.availability`.
+    if (!hasValue(profile.availability) && track) {
+      const td = (trackData[track] ?? {}) as Record<string, unknown>;
+      const mirror = track === 'errand' ? td.working_hours : track === 'physical' ? td.on_site_availability : undefined;
+      if (hasValue(mirror)) profile.availability = mirror;
+    }
 
-  const { completeness, missing_fields } = computeCompleteness(track, profile, trackData);
-  return {
-    provider_profile: profile,
-    track,
-    track_data: trackData,
-    completeness,
-    missing_fields,
+    // Include user's fullName from the user document
+    if (json.fullName) profile.fullName = json.fullName;
+
+    const { completeness, missing_fields } = computeCompleteness(track, profile, trackData);
+    return {
+      provider_profile: profile,
+      track,
+      track_data: trackData,
+      completeness,
+      missing_fields,
+    };
   };
-};
 
 const serializePublicProfile = async (provider: unknown, providerUserId: string) => {
   const json = (provider as { toJSON: () => Record<string, unknown> }).toJSON();
@@ -731,6 +739,13 @@ export const verificationService = {
 
   uploadAvatarFile: async (userId: string, fileUrl: string) => {
     const user = await getUserOrThrow(userId);
+
+    if (user.role === 'client') {
+      user.set('avatar_url', fileUrl);
+      await user.save();
+      return { avatar_url: fileUrl };
+    }
+
     assertProviderOrAdmin(user);
 
     // provider_profile / track_data are Schema.Types.Mixed — Mutating the object

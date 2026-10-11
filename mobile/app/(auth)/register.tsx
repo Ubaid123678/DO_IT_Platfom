@@ -172,6 +172,7 @@ export default function RegisterScreen() {
       await AsyncStorage.multiSet([
         ['pendingAuthEmail', email.trim().toLowerCase()],
         ['pendingAuthPassword', password],
+        ['hasCompletedProfile', 'false'], // Reset profile completion flag for new registration
       ]);
 
       router.replace({

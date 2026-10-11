@@ -108,7 +108,17 @@ export default function RoleSelectScreen() {
 
       await AsyncStorage.multiRemove(['pendingAuthEmail', 'pendingAuthPassword']);
 
-      router.replace(updatedUser.role === 'provider' ? '/(provider)/home' : '/(client)/home');
+      if (updatedUser.role === 'provider') {
+        router.replace('/(provider-verification)');
+      } else {
+        // Client goes to profile completion first
+        const hasCompletedProfile = await AsyncStorage.getItem('hasCompletedProfile');
+        if (hasCompletedProfile === 'true') {
+          router.replace('/(client)/home');
+        } else {
+          router.replace('/(onboarding)/client-profile');
+        }
+      }
     } catch {
       setError('Unable to complete onboarding. Please try again.');
     } finally {

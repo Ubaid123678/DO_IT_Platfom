@@ -65,6 +65,22 @@ export type ForgotPasswordPayload = {
 export type UpdateMePayload = {
   fullName?: string;
   role?: 'client' | 'provider';
+  bio?: string;
+  city?: string;
+  languages?: { code: string; level: string }[];
+  notificationEmail?: boolean;
+  notificationPush?: boolean;
+  notificationSms?: boolean;
+  profileVisibility?: 'public' | 'private';
+  clientProfile?: {
+    bio?: string;
+    city?: string;
+    languages?: { code: string; level: string }[];
+    notificationEmail?: boolean;
+    notificationPush?: boolean;
+    notificationSms?: boolean;
+    profileVisibility?: 'public' | 'private';
+  };
 };
 
 export type ResetPasswordPayload = {
@@ -126,6 +142,8 @@ export const authService = {
     api.post<ApiResponse<{ debugResetToken?: string }>>('/auth/forgot-password', payload),
   resetPassword: (payload: ResetPasswordPayload) =>
     api.post<ApiResponse<null>>('/auth/reset-password', payload),
+  getMe: () =>
+    api.get<ApiResponse<{ user: AuthUser }>>('/auth/me'),
   me: (accessToken: string) =>
     api.get<ApiResponse<{ user: AuthUser }>>('/auth/me', {
       headers: {
@@ -138,4 +156,6 @@ export const authService = {
         Authorization: `Bearer ${accessToken}`,
       },
     }),
+    uploadAvatar: (data: string) =>
+      api.post<ApiResponse<{ avatar_url: string }>>('/providers/profile/avatar', { data }),
 };

@@ -384,7 +384,7 @@ const makeStyles = (C: AppColors, isDark: boolean) =>
       color: 'white',
     },
     successOverlay: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: C.background,
       alignItems: 'center',
       justifyContent: 'center',
