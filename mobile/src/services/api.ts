@@ -58,7 +58,14 @@ const isFormData = (data: unknown): boolean =>
   (data instanceof FormData ||
     (data !== null && typeof data === 'object' && (data as Record<string, unknown>).constructor?.name === 'FormData'));
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
+  const hasExplicitAuthorization = Boolean(config.headers?.Authorization);
+  const storedAccessToken = hasExplicitAuthorization ? null : await AsyncStorage.getItem('accessToken');
+  if (storedAccessToken) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${storedAccessToken}`;
+  }
+
   if (!isFormData(config.data)) {
     config.headers['Content-Type'] = 'application/json';
   }
@@ -91,7 +98,7 @@ const processQueue = (error: unknown, token: string | null) => {
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
     // Log all errors for debugging
     console.error('[API Error]', {
@@ -104,7 +111,9 @@ api.interceptors.response.use(
     });
 
     // Handle 401 errors - attempt token refresh
-    if (error.response?.status === 401 && !originalRequest._retry && refreshTokenFn) {
+    const isRefreshRequest = originalRequest?.url?.includes('/auth/refresh-token');
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isRefreshRequest && refreshTokenFn) {
       if (isRefreshing) {
         // Wait for the ongoing refresh to complete
         return new Promise((resolve, reject) => {
@@ -129,6 +138,9 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return api(originalRequest);
         }
+        const refreshError = new Error('Session expired. Please sign in again.');
+        processQueue(refreshError, null);
+        return Promise.reject(error);
       } catch (refreshError) {
         processQueue(refreshError, null);
         return Promise.reject(refreshError);
