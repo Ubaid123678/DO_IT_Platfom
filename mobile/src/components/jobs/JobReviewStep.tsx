@@ -131,6 +131,51 @@ export default function JobReviewStep() {
         };
       }
       
+      // Build requirements based on job type - only send relevant fields
+      const baseRequirements = {
+        categories: formData.requirements.categories,
+        skillItems: formData.requirements.skillItems,
+        experienceLevel: formData.requirements.experienceLevel || undefined,
+        languages: formData.requirements.languages,
+        certificationsRequired: formData.requirements.certificationsRequired,
+        vehicleRequired: formData.requirements.vehicleRequired,
+      };
+      
+      let requirements: any = { ...baseRequirements };
+      
+      if (jobType === 'physical') {
+        requirements = {
+          ...requirements,
+          yearsExperience: formData.requirements.yearsExperience,
+          serviceRadiusKm: formData.requirements.serviceRadiusKm,
+          toolsEquipment: formData.requirements.toolsEquipment,
+          teamSize: formData.requirements.teamSize,
+          insurance: formData.requirements.insurance,
+          hasTransport: formData.requirements.hasTransport,
+        };
+      } else if (jobType === 'digital') {
+        requirements = {
+          ...requirements,
+          techStack: formData.requirements.techStack,
+          portfolioUrl: formData.requirements.portfolioUrl,
+          githubUsername: formData.requirements.githubUsername,
+          timezone: formData.requirements.timezone,
+          englishProficiency: formData.requirements.englishProficiency,
+          workHistory: formData.requirements.workHistory,
+          education: formData.requirements.education,
+        };
+      } else if (jobType === 'errand') {
+        requirements = {
+          ...requirements,
+          transportMode: formData.requirements.transportMode,
+          sameDayExpress: formData.requirements.sameDayExpress,
+          deliveryCapabilities: formData.requirements.deliveryCapabilities,
+          maxPayloadKg: formData.requirements.maxPayloadKg,
+          maxPackageSize: formData.requirements.maxPackageSize,
+          goodsInsurance: formData.requirements.goodsInsurance,
+        };
+      }
+      
       await jobService.createJob({
         title: formData.title,
         description: formData.description,
@@ -151,39 +196,7 @@ export default function JobReviewStep() {
           preferredDays: formData.schedule.preferredDays,
           preferredShifts: formData.schedule.preferredShifts,
         },
-        requirements: {
-          categories: formData.requirements.categories,
-          skillItems: formData.requirements.skillItems,
-          experienceLevel: formData.requirements.experienceLevel || undefined,
-          languages: formData.requirements.languages,
-          certificationsRequired: formData.requirements.certificationsRequired,
-          vehicleRequired: formData.requirements.vehicleRequired,
-          
-          // Physical-specific
-          yearsExperience: formData.requirements.yearsExperience,
-          serviceRadiusKm: formData.requirements.serviceRadiusKm,
-          toolsEquipment: formData.requirements.toolsEquipment,
-          teamSize: formData.requirements.teamSize,
-          insurance: formData.requirements.insurance,
-          hasTransport: formData.requirements.hasTransport,
-          
-          // Digital-specific
-          techStack: formData.requirements.techStack,
-          portfolioUrl: formData.requirements.portfolioUrl,
-          githubUsername: formData.requirements.githubUsername,
-          timezone: formData.requirements.timezone,
-          englishProficiency: formData.requirements.englishProficiency,
-          workHistory: formData.requirements.workHistory,
-          education: formData.requirements.education,
-          
-          // Errand-specific
-          transportMode: formData.requirements.transportMode,
-          sameDayExpress: formData.requirements.sameDayExpress,
-          deliveryCapabilities: formData.requirements.deliveryCapabilities,
-          maxPayloadKg: formData.requirements.maxPayloadKg,
-          maxPackageSize: formData.requirements.maxPackageSize,
-          goodsInsurance: formData.requirements.goodsInsurance,
-        },
+        requirements,
       });
 
       dispatch({ type: 'SET_STEP', step: 'complete' });
