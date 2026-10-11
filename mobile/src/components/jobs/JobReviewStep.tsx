@@ -93,6 +93,9 @@ export default function JobReviewStep() {
       if (jobType === 'digital') {
         locationData = null;
       } else if (jobType === 'errand') {
+        const pickup = formData.location.pickupLocation;
+        const delivery = formData.location.deliveryLocation;
+        
         locationData = {
           type: 'Point' as const,
           coordinates: formData.location.coordinates || [0, 0] as [number, number],
@@ -100,22 +103,22 @@ export default function JobReviewStep() {
           city: formData.location.city,
           country: formData.location.country,
           formattedAddress: formData.location.formattedAddress,
-          pickupLocation: formData.location.pickupLocation ? {
+          pickupLocation: pickup?.coordinates ? {
             type: 'Point' as const,
-            coordinates: formData.location.pickupLocation.coordinates,
-            address: formData.location.pickupLocation.address,
-            city: formData.location.pickupLocation.city,
-            country: formData.location.pickupLocation.country,
-            formattedAddress: formData.location.pickupLocation.formattedAddress,
-          } : null,
-          deliveryLocation: formData.location.deliveryLocation ? {
+            coordinates: pickup.coordinates,
+            address: pickup.address,
+            city: pickup.city,
+            country: pickup.country,
+            formattedAddress: pickup.formattedAddress,
+          } : undefined,
+          deliveryLocation: delivery?.coordinates ? {
             type: 'Point' as const,
-            coordinates: formData.location.deliveryLocation.coordinates,
-            address: formData.location.deliveryLocation.address,
-            city: formData.location.deliveryLocation.city,
-            country: formData.location.deliveryLocation.country,
-            formattedAddress: formData.location.deliveryLocation.formattedAddress,
-          } : null,
+            coordinates: delivery.coordinates,
+            address: delivery.address,
+            city: delivery.city,
+            country: delivery.country,
+            formattedAddress: delivery.formattedAddress,
+          } : undefined,
         };
       } else {
         locationData = {
