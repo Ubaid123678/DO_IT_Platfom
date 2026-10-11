@@ -95,41 +95,49 @@ export default function JobReviewStep() {
       } else if (jobType === 'errand') {
         const pickup = formData.location.pickupLocation;
         const delivery = formData.location.deliveryLocation;
-        
+
+        // Validate coordinates exist for errand jobs
+        if (!pickup?.coordinates || !delivery?.coordinates) {
+          throw new Error('Pickup and delivery locations must be selected on the map');
+        }
+
         locationData = {
           type: 'Point' as const,
-          coordinates: formData.location.coordinates || [0, 0] as [number, number],
-          address: formData.location.address,
-          city: formData.location.city,
-          country: formData.location.country,
-          formattedAddress: formData.location.formattedAddress,
-          pickupLocation: pickup?.coordinates ? {
+          coordinates: pickup.coordinates,
+          address: pickup.address,
+          city: pickup.city,
+          country: pickup.country,
+          formattedAddress: pickup.formattedAddress,
+          pickupLocation: {
             type: 'Point' as const,
             coordinates: pickup.coordinates,
             address: pickup.address,
             city: pickup.city,
             country: pickup.country,
             formattedAddress: pickup.formattedAddress,
-          } : undefined,
-          deliveryLocation: delivery?.coordinates ? {
+          },
+          deliveryLocation: {
             type: 'Point' as const,
             coordinates: delivery.coordinates,
             address: delivery.address,
             city: delivery.city,
             country: delivery.country,
             formattedAddress: delivery.formattedAddress,
-          } : undefined,
+          },
         };
       } else {
+        // Physical jobs have one job-site location. Pickup and delivery are errand-only.
         locationData = {
           type: 'Point' as const,
-          coordinates: formData.location.coordinates || [0, 0] as [number, number],
+          coordinates: formData.location.coordinates,
           address: formData.location.address,
           city: formData.location.city,
           country: formData.location.country,
           formattedAddress: formData.location.formattedAddress,
         };
-      }
+      };
+
+      console.log('[JobReviewStep] Submitting locationData:', JSON.stringify(locationData, null, 2));
       
       // Build requirements based on job type - only send relevant fields
       const baseRequirements = {
@@ -209,7 +217,7 @@ export default function JobReviewStep() {
   };
 
   const renderPhysicalRequirements = () => (
-    <>
+    <View>
       {req.yearsExperience && (
         <View style={styles.reviewRow}>
           <Text style={styles.reviewLabel}>Years Experience</Text>
@@ -222,7 +230,7 @@ export default function JobReviewStep() {
           <Text style={styles.reviewValue}>{req.serviceRadiusKm} km</Text>
         </View>
       )}
-      {req.toolsEquipment?.length && (
+      {req.toolsEquipment && req.toolsEquipment.length > 0 && (
         <View style={styles.reviewRow}>
           <Text style={styles.reviewLabel}>Tools & Equipment</Text>
           <Text style={styles.reviewValue}>{req.toolsEquipment.join(', ')}</Text>
@@ -246,12 +254,12 @@ export default function JobReviewStep() {
           <Text style={styles.reviewValue}>{req.hasTransport.mode ? TRANSPORT_MODE_LABELS[req.hasTransport.mode] : 'Required'}</Text>
         </View>
       )}
-    </>
+    </View>
   );
 
   const renderDigitalRequirements = () => (
-    <>
-      {req.techStack?.length && (
+    <View>
+      {req.techStack && req.techStack.length > 0 && (
         <View style={styles.reviewRow}>
           <Text style={styles.reviewLabel}>Tech Stack</Text>
           <Text style={styles.reviewValue}>{req.techStack.join(', ')}</Text>
@@ -281,19 +289,19 @@ export default function JobReviewStep() {
           <Text style={styles.reviewValue}>{ENGLISH_LABELS[req.englishProficiency]}</Text>
         </View>
       )}
-      {req.workHistory?.length && (
+      {req.workHistory && req.workHistory.length > 0 && (
         <View style={styles.reviewRow}>
           <Text style={styles.reviewLabel}>Work History</Text>
           <Text style={styles.reviewValue}>{req.workHistory.length} entries</Text>
         </View>
       )}
-      {req.education?.length && (
+      {req.education && req.education.length > 0 && (
         <View style={styles.reviewRow}>
           <Text style={styles.reviewLabel}>Education</Text>
           <Text style={styles.reviewValue}>{req.education.length} entries</Text>
         </View>
       )}
-    </>
+    </View>
   );
 
   const renderErrandRequirements = () => (
@@ -310,7 +318,7 @@ export default function JobReviewStep() {
           <Text style={styles.reviewValue}>Yes</Text>
         </View>
       )}
-      {req.deliveryCapabilities?.length && (
+      {req.deliveryCapabilities && req.deliveryCapabilities.length > 0 && (
         <View style={styles.reviewRow}>
           <Text style={styles.reviewLabel}>Delivery Types</Text>
           <Text style={styles.reviewValue}>{req.deliveryCapabilities.join(', ')}</Text>

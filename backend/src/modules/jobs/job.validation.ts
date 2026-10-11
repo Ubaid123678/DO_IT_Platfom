@@ -17,7 +17,7 @@ const jobLocationSchema = Joi.object({
   // Errand-specific: pickup location
   pickupLocation: Joi.object({
     type: Joi.string().valid('Point').default('Point'),
-    coordinates: Joi.array().items(Joi.number()).length(2).optional(),
+    coordinates: Joi.array().items(Joi.number()).length(2).required(),
     address: Joi.string().trim().max(200).optional().allow(''),
     city: Joi.string().trim().max(100).optional().allow(''),
     country: Joi.string().trim().uppercase().min(2).max(2).optional().allow(''),
@@ -27,7 +27,7 @@ const jobLocationSchema = Joi.object({
   // Errand-specific: delivery location
   deliveryLocation: Joi.object({
     type: Joi.string().valid('Point').default('Point'),
-    coordinates: Joi.array().items(Joi.number()).length(2).optional(),
+    coordinates: Joi.array().items(Joi.number()).length(2).required(),
     address: Joi.string().trim().max(200).optional().allow(''),
     city: Joi.string().trim().max(100).optional().allow(''),
     country: Joi.string().trim().uppercase().min(2).max(2).optional().allow(''),

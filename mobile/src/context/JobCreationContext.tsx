@@ -453,14 +453,21 @@ export const JobCreationProvider = ({ children }: { children: ReactNode }) => {
         return state.formData.title.trim().length >= 5 && state.formData.description.trim().length >= 20;
       case 'location':
         if (state.jobType === 'errand') {
-          // Errand jobs need both pickup and delivery locations
+          // Errand jobs need both pickup and delivery locations WITH coordinates
+          const pickup = state.formData.location.pickupLocation;
+          const delivery = state.formData.location.deliveryLocation;
           return (
-            state.formData.location.pickupLocation.city?.trim().length > 0 &&
-            state.formData.location.deliveryLocation.city?.trim().length > 0
+            pickup?.coordinates != null &&
+            delivery?.coordinates != null &&
+            pickup.city?.trim().length > 0 &&
+            delivery.city?.trim().length > 0
           );
         }
         // Physical jobs need single location
-        return state.formData.location.city.trim().length > 0;
+        return (
+          state.formData.location.coordinates != null &&
+          state.formData.location.city.trim().length > 0
+        );
       case 'budget':
         if (state.formData.budget.type === 'hourly') {
           return (

@@ -93,6 +93,26 @@ const validateRequirementsForType = (type: string, requirements: Record<string, 
   }
 };
 
+const validateLocationForType = (type: JobType, location: IJobLocation | null) => {
+  if (type === 'digital') return;
+  if (!location) {
+    throw new AppError(`${type} jobs require a location`, 400, 'VALIDATION_ERROR');
+  }
+
+  if (type === 'physical' && (!location.coordinates || location.coordinates.length !== 2)) {
+    throw new AppError('Physical jobs require valid job-site coordinates', 400, 'VALIDATION_ERROR');
+  }
+
+  if (type === 'errand') {
+    if (!location.pickupLocation?.coordinates || location.pickupLocation.coordinates.length !== 2) {
+      throw new AppError('Errand jobs require valid pickup coordinates', 400, 'VALIDATION_ERROR');
+    }
+    if (!location.deliveryLocation?.coordinates || location.deliveryLocation.coordinates.length !== 2) {
+      throw new AppError('Errand jobs require valid delivery coordinates', 400, 'VALIDATION_ERROR');
+    }
+  }
+};
+
 type CreateJobPayload = {
   title: string;
   description: string;
@@ -125,6 +145,7 @@ export const jobController = {
     const userId = getUserId(req);
     const payload = validate(jobValidators.createJob, req.body) as CreateJobPayload;
     
+    validateLocationForType(payload.type, payload.location);
     validateRequirementsForType(payload.type, payload.requirements);
     
     const job = await jobService.createJob(userId, payload);
