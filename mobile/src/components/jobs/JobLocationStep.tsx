@@ -248,7 +248,7 @@ export default function JobLocationStep() {
       />
       
       <LocationPicker
-        title="Pickup Location"
+        title="Starting Location (Pickup)"
         subtitle="Select where to pick up the items"
         initialRegion={pickupLocation.coordinates ? {
           latitude: pickupLocation.coordinates[1],
@@ -263,7 +263,7 @@ export default function JobLocationStep() {
       />
       
       <LocationPicker
-        title="Delivery Location"
+        title="Ending Location (Delivery)"
         subtitle="Select where to deliver the items"
         initialRegion={deliveryLocation.coordinates ? {
           latitude: deliveryLocation.coordinates[1],

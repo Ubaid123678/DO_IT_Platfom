@@ -29,7 +29,7 @@ export default function JobTypeStep() {
   return (
     <SafeAreaViewCompat style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.replace('/(client)/home')}>
           <Ionicons name="chevron-back" size={28} color={C.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Post a Job</Text>

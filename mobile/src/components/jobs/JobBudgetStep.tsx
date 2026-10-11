@@ -39,6 +39,16 @@ export default function JobBudgetStep() {
     }
   }, [currency.code]);
 
+  useEffect(() => {
+    if (type !== 'hourly') return;
+    const rate = parseFloat(hourlyRate);
+    const hours = parseFloat(estimatedHours);
+    const total = Number.isFinite(rate) && Number.isFinite(hours) ? (rate * hours).toFixed(2) : '';
+    if (amount !== total) {
+      dispatch({ type: 'UPDATE_NESTED_FORM', section: 'budget', field: 'amount', value: total });
+    }
+  }, [type, hourlyRate, estimatedHours, amount]);
+
   return (
     <SafeAreaViewCompat style={styles.container}>
       <View style={styles.header}>
@@ -91,22 +101,21 @@ export default function JobBudgetStep() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>
-              {type === 'fixed' ? 'Total Budget' : 'Hourly Rate'} <Text style={styles.required}>*</Text>
-            </Text>
-            <View style={styles.currencyInput}>
-              <Text style={styles.currencySymbol}>{currency.symbol}</Text>
-              <TextInput
-                style={styles.currencyInputField}
-                placeholder={type === 'fixed' ? 'e.g. 500' : 'e.g. 50'}
-                value={amount}
-                onChangeText={(v) => dispatch({ type: 'UPDATE_NESTED_FORM', section: 'budget', field: 'amount', value: v })}
-                keyboardType="decimal-pad"
-                autoCapitalize="none"
-              />
-            </View>
-            {type === 'fixed' && amount && (
+          {type === 'fixed' && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Total Budget <Text style={styles.required}>*</Text></Text>
+              <View style={styles.currencyInput}>
+                <Text style={styles.currencySymbol}>{currency.symbol}</Text>
+                <TextInput
+                  style={styles.currencyInputField}
+                  placeholder="e.g. 500"
+                  value={amount}
+                  onChangeText={(v) => dispatch({ type: 'UPDATE_NESTED_FORM', section: 'budget', field: 'amount', value: v })}
+                  keyboardType="decimal-pad"
+                  autoCapitalize="none"
+                />
+              </View>
+              {amount && (
               <View style={styles.feeBreakdown}>
                 <Text style={styles.feeRow}>
                   <Text style={styles.feeLabel}>Your Budget</Text>
@@ -122,7 +131,8 @@ export default function JobBudgetStep() {
                 </Text>
               </View>
             )}
-          </View>
+            </View>
+          )}
 
           {type === 'hourly' && (
             <>

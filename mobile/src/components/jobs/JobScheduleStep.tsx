@@ -9,6 +9,7 @@ import { Colors, type AppColors } from '@/src/theme/colors';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const SHIFTS = ['Morning', 'Afternoon', 'Evening', 'Night'];
+const TIMEZONES = ['UTC', 'Asia/Karachi', 'Asia/Dubai', 'Asia/Kolkata', 'Europe/London', 'Europe/Berlin', 'America/New_York', 'America/Los_Angeles', 'Australia/Sydney'];
 
 export default function JobScheduleStep() {
   const scheme = useColorScheme();
@@ -93,8 +94,7 @@ export default function JobScheduleStep() {
             </View>
           </TouchableOpacity>
 
-          {!isFlexible && (
-            <>
+          <View>
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>Start Date</Text>
                 <TouchableOpacity style={[styles.dateBtn, !startsAt && styles.dateBtnEmpty]} onPress={() => setShowDatePicker('start')}>
@@ -110,18 +110,27 @@ export default function JobScheduleStep() {
                   <Text style={[styles.dateBtnText, !endsAt && styles.dateBtnTextEmpty]}>{formatDate(endsAt)}</Text>
                 </TouchableOpacity>
               </View>
-            </>
-          )}
+            <Text style={styles.fieldHint}>Optional date range. Flexible jobs can still include preferred dates.</Text>
+          </View>
 
-          {/* Timezone - auto-detected, read-only */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Timezone (Auto-detected)</Text>
+            <Text style={styles.fieldLabel}>Timezone</Text>
             <View style={styles.dropdownBtn}>
               <Ionicons name="globe-outline" size={20} color={C.textSecondary} />
               <Text style={styles.dropdownText}>{timezone || 'Detecting...'}</Text>
-              <Ionicons name="checkmark-circle-outline" size={20} color={C.primary} />
             </View>
-            <Text style={styles.fieldHint}>Automatically detected from your device</Text>
+            <Text style={styles.fieldHint}>Detected from your device. Select another timezone if the provider will work elsewhere.</Text>
+            <View style={styles.chipRow}>
+              {TIMEZONES.map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[styles.chip, timezone === option && styles.chipActive]}
+                  onPress={() => dispatch({ type: 'UPDATE_NESTED_FORM', section: 'schedule', field: 'timezone', value: option })}
+                >
+                  <Text style={[styles.chipText, timezone === option && styles.chipTextActive]}>{option}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           <View style={styles.fieldGroup}>

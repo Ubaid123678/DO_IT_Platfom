@@ -438,6 +438,38 @@ export default function LocationPicker({
 
         </View>
 
+        <View style={styles.addressFields}>
+          <Text style={styles.fieldLabel}>Address details</Text>
+          <TextInput
+            style={styles.addressInput}
+            placeholder="Street address or site name"
+            value={address}
+            onChangeText={setAddress}
+          />
+          <View style={styles.addressRow}>
+            <TextInput
+              style={[styles.addressInput, styles.addressInputHalf]}
+              placeholder="City"
+              value={city}
+              onChangeText={setCity}
+            />
+            <TextInput
+              style={[styles.addressInput, styles.addressInputHalf]}
+              placeholder="Country code"
+              value={country}
+              onChangeText={(value) => setCountry(value.toUpperCase())}
+              autoCapitalize="characters"
+              maxLength={2}
+            />
+          </View>
+          <TextInput
+            style={styles.addressInput}
+            placeholder="Formatted address"
+            value={formattedAddress}
+            onChangeText={setFormattedAddress}
+          />
+        </View>
+
         <View style={styles.actions}>
           <TouchableOpacity style={styles.currentLocationBtn} onPress={handleUseCurrentLocation}>
             <Ionicons name="locate" size={20} color={C.primary} />
@@ -571,6 +603,19 @@ const makeStyles = (C: AppColors) =>
     locationInfo: { flex: 1 },
     locationLabel: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
     locationAddress: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
+    addressFields: { padding: 16, paddingTop: 8, backgroundColor: C.background, gap: 8 },
+    fieldLabel: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
+    addressInput: {
+      minHeight: 44,
+      borderWidth: 1,
+      borderColor: C.cardBorder,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      color: C.textPrimary,
+      backgroundColor: C.card,
+    },
+    addressRow: { flexDirection: 'row', gap: 8 },
+    addressInputHalf: { flex: 1 },
     actions: {
       flexDirection: 'row',
       gap: 12,

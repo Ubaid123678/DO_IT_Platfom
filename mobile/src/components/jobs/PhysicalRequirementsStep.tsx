@@ -42,7 +42,6 @@ export default function PhysicalRequirementsStep() {
   const { categories, skillItems, experienceLevel, languages, certificationsRequired, vehicleRequired } = req;
 
   const [availableCategories, setAvailableCategories] = React.useState<Array<{ id: string; name: string; job_type: string }>>([]);
-  const [yearsExperience, setYearsExperience] = useState(req.yearsExperience?.toString() || '');
   const [serviceRadiusKm, setServiceRadiusKm] = useState(req.serviceRadiusKm?.toString() || '');
   const [toolsEquipment, setToolsEquipment] = useState<string[]>(req.toolsEquipment || []);
   const [toolInput, setToolInput] = useState('');
@@ -303,26 +302,6 @@ export default function PhysicalRequirementsStep() {
               ))}
             </View>
           </View>
-
-          {/* Dynamic Fields - Only show if ANY selected category needs them */}
-          {fieldConfig.yearsExperience && (
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Years of Experience Required</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 5"
-                value={yearsExperience}
-                onChangeText={(v) => {
-                  setYearsExperience(v);
-                  const num = parseInt(v) || 0;
-                  dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'yearsExperience', value: num > 0 ? num : undefined });
-                }}
-                keyboardType="numeric"
-                maxLength={3}
-              />
-              <Text style={styles.fieldHint}>Minimum years of professional experience</Text>
-            </View>
-          )}
 
           {fieldConfig.serviceRadiusKm && (
             <View style={styles.fieldGroup}>

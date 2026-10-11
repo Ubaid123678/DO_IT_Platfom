@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo } from 'react';
-import { ActivityIndicator, View, BackHandler } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, View, BackHandler, Text } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { useJobCreation } from '@/src/context/JobCreationContext';
 import { jobService } from '@/src/services/jobService';
@@ -40,12 +41,13 @@ export default function PostJobScreen() {
   const stepOrder = useMemo(() => getStepOrder(state.jobType), [state.jobType]);
   const currentIndex = stepOrder.indexOf(state.currentStep);
 
-  useEffect(() => {
-    // Reset wizard on mount
-    dispatch({ type: 'RESET' });
-    // Reset on unmount (user leaves wizard)
-    return () => dispatch({ type: 'RESET' });
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      // The client tab stays mounted, so mount/unmount reset is not enough.
+      // Always start a fresh wizard whenever this tab is opened.
+      dispatch({ type: 'RESET' });
+    }, [dispatch]),
+  );
 
   // Handle Android hardware back button
   useEffect(() => {
@@ -54,12 +56,20 @@ export default function PostJobScreen() {
         goBack();
         return true; // Prevent default back behavior
       }
-      // On first step, allow default (exit to home)
-      return false;
+      // The post-job tab is kept in the tab navigator; replace explicitly
+      // so back never reveals a previous wizard step.
+      router.replace('/(client)/home');
+      return true;
     });
 
     return () => backHandler.remove();
   }, [state.currentStep, goBack]);
+
+  useEffect(() => {
+    if (state.jobType === 'digital' && state.currentStep === 'location') {
+      dispatch({ type: 'SET_STEP', step: 'budget' });
+    }
+  }, [dispatch, state.currentStep, state.jobType]);
 
   const StepComponent = stepComponents[state.currentStep];
   if (!StepComponent) {
@@ -75,11 +85,8 @@ export default function PostJobScreen() {
     );
   }
 
-  // If somehow on location step for digital, redirect to budget
+  // If somehow on location step for digital, render the next valid step
   if (state.jobType === 'digital' && state.currentStep === 'location') {
-    React.useEffect(() => {
-      dispatch({ type: 'SET_STEP', step: 'budget' });
-    }, []);
     return <JobBudgetStep />;
   }
 

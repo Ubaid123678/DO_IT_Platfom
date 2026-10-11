@@ -154,7 +154,6 @@ export default function JobReviewStep() {
       if (jobType === 'physical') {
         requirements = {
           ...requirements,
-          yearsExperience: formData.requirements.yearsExperience,
           serviceRadiusKm: formData.requirements.serviceRadiusKm,
           toolsEquipment: formData.requirements.toolsEquipment,
           teamSize: formData.requirements.teamSize,
@@ -169,8 +168,6 @@ export default function JobReviewStep() {
           githubUsername: formData.requirements.githubUsername,
           timezone: formData.requirements.timezone,
           englishProficiency: formData.requirements.englishProficiency,
-          workHistory: formData.requirements.workHistory,
-          education: formData.requirements.education,
         };
       } else if (jobType === 'errand') {
         requirements = {
@@ -207,7 +204,10 @@ export default function JobReviewStep() {
         requirements,
       });
 
-      dispatch({ type: 'SET_STEP', step: 'complete' });
+      // Reset the tab's persistent wizard state so the next visit starts
+      // at job type instead of reopening the submitted review.
+      dispatch({ type: 'CLEAR_ALL' });
+      router.replace('/(client)/post-job');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to create job';
       Alert.alert('Error', msg);
@@ -218,12 +218,6 @@ export default function JobReviewStep() {
 
   const renderPhysicalRequirements = () => (
     <View>
-      {req.yearsExperience && (
-        <View style={styles.reviewRow}>
-          <Text style={styles.reviewLabel}>Years Experience</Text>
-          <Text style={styles.reviewValue}>{req.yearsExperience} years</Text>
-        </View>
-      )}
       {req.serviceRadiusKm && (
         <View style={styles.reviewRow}>
           <Text style={styles.reviewLabel}>Service Radius</Text>
@@ -287,18 +281,6 @@ export default function JobReviewStep() {
         <View style={styles.reviewRow}>
           <Text style={styles.reviewLabel}>English Proficiency</Text>
           <Text style={styles.reviewValue}>{ENGLISH_LABELS[req.englishProficiency]}</Text>
-        </View>
-      )}
-      {req.workHistory && req.workHistory.length > 0 && (
-        <View style={styles.reviewRow}>
-          <Text style={styles.reviewLabel}>Work History</Text>
-          <Text style={styles.reviewValue}>{req.workHistory.length} entries</Text>
-        </View>
-      )}
-      {req.education && req.education.length > 0 && (
-        <View style={styles.reviewRow}>
-          <Text style={styles.reviewLabel}>Education</Text>
-          <Text style={styles.reviewValue}>{req.education.length} entries</Text>
         </View>
       )}
     </View>
@@ -473,6 +455,7 @@ export default function JobReviewStep() {
               <Text style={styles.reviewValue}>
                 {formData.schedule.isFlexible ? 'Flexible' : 'Fixed dates'}
                 {formData.schedule.startsAt && ` • Starts ${new Date(formData.schedule.startsAt).toLocaleDateString()}`}
+                {formData.schedule.endsAt && ` • Ends ${new Date(formData.schedule.endsAt).toLocaleDateString()}`}
               </Text>
             </View>
           </View>

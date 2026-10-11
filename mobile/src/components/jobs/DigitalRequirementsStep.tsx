@@ -54,12 +54,6 @@ export default function DigitalRequirementsStep() {
   const [githubUsername, setGithubUsername] = useState(req.githubUsername || '');
   const [timezone, setTimezone] = useState(req.timezone || 'UTC');
   const [englishProficiency, setEnglishProficiency] = useState(req.englishProficiency || '');
-  const [workHistory, setWorkHistory] = useState<Array<{ title: string; company: string; start_date: string; end_date?: string; description?: string }>>(req.workHistory || []);
-  const [education, setEducation] = useState<Array<{ institution: string; degree: string; field?: string; start_year?: number; end_year?: number }>>(req.education || []);
-  const [showWorkHistory, setShowWorkHistory] = useState(false);
-  const [showEducation, setShowEducation] = useState(false);
-  const [workForm, setWorkForm] = useState({ title: '', company: '', start_date: '', end_date: '', description: '' });
-  const [eduForm, setEduForm] = useState({ institution: '', degree: '', field: '', start_year: '', end_year: '' });
   // Skill items selection
   const [skillItemsMap, setSkillItemsMap] = useState<Record<string, SkillItem[]>>({});
   const [selectedSkillItemsMap, setSelectedSkillItemsMap] = useState<Record<string, string[]>>({});
@@ -164,38 +158,6 @@ export default function DigitalRequirementsStep() {
     const next = techStack.filter((t) => t !== tech);
     setTechStack(next);
     dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'techStack', value: next });
-  };
-
-  const addWorkHistory = () => {
-    if (workForm.title && workForm.company && workForm.start_date) {
-      const next = [...workHistory, { ...workForm }];
-      setWorkHistory(next);
-      dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'workHistory', value: next });
-      setWorkForm({ title: '', company: '', start_date: '', end_date: '', description: '' });
-      setShowWorkHistory(false);
-    }
-  };
-
-  const removeWorkHistory = (index: number) => {
-    const next = workHistory.filter((_, i) => i !== index);
-    setWorkHistory(next);
-    dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'workHistory', value: next });
-  };
-
-  const addEducation = () => {
-    if (eduForm.institution && eduForm.degree) {
-      const next = [...education, { ...eduForm, start_year: parseInt(eduForm.start_year) || undefined, end_year: parseInt(eduForm.end_year) || undefined }];
-      setEducation(next);
-      dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'education', value: next });
-      setEduForm({ institution: '', degree: '', field: '', start_year: '', end_year: '' });
-      setShowEducation(false);
-    }
-  };
-
-  const removeEducation = (index: number) => {
-    const next = education.filter((_, i) => i !== index);
-    setEducation(next);
-    dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'education', value: next });
   };
 
   return (
@@ -431,142 +393,6 @@ export default function DigitalRequirementsStep() {
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
-          )}
-
-          {fieldConfig.workHistory && (
-            <View style={styles.fieldGroup}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.fieldLabel}>Work History</Text>
-                <TouchableOpacity onPress={() => setShowWorkHistory(!showWorkHistory)}>
-                  <Text style={styles.linkText}>{showWorkHistory ? 'Hide' : 'Add Entry'}</Text>
-                </TouchableOpacity>
-              </View>
-              
-              {showWorkHistory && (
-                <View style={styles.formSection}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Job Title"
-                    value={workForm.title}
-                    onChangeText={(v) => setWorkForm({ ...workForm, title: v })}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Company"
-                    value={workForm.company}
-                    onChangeText={(v) => setWorkForm({ ...workForm, company: v })}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Start Date (YYYY-MM)"
-                    value={workForm.start_date}
-                    onChangeText={(v) => setWorkForm({ ...workForm, start_date: v })}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="End Date (YYYY-MM) - leave empty if current"
-                    value={workForm.end_date}
-                    onChangeText={(v) => setWorkForm({ ...workForm, end_date: v })}
-                  />
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Description"
-                    value={workForm.description}
-                    onChangeText={(v) => setWorkForm({ ...workForm, description: v })}
-                    multiline
-                    numberOfLines={3}
-                  />
-                  <TouchableOpacity style={styles.addBtn} onPress={addWorkHistory}>
-                    <Text style={styles.addBtnText}>Add Work Experience</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {workHistory.map((work, i) => (
-                <View key={i} style={styles.historyItem}>
-                  <View style={styles.historyInfo}>
-                    <Text style={styles.historyTitle}>{work.title}</Text>
-                    <Text style={styles.historyCompany}>{work.company}</Text>
-                    <Text style={styles.historyDate}>
-                      {work.start_date} - {work.end_date || 'Present'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={() => removeWorkHistory(i)}>
-                    <Ionicons name="trash-outline" size={20} color={C.error} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {fieldConfig.education && (
-            <View style={styles.fieldGroup}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.fieldLabel}>Education</Text>
-                <TouchableOpacity onPress={() => setShowEducation(!showEducation)}>
-                  <Text style={styles.linkText}>{showEducation ? 'Hide' : 'Add Entry'}</Text>
-                </TouchableOpacity>
-              </View>
-              
-              {showEducation && (
-                <View style={styles.formSection}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Institution"
-                    value={eduForm.institution}
-                    onChangeText={(v) => setEduForm({ ...eduForm, institution: v })}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Degree"
-                    value={eduForm.degree}
-                    onChangeText={(v) => setEduForm({ ...eduForm, degree: v })}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Field of Study"
-                    value={eduForm.field}
-                    onChangeText={(v) => setEduForm({ ...eduForm, field: v })}
-                  />
-                  <View style={styles.inputRow}>
-                    <TextInput
-                      style={[styles.input, styles.flex1]}
-                      placeholder="Start Year"
-                      value={eduForm.start_year}
-                      onChangeText={(v) => setEduForm({ ...eduForm, start_year: v })}
-                      keyboardType="numeric"
-                      maxLength={4}
-                    />
-                    <TextInput
-                      style={[styles.input, styles.flex1]}
-                      placeholder="End Year"
-                      value={eduForm.end_year}
-                      onChangeText={(v) => setEduForm({ ...eduForm, end_year: v })}
-                      keyboardType="numeric"
-                      maxLength={4}
-                    />
-                  </View>
-                  <TouchableOpacity style={styles.addBtn} onPress={addEducation}>
-                    <Text style={styles.addBtnText}>Add Education</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {education.map((edu, i) => (
-                <View key={i} style={styles.historyItem}>
-                  <View style={styles.historyInfo}>
-                    <Text style={styles.historyTitle}>{edu.degree}</Text>
-                    <Text style={styles.historyCompany}>{edu.institution}</Text>
-                    <Text style={styles.historyDate}>
-                      {edu.field ? `${edu.field} • ` : ''}{edu.start_year} - {edu.end_year || 'Present'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={() => removeEducation(i)}>
-                    <Ionicons name="trash-outline" size={20} color={C.error} />
-                  </TouchableOpacity>
-                </View>
-              ))}
             </View>
           )}
 
