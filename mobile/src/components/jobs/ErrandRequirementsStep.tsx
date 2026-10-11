@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme, FlatList } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -225,11 +225,10 @@ export default function ErrandRequirementsStep() {
               {skillItemsLoading ? (
                 <Text style={styles.loadingText}>Loading skills...</Text>
               ) : (
-                <FlatList
-                  data={categories.map(id => availableCategories.find(c => c.id === id)).filter(Boolean) as Array<{ id: string; name: string; job_type: string }>}
-                  keyExtractor={item => item.id}
-                  showsVerticalScrollIndicator={false}
-                  renderItem={({ item: cat }) => {
+                <>
+                  {categories.map((catId) => {
+                    const cat = availableCategories.find(c => c.id === catId);
+                    if (!cat) return null;
                     const items = skillItemsMap[cat.id] || [];
                     const selected = selectedSkillItemsMap[cat.id] || [];
                     
@@ -287,8 +286,8 @@ export default function ErrandRequirementsStep() {
                         ))}
                       </View>
                     );
-                  }}
-                />
+                  })}
+                </>
               )}
               {categories.every(catId => (selectedSkillItemsMap[catId]?.length || 0) === 0) && (
                 <Text style={styles.errorText}>Select at least one skill per category</Text>
