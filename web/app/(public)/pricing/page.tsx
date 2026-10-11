@@ -220,7 +220,7 @@ export default function PricingPage() {
                 open={openFaq === index}
               >
                 <summary
-                  className="flex items-center justify-between gap-4 p-5 cursor-pointer list-none focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                  className="flex items-center justify-between gap-4 p-5 cursor-pointer list-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   onClick={() => setOpenFaq(openFaq === index ? null : index)}
                   aria-expanded={openFaq === index}
                 >
