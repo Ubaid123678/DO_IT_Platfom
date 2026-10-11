@@ -1,11 +1,11 @@
 import { useRouter } from 'expo-router';
-import React, { useState, useMemo } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme } from 'react-native';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useColorScheme, FlatList } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useJobCreation } from '@/src/context/JobCreationContext';
-import { verificationService } from '@/src/services/verificationService';
+import { verificationService, type SkillItem } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 import { getCategoryFieldConfig, CategoryFieldConfig } from '@/src/utils/categoryFields';
 
@@ -77,6 +77,10 @@ export default function ErrandRequirementsStep() {
   const [maxPayloadKg, setMaxPayloadKg] = useState(req.maxPayloadKg?.toString() || '');
   const [maxPackageSize, setMaxPackageSize] = useState(req.maxPackageSize || '');
   const [goodsInsurance, setGoodsInsurance] = useState(req.goodsInsurance || false);
+  // Skill items selection
+  const [skillItemsMap, setSkillItemsMap] = useState<Record<string, SkillItem[]>>({});
+  const [selectedSkillItemsMap, setSelectedSkillItemsMap] = useState<Record<string, string[]>>({});
+  const [skillItemsLoading, setSkillItemsLoading] = useState(false);
 
   const loadCategories = async () => {
     try {
@@ -91,6 +95,44 @@ export default function ErrandRequirementsStep() {
   React.useEffect(() => {
     loadCategories();
   }, [state.jobType]);
+
+  // Load skill items when categories change
+  useEffect(() => {
+    const fetch = async () => {
+      if (categories.length === 0) {
+        setSkillItemsMap({});
+        setSelectedSkillItemsMap({});
+        return;
+      }
+      setSkillItemsLoading(true);
+      try {
+        const map: Record<string, SkillItem[]> = {};
+        for (const catId of categories) {
+          const items = await verificationService.getSkillItems(catId);
+          map[catId] = items;
+        }
+        setSkillItemsMap(map);
+      } catch {
+        // Ignore
+      } finally {
+        setSkillItemsLoading(false);
+      }
+    };
+    fetch();
+  }, [categories]);
+
+  // Sync selected skill items to form data
+  const updateSkillItems = useCallback(() => {
+    const allSelected: string[] = [];
+    for (const catId of categories) {
+      allSelected.push(...(selectedSkillItemsMap[catId] || []));
+    }
+    dispatch({ type: 'UPDATE_NESTED_FORM', section: 'requirements', field: 'skillItems', value: allSelected });
+  }, [categories, selectedSkillItemsMap, dispatch]);
+
+  useEffect(() => {
+    updateSkillItems();
+  }, [updateSkillItems]);
 
   // Determine which fields to show based on selected categories
   const fieldConfig = useMemo(() => {
@@ -174,6 +216,85 @@ export default function ErrandRequirementsStep() {
             </View>
             {categories.length === 0 && <Text style={styles.errorText}>Select at least one category</Text>}
           </View>
+
+          {/* Skill Items - Required per category */}
+          {categories.length > 0 && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Required Skills <Text style={styles.required}>*</Text></Text>
+              <Text style={styles.fieldHint}>Select at least one skill per category</Text>
+              {skillItemsLoading ? (
+                <Text style={styles.loadingText}>Loading skills...</Text>
+              ) : (
+                <FlatList
+                  data={categories.map(id => availableCategories.find(c => c.id === id)).filter(Boolean) as Array<{ id: string; name: string; job_type: string }>}
+                  keyExtractor={item => item.id}
+                  showsVerticalScrollIndicator={false}
+                  renderItem={({ item: cat }) => {
+                    const items = skillItemsMap[cat.id] || [];
+                    const selected = selectedSkillItemsMap[cat.id] || [];
+                    
+                    if (items.length === 0) {
+                      return (
+                        <View style={styles.skillCategory} key={cat.id}>
+                          <View style={styles.skillCategoryHeader}>
+                            <Text style={styles.skillCategoryTitle}>{cat.name}</Text>
+                            <Text style={styles.skillCategoryCount}>{selected.length} selected</Text>
+                          </View>
+                          <Text style={styles.skillEmptyText}>No skills available for this category</Text>
+                        </View>
+                      );
+                    }
+                    
+                    return (
+                      <View style={styles.skillCategory} key={cat.id}>
+                        <View style={styles.skillCategoryHeader}>
+                          <Text style={styles.skillCategoryTitle}>{cat.name}</Text>
+                          <Text style={styles.skillCategoryCount}>{selected.length}/{items.length}</Text>
+                        </View>
+                        {items.map((skillItem) => (
+                          <TouchableOpacity
+                            key={skillItem.id}
+                            style={[
+                              styles.skillItem,
+                              selected.includes(skillItem.id) && styles.skillItemSelected,
+                              skillItem.requires_certificate && styles.skillItemRequiresCert,
+                            ]}
+                            onPress={() => {
+                              setSelectedSkillItemsMap(prev => ({
+                                ...prev,
+                                [cat.id]: selected.includes(skillItem.id)
+                                  ? selected.filter(id => id !== skillItem.id)
+                                  : [...selected, skillItem.id],
+                              }));
+                            }}
+                          >
+                            <View style={styles.skillItemContent}>
+                              <Text style={[styles.skillItemName, selected.includes(skillItem.id) && styles.skillItemNameSelected]}>{skillItem.name}</Text>
+                              {skillItem.requires_certificate && (
+                                <Text style={styles.skillItemCertBadge}>Cert</Text>
+                              )}
+                              {skillItem.requires_vehicle && (
+                                <Text style={styles.skillItemVehicleBadge}>Vehicle</Text>
+                              )}
+                            </View>
+                            <View style={[
+                              styles.skillItemCheckbox,
+                              selected.includes(skillItem.id) && styles.skillItemCheckboxChecked,
+                            ]}>
+                              {selected.includes(skillItem.id) && <Ionicons name="checkmark" size={16} color="#fff" />}
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    );
+                  }}
+                />
+              )}
+              {categories.every(catId => (selectedSkillItemsMap[catId]?.length || 0) === 0) && (
+                <Text style={styles.errorText}>Select at least one skill per category</Text>
+              )}
+            </View>
+          )}
 
           {/* Experience Level */}
           <View style={styles.fieldGroup}>
@@ -398,6 +519,22 @@ const makeStyles = (C: AppColors) =>
     boolSubtitle: { fontSize: 11, color: C.textHint, marginTop: 2 },
     boolCheckbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 1, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
     boolCheckboxChecked: { backgroundColor: C.primary, borderColor: C.primary },
+    // Skill items styles
+    skillCategory: { marginBottom: 16 },
+    skillCategoryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    skillCategoryTitle: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
+    skillCategoryCount: { fontSize: 12, color: C.textHint },
+    skillEmptyText: { fontSize: 13, color: C.textHint, fontStyle: 'italic' },
+    skillItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, backgroundColor: C.inputBg, borderRadius: 10, borderWidth: 1, borderColor: C.inputBorder, marginBottom: 8 },
+    skillItemSelected: { borderColor: C.primary, backgroundColor: C.primaryLight },
+    skillItemRequiresCert: { borderLeftWidth: 3, borderLeftColor: C.warning || '#F59E0B' },
+    skillItemContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    skillItemName: { fontSize: 14, color: C.textPrimary },
+    skillItemNameSelected: { fontWeight: '600', color: C.primary },
+    skillItemCertBadge: { fontSize: 10, fontWeight: '700', color: C.warning, backgroundColor: C.warning + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    skillItemVehicleBadge: { fontSize: 10, fontWeight: '700', color: C.primary, backgroundColor: C.primary + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    skillItemCheckbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: C.inputBorder, alignItems: 'center', justifyContent: 'center' },
+    skillItemCheckboxChecked: { backgroundColor: C.primary, borderColor: C.primary },
     footer: { flexDirection: 'row', gap: 12, padding: 20, paddingBottom: 32, backgroundColor: C.background },
     backBtn: { flex: 1, paddingVertical: 16, borderRadius: 12, borderWidth: 1, borderColor: C.divider, alignItems: 'center' },
     backBtnText: { fontSize: 16, fontWeight: '600', color: C.textPrimary },

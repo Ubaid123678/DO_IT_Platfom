@@ -473,7 +473,7 @@ export const JobCreationProvider = ({ children }: { children: ReactNode }) => {
       case 'schedule':
         return true; // Optional
       case 'requirements':
-        return state.formData.requirements.categories.length > 0;
+        return state.formData.requirements.categories.length > 0 && state.formData.requirements.skillItems.length > 0;
       case 'review':
         return true;
       default:

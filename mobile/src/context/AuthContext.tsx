@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '@/src/services/authService';
-import { api } from '@/src/services/api';
+import { api, setRefreshTokenFn } from '@/src/services/api';
 
 type UserRole = 'pending' | 'client' | 'provider' | 'admin';
 
@@ -79,6 +79,8 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     };
 
     initAuth();
+    // Register the refresh token function with the API interceptor
+    setRefreshTokenFn(refreshAccessToken);
   }, []);
 
   const login = (user: AuthUser, accessToken: string, refreshToken: string) => {

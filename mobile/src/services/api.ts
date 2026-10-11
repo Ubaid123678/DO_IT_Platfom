@@ -65,14 +65,17 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Note: AuthProvider now handles token initialization and refresh.
-// This interceptor is kept for request/response logging if needed.
-
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (token: string) => void;
   reject: (err: unknown) => void;
 }> = [];
+
+let refreshTokenFn: (() => Promise<string | null>) | null = null;
+
+export const setRefreshTokenFn = (fn: () => Promise<string | null>) => {
+  refreshTokenFn = fn;
+};
 
 const processQueue = (error: unknown, token: string | null) => {
   failedQueue.forEach((prom) => {
@@ -85,11 +88,11 @@ const processQueue = (error: unknown, token: string | null) => {
   failedQueue = [];
 };
 
-// Note: Token refresh is now handled by AuthProvider.
-// This interceptor only logs errors.
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
     // Log all errors for debugging
     console.error('[API Error]', {
       status: error.response?.status,
@@ -99,6 +102,40 @@ api.interceptors.response.use(
       data: error.response?.data,
       message: error.message,
     });
+
+    // Handle 401 errors - attempt token refresh
+    if (error.response?.status === 401 && !originalRequest._retry && refreshTokenFn) {
+      if (isRefreshing) {
+        // Wait for the ongoing refresh to complete
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const newToken = await refreshTokenFn();
+        if (newToken) {
+          processQueue(null, newToken);
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
 
     return Promise.reject(error);
   },
