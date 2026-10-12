@@ -1,6 +1,7 @@
-import { FraudRuleModel, type IFraudRule } from './fraud.model.js';
-import { FraudFlagModel, type IFraudFlag } from './fraud.model.js';
-import { FraudCaseModel, type IFraudCase } from './fraud.model.js';
+import mongoose from 'mongoose';
+import { FraudRuleModel } from './fraud.model.js';
+import { FraudFlagModel } from './fraud.model.js';
+import { FraudCaseModel } from './fraud.model.js';
 import Queue from 'bull';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -29,17 +30,17 @@ const fraudDetectionQueue = new Queue('fraud-analysis', REDIS_URL, {
   },
 });
 
-const serializeRule = (rule: IFraudRule) => {
+const serializeRule = (rule: any) => {
   const obj = rule.toJSON?.() ?? rule;
   return obj;
 };
 
-const serializeFlag = (flag: IFraudFlag) => {
+const serializeFlag = (flag: any) => {
   const obj = flag.toJSON?.() ?? flag;
   return obj;
 };
 
-const serializeCase = (caseData: IFraudCase) => {
+const serializeCase = (caseData: any) => {
   const obj = caseData.toJSON?.() ?? caseData;
   return obj;
 };
@@ -302,7 +303,7 @@ export const fraudService = {
       flag.status = 'under_review';
     }
 
-    flag.reviewedBy = adminId;
+    flag.reviewedBy = new mongoose.Types.ObjectId(adminId);
     flag.reviewedAt = new Date();
     flag.reviewNotes = input.reviewNotes;
     await flag.save();
@@ -320,7 +321,7 @@ export const fraudService = {
     return serializeFlag(flag);
   },
 
-  bulkReviewFlags: async (flagIds: string[], action: string, _reviewNotes?: string) => {
+  bulkReviewFlags: async (flagIds: string[], action: string, _reviewNotes?: string, adminId?: string) => {
     const flags = await FraudFlagModel.find({ _id: { $in: flagIds } });
 
     const results = [];
@@ -334,7 +335,7 @@ export const fraudService = {
       } else if (action === 'escalate') {
         flag.status = 'under_review';
       }
-      flag.reviewedBy = 'admin'; // Would be actual admin ID
+      if (adminId) flag.reviewedBy = new mongoose.Types.ObjectId(adminId);
       flag.reviewedAt = new Date();
       await flag.save();
       results.push(serializeFlag(flag));
@@ -456,7 +457,7 @@ export const fraudService = {
 
     await actionFn();
     flag.status = 'resolved';
-    flag.actionsTaken.push(action);
+    flag.actionsTaken.push(action as any);
     flag.resolvedAt = new Date();
     await flag.save();
 

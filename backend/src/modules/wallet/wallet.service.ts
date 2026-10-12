@@ -171,7 +171,9 @@ export const walletService = {
 
     if (existing) {
       // Return existing payment intent
-      const stripe = await stripeService.getPaymentIntent(existing.metadata.stripePaymentIntentId);
+      const piId = existing.metadata.stripePaymentIntentId;
+      if (!piId) throw new AppError('Top-up is missing its payment reference', 500, 'TOPUP_STATE_INVALID');
+      const stripe = await stripeService.getPaymentIntent(piId);
       return {
         clientSecret: stripe.client_secret,
         transactionId: existing.transactionId,
@@ -196,7 +198,7 @@ export const walletService = {
     );
 
     // Create pending transaction record
-    const transaction = await TransactionModel.create({
+    await TransactionModel.create({
       transactionId,
       userId,
       walletId: wallet._id,
@@ -334,10 +336,8 @@ export const walletService = {
       throw new AppError('Insufficient funds for escrow', 400, 'INSUFFICIENT_FUNDS');
     }
 
-    const transactionId = generateTransactionId();
     const session = await mongoose.startSession();
     session.startTransaction();
-
     try {
       const clientWalletRef = await WalletModel.findById(clientWallet._id).session(session);
       if (!clientWalletRef) throw new AppError('Client wallet not found', 404, 'WALLET_NOT_FOUND');
@@ -435,14 +435,13 @@ export const walletService = {
     if (!clientWallet) throw new AppError('Client wallet not found', 404, 'CLIENT_WALLET_NOT_FOUND');
     if (!providerWallet) throw new AppError('Provider wallet not found', 404, 'PROVIDER_WALLET_NOT_FOUND');
 
-    const totalAmount = split.providerAmount + split.platformFee + split.clientRefund;
-
     const session = await mongoose.startSession();
     session.startTransaction();
 
-try {
+    try {
       // Client: release escrow balance, refund if any
       const clientWalletRef = await WalletModel.findById(clientWallet._id).session(session);
+      if (!clientWalletRef) throw new AppError('Client wallet not found', 404, 'CLIENT_WALLET_NOT_FOUND');
       clientWalletRef.escrowBalance -= (split.providerAmount + split.platformFee + split.clientRefund);
       clientWalletRef.balance += split.clientRefund;
       clientWalletRef.availableBalance = clientWalletRef.balance - clientWalletRef.escrowBalance;
@@ -451,17 +450,36 @@ try {
 
       // Provider: receive funds
       const providerWalletRef = await WalletModel.findById(providerWallet._id).session(session);
+      if (!providerWalletRef) throw new AppError('Provider wallet not found', 404, 'PROVIDER_WALLET_NOT_FOUND');
       providerWalletRef.balance += split.providerAmount;
       providerWalletRef.availableBalance = providerWalletRef.balance - providerWalletRef.escrowBalance;
       providerWalletRef.lastTransactionAt = new Date();
       await providerWalletRef.save({ session });
 
-      // Platform: collect fee
-      const platformWalletRef = await WalletModel.findById(platformWallet._id).session(session);
-      platformWalletRef.balance += split.platformFee;
-      platformWalletRef.availableBalance = platformWalletRef.balance - platformWalletRef.escrowBalance;
-      platformWalletRef.lastTransactionAt = new Date();
-      await platformWalletRef.save({ session });
+      // Platform: collect fee (platform wallet is optional — skip crediting if not provisioned)
+      const platformWalletRef = await WalletModel.findOne({ type: 'platform' }).session(session);
+      if (platformWalletRef) {
+        platformWalletRef.balance += split.platformFee;
+        platformWalletRef.availableBalance = platformWalletRef.balance - platformWalletRef.escrowBalance;
+        platformWalletRef.lastTransactionAt = new Date();
+        await platformWalletRef.save({ session });
+      }
+
+      // Create transaction record for the escrow release
+      const transaction = await TransactionModel.create([{
+        transactionId: generateTransactionId(),
+        userId: clientWalletRef.userId,
+        walletId: clientWalletRef._id,
+        type: 'escrow_release',
+        status: 'completed',
+        amount: -split.providerAmount,
+        currency: job.budget.currency || 'USD',
+        netAmount: -split.providerAmount,
+        feeAmount: split.platformFee,
+        description: `Escrow released for job ${job.title}`,
+        metadata: { jobId, idempotencyKey },
+        completedAt: new Date(),
+      }], { session });
 
       // Create ledger entries for all parties
       const ledgerEntries: Array<{
@@ -507,18 +525,21 @@ try {
           description: `Payment received for job`,
           referenceId: job._id,
           referenceType: 'job',
-        },
-        // Platform: fee collected
-        {
+        }
+      );
+
+      // Platform: fee collected (only if platform wallet exists)
+      if (platformWalletRef) {
+        ledgerEntries.push({
           walletId: platformWalletRef._id,
-          userId: '000000000000000000000000',
+          userId: platformWalletRef.userId.toString(),
           entryType: 'credit',
           amount: split.platformFee,
           description: `Platform fee for job`,
           referenceId: job._id,
           referenceType: 'job',
-        }
-      );
+        });
+      }
 
       await createLedgerEntries(session, transaction[0]._id, ledgerEntries);
 
@@ -564,6 +585,7 @@ try {
 
     try {
       const clientWalletRef = await WalletModel.findById(clientWallet._id).session(session);
+      if (!clientWalletRef) throw new AppError('Client wallet not found', 404, 'CLIENT_WALLET_NOT_FOUND');
       clientWalletRef.escrowBalance -= amountCents;
       clientWalletRef.balance += amountCents;
       clientWalletRef.availableBalance = clientWalletRef.balance - clientWalletRef.escrowBalance;
@@ -617,6 +639,7 @@ try {
 
     try {
       const walletRef = await WalletModel.findById(providerWallet._id).session(session);
+      if (!walletRef) throw new AppError('Wallet not found', 404, 'WALLET_NOT_FOUND');
       walletRef.balance -= amountCents;
       walletRef.availableBalance = walletRef.balance - walletRef.escrowBalance;
       walletRef.lastTransactionAt = new Date();
@@ -633,7 +656,7 @@ try {
         status: 'pending',
       }], { session });
 
-      const transaction = await TransactionModel.create([{
+      await TransactionModel.create([{
         transactionId: generateTransactionId(),
         userId: providerId,
         walletId: providerWallet._id,
@@ -727,6 +750,7 @@ try {
 
     try {
       const walletRef = await WalletModel.findById(wallet._id).session(session);
+      if (!walletRef) throw new AppError('Wallet not found', 404, 'WALLET_NOT_FOUND');
       const amount = Math.abs(amountCents);
       const entryType = type === 'credit' ? 'credit' : 'debit';
 

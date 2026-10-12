@@ -1,7 +1,5 @@
 import Joi from 'joi';
 
-const objectId = Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required();
-
 export const messagingValidators = {
   createConversation: Joi.object({
     type: Joi.string().valid('direct', 'group', 'job', 'support').default('direct'),

@@ -28,7 +28,6 @@ const getUserRole = (req: AuthenticatedRequest): string => {
 export const fraudController = {
   // Fraud Rules
   createFraudRule: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const _userId = getUserId(req);
     const userRole = getUserRole(req);
     if (userRole !== 'admin') throw new AppError('Admin access required', 403, 'ADMIN_REQUIRED');
     
@@ -154,11 +153,12 @@ export const fraudController = {
 
   // Bulk review
   bulkReviewFlags: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = getUserId(req);
     const userRole = getUserRole(req);
     if (userRole !== 'admin') throw new AppError('Admin access required', 403, 'ADMIN_REQUIRED');
     
     const payload = validate(fraudValidators.bulkUpdateFlags, req.body);
-    const result = await fraudService.bulkReviewFlags(payload.flagIds, payload.action, payload.reviewNotes);
+    const result = await fraudService.bulkReviewFlags(payload.flagIds, payload.action, payload.reviewNotes, userId);
     res.status(200).json({
       success: true,
       data: result,

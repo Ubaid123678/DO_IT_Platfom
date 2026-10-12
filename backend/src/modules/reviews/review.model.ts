@@ -27,6 +27,19 @@ export interface IReview extends Document {
   helpfulCount: number;
   createdAt: Date;
   updatedAt: Date;
+  // Instance methods
+  canBeEdited(userId: string): boolean;
+  canBeFlagged(userId: string): boolean;
+  flag(userId: string, reason: string): Promise<void>;
+  moderate(adminId: string, action: 'approve' | 'remove', reason?: string): Promise<void>;
+  incrementHelpful(): Promise<void>;
+}
+
+export interface IReviewModel extends Model<IReview> {
+  findByJob(jobId: string): Promise<IReview[]>;
+  findByUser(userId: string): Promise<IReview[]>;
+  getAverageRating(userId: string): Promise<number>;
+  getRatingDistribution(userId: string): Promise<Record<string, number>>;
 }
 
 const reviewSchema = new Schema<IReview>(
@@ -134,7 +147,7 @@ reviewSchema.static('findByJob', async function (jobId: string) {
   return this.find({ jobId, status: 'published' }).sort({ createdAt: -1 });
 });
 
-reviewSchema.static('findByUser', async function (userId: string, role: 'client' | 'provider') {
+reviewSchema.static('findByUser', async function (userId: string) {
   return this.find({
     $or: [{ reviewerId: userId }, { revieweeId: userId }],
     status: 'published',
@@ -189,5 +202,5 @@ const toJSONTransform = (_doc: Document, ret: Record<string, unknown>) => {
 
 reviewSchema.set('toJSON', { transform: toJSONTransform });
 
-export const ReviewModel: Model<IReview> =
-  mongoose.models.Review || mongoose.model<IReview>('Review', reviewSchema);
+export const ReviewModel: IReviewModel =
+  (mongoose.models.Review as IReviewModel) || mongoose.model<IReview, IReviewModel>('Review', reviewSchema);

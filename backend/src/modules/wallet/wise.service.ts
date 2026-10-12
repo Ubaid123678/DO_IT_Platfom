@@ -117,7 +117,7 @@ class WiseService {
     }
   }
 
-  private async request<T>(method: string, endpoint: string, body?: any): Promise<T> {
+  private async request<T>(endpoint: string, method = 'GET', body?: any): Promise<T> {
     if (!this.credentials.apiToken) {
       throw new AppError('Wise API token not configured', 500, 'WISE_NOT_CONFIGURED');
     }
@@ -136,7 +136,7 @@ class WiseService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      const data = await response.json() as any;
 
       if (!response.ok) {
         throw new AppError(
@@ -146,7 +146,7 @@ class WiseService {
         );
       }
 
-      return data;
+      return data as T;
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError(`Wise request failed: ${error}`, 500, 'WISE_REQUEST_FAILED');
@@ -155,16 +155,16 @@ class WiseService {
 
   // Profile Management
   async getProfile(): Promise<WiseProfile> {
-    return this.request<WiseProfile>('GET', '/v1/profiles');
+    return this.request<WiseProfile>('/v1/profiles');
   }
 
   async getProfiles(): Promise<WiseProfile[]> {
-    return this.request<WiseProfile[]>('GET', '/v1/profiles');
+    return this.request<WiseProfile[]>('/v1/profiles');
   }
 
   // Recipient Management
   async createRecipient(recipient: Omit<WiseRecipient, 'id'>): Promise<WiseRecipient> {
-    return this.request<WiseRecipient>('POST', '/v1/accounts', recipient);
+    return this.request<WiseRecipient>('/v1/accounts', 'POST', recipient);
   }
 
   async getRecipient(id: number): Promise<WiseRecipient> {
@@ -177,7 +177,7 @@ class WiseService {
   }
 
   async deleteRecipient(id: number): Promise<void> {
-    await this.request<void>('DELETE', `/v1/accounts/${id}`);
+    await this.request<void>(`/v1/accounts/${id}`, 'DELETE');
   }
 
   // Quote Management
@@ -190,7 +190,7 @@ class WiseService {
     payInMethod?: string;
     payOutMethod?: string;
   }): Promise<WiseQuote> {
-    return this.request<WiseQuote>('POST', '/v1/quotes', quote);
+    return this.request<WiseQuote>('/v1/quotes', 'POST', quote);
   }
 
   async getQuote(id: number): Promise<WiseQuote> {
@@ -207,7 +207,7 @@ class WiseService {
       reference?: string;
     };
   }): Promise<WiseTransfer> {
-    return this.request<WiseTransfer>('POST', '/v1/transfers', transfer);
+    return this.request<WiseTransfer>('/v1/transfers', 'POST', transfer);
   }
 
   async getTransfer(id: number): Promise<WiseTransfer> {

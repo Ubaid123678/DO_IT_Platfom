@@ -2,7 +2,7 @@ import mongoose, { Schema, type Document, type Model } from 'mongoose';
 
 export type MessageType = 'text' | 'image' | 'file' | 'system' | 'location' | 'voice';
 export type ConversationType = 'direct' | 'group' | 'job' | 'support';
-export type MessageStatus = 'sent' | 'delivered' | 'read' | 'failed';
+export type MessageStatus = 'sent' | 'delivered' | 'read' | 'failed' | 'deleted';
 
 export interface IMessage extends Document {
   conversationId: mongoose.Types.ObjectId;
@@ -168,7 +168,7 @@ const messageSchema = new Schema<IMessage>(
     },
     status: {
       type: String,
-      enum: ['sent', 'delivered', 'read', 'failed'],
+      enum: ['sent', 'delivered', 'read', 'failed', 'deleted'],
       default: 'sent',
       index: true,
     },

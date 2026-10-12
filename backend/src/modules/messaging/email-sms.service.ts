@@ -1,6 +1,5 @@
 import nodemailer from 'nodemailer';
 import twilio from 'twilio';
-import { AppError } from '../../common/errors/AppError.js';
 
 interface EmailOptions {
   to: string | string[];
@@ -9,11 +8,6 @@ interface EmailOptions {
   text?: string;
   template?: string;
   templateData?: Record<string, any>;
-}
-
-interface SMSOptions {
-  to: string;
-  body: string;
 }
 
 interface TemplateData {
@@ -33,7 +27,7 @@ interface TemplateData {
 }
 
 class EmailService {
-  private transporter: nodemailer.Transporter | null = null;
+  private transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
   private templates: Map<string, string> = new Map();
 
   initialize() {
@@ -255,7 +249,7 @@ class EmailService {
 
     if (options.template && this.templates.has(options.template)) {
       let template = this.templates.get(options.template)!;
-      const data = { ...this.getDefaultTemplateData(), ...options.templateData };
+      const data = { ...this.getDefaultTemplateData(), ...options.templateData } as Record<string, any>;
       
       // Replace template variables
       Object.keys(data).forEach(key => {

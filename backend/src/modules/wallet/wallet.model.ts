@@ -21,31 +21,15 @@ export type LedgerEntryType = 'debit' | 'credit';
 export interface IWallet extends Document {
   userId: mongoose.Types.ObjectId;
   type: WalletType;
-  // Multi-currency balances (stored in cents)
-  balances: Map<string, number>; // currency -> amount in cents
-  // Default/base currency for the wallet
-  baseCurrency: string; // ISO 4217, default 'USD'
-  // Escrow balances per currency
-  escrowBalances: Map<string, number>; // currency -> amount in cents locked in escrow
-  // Available balances per currency (balance - escrow)
-  availableBalances: Map<string, number>; // currency -> amount in cents
+  // Balances in cents (single currency per wallet)
+  balance: number;
+  currency: string; // ISO 4217, default 'USD'
+  escrowBalance: number; // amount in cents locked in escrow
+  availableBalance: number; // balance - escrow
   isActive: boolean;
   lastTransactionAt?: Date;
   createdAt: Date;
   updatedAt: Date;
-}
-
-// Helper methods for wallet operations
-export interface IWalletMethods {
-  getBalance(currency: string): number;
-  getEscrowBalance(currency: string): number;
-  getAvailableBalance(currency: string): number;
-  setBalance(currency: string, amount: number): void;
-  addBalance(currency: string, amount: number): void;
-  deductBalance(currency: string, amount: number): void;
-  lockEscrow(currency: string, amount: number): void;
-  releaseEscrow(currency: string, amount: number): void;
-  getTotalBalanceInUSD(fxRateService: any): Promise<number>;
 }
 
 export interface ILedgerEntry extends Document {
@@ -101,11 +85,12 @@ export interface IPayout extends Document {
   currency: string; // ISO 4217
   netAmount: number; // after platform fee (in currency cents)
   feeAmount: number; // platform fee in cents (in currency)
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  status: 'pending' | 'processing' | 'scheduled' | 'completed' | 'failed' | 'cancelled';
   wiseTransferId?: string;
   wiseQuoteId?: string;
   destinationAccountId?: string;
   failureReason?: string;
+  metadata?: Record<string, unknown>;
   completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -126,13 +111,14 @@ const walletSchema = new Schema<IWallet>(
       required: true,
       default: 'user',
     },
-    // Multi-currency balances (stored as Map)
-    balances: {
-      type: Map,
-      of: Number,
-      default: {},
+    // Balances stored in cents
+    balance: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
     },
-    baseCurrency: {
+    currency: {
       type: String,
       required: true,
       default: 'USD',
@@ -140,15 +126,17 @@ const walletSchema = new Schema<IWallet>(
       minlength: 3,
       maxlength: 3,
     },
-    escrowBalances: {
-      type: Map,
-      of: Number,
-      default: {},
+    escrowBalance: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
     },
-    availableBalances: {
-      type: Map,
-      of: Number,
-      default: {},
+    availableBalance: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
     },
     isActive: {
       type: Boolean,
@@ -159,73 +147,10 @@ const walletSchema = new Schema<IWallet>(
   { timestamps: true }
 );
 
-// Static methods for multi-currency operations
-walletSchema.static('getBalance', async function (this: any, userId: string, currency: string): Promise<number> {
+// Static helper: read a user's available balance
+walletSchema.static('getAvailableBalance', async function (this: any, userId: string, _currency?: string): Promise<number> {
   const wallet = await this.findOne({ userId });
-  if (!wallet) return 0;
-  return wallet.balances.get(currency) || 0;
-});
-
-walletSchema.static('getEscrowBalance', async function (this: any, userId: string, currency: string): Promise<number> {
-  const wallet = await this.findOne({ userId });
-  if (!wallet) return 0;
-  return wallet.escrowBalances.get(currency) || 0;
-});
-
-walletSchema.static('getAvailableBalance', async function (this: any, userId: string, currency: string): Promise<number> {
-  const wallet = await this.findOne({ userId });
-  if (!wallet) return 0;
-  return wallet.availableBalances.get(currency) || 0;
-});
-
-walletSchema.static('addBalance', async function (this: any, userId: string, currency: string, amount: number): Promise<void> {
-  const wallet = await this.findOne({ userId });
-  if (!wallet) throw new Error('Wallet not found');
-  
-  const current = wallet.balances.get(currency) || 0;
-  wallet.balances.set(currency, current + amount);
-  wallet.availableBalances.set(currency, (wallet.availableBalances.get(currency) || 0) + amount);
-  wallet.lastTransactionAt = new Date();
-  await wallet.save();
-});
-
-walletSchema.static('deductBalance', async function (this: any, userId: string, currency: string, amount: number): Promise<void> {
-  const wallet = await this.findOne({ userId });
-  if (!wallet) throw new Error('Wallet not found');
-  
-  const current = wallet.balances.get(currency) || 0;
-  if (current < amount) throw new Error('Insufficient balance');
-  
-  wallet.balances.set(currency, current - amount);
-  wallet.availableBalances.set(currency, (wallet.availableBalances.get(currency) || 0) - amount);
-  wallet.lastTransactionAt = new Date();
-  await wallet.save();
-});
-
-walletSchema.static('lockEscrow', async function (this: any, userId: string, currency: string, amount: number): Promise<void> {
-  const wallet = await this.findOne({ userId });
-  if (!wallet) throw new Error('Wallet not found');
-  
-  const available = wallet.availableBalances.get(currency) || 0;
-  if (available < amount) throw new Error('Insufficient available balance');
-  
-  wallet.escrowBalances.set(currency, (wallet.escrowBalances.get(currency) || 0) + amount);
-  wallet.availableBalances.set(currency, available - amount);
-  wallet.lastTransactionAt = new Date();
-  await wallet.save();
-});
-
-walletSchema.static('releaseEscrow', async function (this: any, userId: string, currency: string, amount: number): Promise<void> {
-  const wallet = await this.findOne({ userId });
-  if (!wallet) throw new Error('Wallet not found');
-  
-  const escrow = wallet.escrowBalances.get(currency) || 0;
-  if (escrow < amount) throw new Error('Insufficient escrow balance');
-  
-  wallet.escrowBalances.set(currency, escrow - amount);
-  wallet.availableBalances.set(currency, (wallet.availableBalances.get(currency) || 0) + amount);
-  wallet.lastTransactionAt = new Date();
-  await wallet.save();
+  return wallet?.availableBalance || 0;
 });
 
 walletSchema.index({ userId: 1, type: 1 });
@@ -417,7 +342,7 @@ const payoutSchema = new Schema<IPayout>(
     },
     status: {
       type: String,
-      enum: ['pending', 'processing', 'completed', 'failed', 'cancelled'],
+      enum: ['pending', 'processing', 'scheduled', 'completed', 'failed', 'cancelled'],
       default: 'pending',
       required: true,
       index: true,
@@ -426,6 +351,7 @@ const payoutSchema = new Schema<IPayout>(
     wiseQuoteId: { type: String, trim: true },
     destinationAccountId: { type: String, trim: true },
     failureReason: { type: String, trim: true, maxlength: 500 },
+    metadata: { type: Schema.Types.Mixed, default: {} },
     completedAt: { type: Date },
   },
   { timestamps: true }

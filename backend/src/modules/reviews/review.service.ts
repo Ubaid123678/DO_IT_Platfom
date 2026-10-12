@@ -95,7 +95,7 @@ export const reviewService = {
 
     // Verify reviewee is the other party
     const expectedRevieweeId = isClient ? job.provider.providerId : job.client.clientId;
-    if (revieweeId !== expectedRevieweeId.toString()) {
+    if (!expectedRevieweeId || revieweeId !== expectedRevieweeId.toString()) {
       throw new AppError('Invalid reviewee', 400, 'INVALID_REVIEWEE');
     }
 
@@ -310,17 +310,5 @@ export const reviewService = {
 
   getRatingDistribution: async (revieweeId: string) => {
     return ReviewModel.getRatingDistribution(revieweeId);
-  },
-
-  markHelpful: async (reviewId: string, userId: string) => {
-    const review = await ReviewModel.findById(reviewId);
-    if (!review) throw new AppError('Review not found', 404, 'REVIEW_NOT_FOUND');
-
-    if (review.revieweeId.toString() === userId) {
-      throw new AppError('Cannot mark your own review as helpful', 400, 'CANNOT_MARK_OWN');
-    }
-
-    await review.incrementHelpful();
-    return serializeReview(review);
   },
 };

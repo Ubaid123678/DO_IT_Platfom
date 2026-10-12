@@ -8,20 +8,6 @@ interface FxRate {
   source: 'wise' | 'stripe' | 'exchangerate' | 'manual';
 }
 
-interface FxRateCache {
-  [pair: string]: FxRate;
-}
-
-interface FxConversionResult {
-  sourceAmount: number;
-  sourceCurrency: string;
-  targetAmount: number;
-  targetCurrency: string;
-  rate: number;
-  fee: number;
-  timestamp: Date;
-}
-
 class FxRateService {
   private cache: Map<string, FxRate> = new Map();
   private cacheTTL: number = 1000 * 60 * 60; // 1 hour default TTL
@@ -93,7 +79,7 @@ class FxRateService {
       throw new Error(`Wise API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     if (!data || !data[0]?.rate) {
       throw new Error('Invalid Wise rate response');
     }
@@ -110,7 +96,7 @@ class FxRateService {
       throw new Error(`exchangerate.host error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     if (!data.rates?.[target]) {
       throw new Error(`Rate not found for ${base}/${target}`);
     }
@@ -215,7 +201,7 @@ class FxRateService {
         throw new Error(`Historical rate fetch failed: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
       if (!data.rates?.[target]) {
         throw new Error(`Historical rate not found`);
       }

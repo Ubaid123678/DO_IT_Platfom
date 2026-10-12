@@ -1,8 +1,6 @@
 import Joi from 'joi';
 
 const objectId = Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required();
-const transactionId = Joi.string().pattern(/^TXN_[A-Za-z0-9]{12,}$/).optional();
-const payoutId = Joi.string().pattern(/^PAYOUT_[A-Za-z0-9]{12,}$/).optional();
 
 export const walletValidators = {
   createTopUp: Joi.object({

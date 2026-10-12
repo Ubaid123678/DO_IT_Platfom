@@ -6,6 +6,7 @@ import { walletService } from './wallet.service.js';
 import { payoutSchedulerService } from './payout-scheduler.service.js';
 import { wiseService } from './wise.service.js';
 import { stripeConnectService } from './stripe-connect.service.js';
+import { PayoutModel } from './wallet.model.js';
 import { walletValidators } from './wallet.validation.js';
 
 const validate = <T>(
@@ -49,10 +50,10 @@ export const payoutController = {
   // Get payout history
   getPayoutHistory: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = getUserId(req);
-    // TODO: Implement pagination
+    const result = await walletService.getPayoutHistory(userId);
     res.status(200).json({
       success: true,
-      data: { payouts: [], total: 0 },
+      data: result,
       meta: { message: 'Payout history fetched successfully' },
     });
   }),
@@ -112,7 +113,6 @@ export const payoutController = {
     }
 
     // Reset status to scheduled for retry
-    const { PayoutModel } = await import('./payout.model.js');
     await PayoutModel.findByIdAndUpdate(payout._id, {
       status: 'scheduled',
       'metadata.scheduledAt': new Date().toISOString(),
@@ -155,7 +155,6 @@ export const payoutController = {
 
   // Create account link for onboarding
   createAccountLink: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = getUserId(req);
     const userRole = getUserRole(req);
 
     if (userRole !== 'provider') {
@@ -177,7 +176,6 @@ export const payoutController = {
 
   // Get Stripe Connect account status
   getConnectAccountStatus: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = getUserId(req);
     const userRole = getUserRole(req);
 
     if (userRole !== 'provider') {
@@ -210,7 +208,6 @@ export const payoutController = {
 
   // Create login link for Connect dashboard
   createLoginLink: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = getUserId(req);
     const userRole = getUserRole(req);
 
     if (userRole !== 'provider') {
@@ -231,9 +228,7 @@ export const payoutController = {
   }),
 
   // Wise recipient management
-  createWiseRecipient: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = getUserId(req);
-    const payload = req.body;
+  createWiseRecipient: asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
     // Validate and create recipient
     // This would use wiseService.createRecipient
     res.status(201).json({
@@ -257,23 +252,6 @@ export const payoutController = {
       success: true,
       data: { rate, source, target, timestamp: new Date() },
       meta: { message: 'Exchange rate fetched' },
-    });
-  }),
-
-  // Convert currency
-  convertCurrency: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { amount, sourceCurrency, targetCurrency } = req.body;
-    if (!amount || !sourceCurrency || !targetCurrency) {
-      throw new AppError('amount, sourceCurrency, and targetCurrency are required', 400, 'VALIDATION_ERROR');
-    }
-
-    const { fxRateService } = await import('./fx-rate.service.js');
-    const result = await fxRateService.convert(amount, sourceCurrency, targetCurrency);
-    
-    res.status(200).json({
-      success: true,
-      data: result,
-      meta: { message: 'Currency converted' },
     });
   }),
 
@@ -325,7 +303,9 @@ export const payoutController = {
 
     let event;
     try {
-      event = wiseService.verifyWebhookSignature(JSON.stringify(req.body), signature, webhookSecret);
+      const verified = wiseService.verifyWebhookSignature(JSON.stringify(req.body), signature, webhookSecret);
+      if (!verified) throw new AppError('Invalid signature', 400, 'INVALID_WEBHOOK_SIGNATURE');
+      event = wiseService.parseWebhookEvent(JSON.stringify(req.body));
     } catch (error) {
       throw new AppError('Webhook signature verification failed', 400, 'INVALID_WEBHOOK_SIGNATURE');
     }

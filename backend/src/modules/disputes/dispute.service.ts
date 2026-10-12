@@ -403,5 +403,7 @@ const routeEscrowByVerdict = async (dispute: IDispute, verdict: IVerdict) => {
     'escrow_refunded': 'client_wins',
   };
   job.dispute.resolution = resolutionMap[verdict.resolution] || 'client_wins';
+  // Resolved dispute is a terminal job state (disputed -> resolved).
+  job.status = 'resolved';
   await job.save();
 };

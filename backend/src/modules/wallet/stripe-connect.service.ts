@@ -1,112 +1,11 @@
 import Stripe from 'stripe';
-import { AppError } from '../../common/errors/AppError.js';
 
-interface StripeConnectAccount {
-  id: string;
-  email: string;
-  country: string;
-  default_currency: string;
-  capabilities: {
-    transfers: { requested: boolean; pending?: boolean };
-    card_payments?: { requested: boolean; pending?: boolean };
-  };
-  business_type: 'individual' | 'company';
-  business_profile?: {
-    name?: string;
-    url?: string;
-    mcc?: string;
-    support_email?: string;
-    support_phone?: string;
-  };
-  individual?: {
-    first_name?: string;
-    last_name?: string;
-    email?: string;
-    phone?: string;
-    address?: {
-      line1: string;
-      line2?: string;
-      city: string;
-      state: string;
-      postal_code: string;
-      country: string;
-    };
-    dob?: {
-      day: number;
-      month: number;
-      year: number;
-    };
-    verification?: {
-      details?: string;
-      details_code?: string;
-      document?: string;
-      status: 'pending' | 'verified' | 'failed';
-    };
-  };
-  external_accounts?: {
-    data: Array<{
-      id: string;
-      object: 'bank_account' | 'card';
-      bank_name?: string;
-      last4?: string;
-      currency: string;
-      status: 'new' | 'validated' | 'verified' | 'verification_failed' | 'errored';
-    }>;
-  };
-  requirements?: {
-    current_deadline?: number;
-    currently_due: string[];
-    eventually_due: string[];
-    past_due: string[];
-    pending_verification: string[];
-    disabled_reason?: string;
-  };
-  settings?: {
-    payouts: {
-      schedule: {
-        interval: 'manual' | 'daily' | 'weekly' | 'monthly';
-        delay_days?: number;
-      };
-    };
-  };
-}
-
-interface StripeAccountLink {
-  object: 'account_link';
-  created: number;
-  expires_at: number;
-  url: string;
-}
-
-interface StripeLoginLink {
-  object: 'login_link';
-  created: number;
-  url: string;
-}
-
-interface StripePayout {
-  id: string;
-  object: 'payout';
-  amount: number;
-  currency: string;
-  arrival_date: number;
-  status: 'paid' | 'pending' | 'in_transit' | 'canceled' | 'failed';
-  destination: string;
-  failure_code?: string;
-  failure_message?: string;
-  method: 'standard' | 'instant';
-  source_type: 'bank_account' | 'card';
-  statement_descriptor?: string;
-}
-
-interface StripeWebhookEvent {
-  id: string;
-  type: string;
-  data: {
-    object: any;
-  };
-  created: number;
-}
+// Stripe SDK types are the source of truth here.
+type StripeConnectAccount = Stripe.Account;
+type StripeAccountLink = Stripe.AccountLink;
+type StripeLoginLink = Stripe.LoginLink;
+type StripePayout = Stripe.Payout;
+type StripeWebhookEvent = Stripe.Event;
 
 class StripeConnectService {
   private stripe: Stripe;
@@ -168,7 +67,7 @@ class StripeConnectService {
 
   async updateAccount(
     accountId: string,
-    updates: Partial<StripeConnectAccount>
+    updates: Stripe.AccountUpdateParams
   ): Promise<StripeConnectAccount> {
     return this.stripe.accounts.update(accountId, updates);
   }
@@ -232,12 +131,7 @@ class StripeConnectService {
     });
   }
 
-  async listPayouts(accountId: string, params?: {
-    limit?: number;
-    status?: string;
-    created_after?: number;
-    created_before?: number;
-  }): Promise<StripePayout[]> {
+  async listPayouts(accountId: string, params?: Stripe.PayoutListParams): Promise<StripePayout[]> {
     const payouts = await this.stripe.payouts.list(params, {
       stripeAccount: accountId,
     });
@@ -264,7 +158,7 @@ class StripeConnectService {
       currentDue: account.requirements?.currently_due || [],
       eventuallyDue: account.requirements?.eventually_due || [],
       pastDue: account.requirements?.past_due || [],
-      disabledReason: account.requirements?.disabled_reason,
+      disabledReason: account.requirements?.disabled_reason ?? undefined,
     };
   }
 }

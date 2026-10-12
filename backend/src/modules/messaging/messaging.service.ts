@@ -1,26 +1,22 @@
 import { AppError } from '../../common/errors/AppError.js';
-import { MessageModel, type IMessage, type IConversation, type MessageType, type ConversationType, type MessageStatus } from './message.model.js';
+import { MessageModel, type IMessage, type IConversation, type MessageType, type ConversationType } from './message.model.js';
 import { ConversationModel } from './message.model.js';
 import { NotificationModel, type INotification, type NotificationType, type NotificationChannel } from './message.model.js';
 import UserModel from '../auth/auth.model.js';
-import { JobModel } from '../jobs/job.model.js';
-import { ProposalModel } from '../proposals/proposal.model.js';
 import { socketService } from './socket.service.js';
-import { fcmService } from './fcm.service.js';
-import { emailService } from './email-sms.service.js';
 import mongoose from 'mongoose';
 
-const serializeConversation = (conversation: IConversation) => {
+const serializeConversation = (conversation: any) => {
   const obj = conversation.toJSON?.() ?? conversation;
   return obj;
 };
 
-const serializeMessage = (message: IMessage) => {
+const serializeMessage = (message: any) => {
   const obj = message.toJSON?.() ?? message;
   return obj;
 };
 
-const serializeNotification = (notification: INotification) => {
+const serializeNotification = (notification: any) => {
   const obj = notification.toJSON?.() ?? notification;
   return obj;
 };
@@ -38,6 +34,7 @@ interface CreateConversationInput {
 interface SendMessageInput {
   conversationId: string;
   senderId: string;
+  receiverId?: string;
   type: MessageType;
   content: string;
   metadata?: {
@@ -96,8 +93,6 @@ interface GetNotificationsParams {
   sortBy?: 'createdAt' | 'sentAt' | 'readAt';
   sortOrder?: 'asc' | 'desc';
 }
-
-const generateConversationId = () => new mongoose.Types.ObjectId().toString();
 
 export const messagingService = {
   // Conversations
@@ -331,15 +326,15 @@ export const messagingService = {
     socketService.emitToConversation(message.conversationId.toString(), 'message_deleted', {
       messageId: message._id.toString(),
       conversationId: message.conversationId.toString(),
-      deletedForEveryone,
+      deletedForEveryone: deleteForEveryone,
     });
   },
 
-  markAsRead: async (conversationId: string, userId: string, messageIds?: string[]): Promise<void> => {
+  markAsRead: async (conversationId: string, userId: string, messageIdsInput?: string[]): Promise<void> => {
     const conversation = await ConversationModel.findOne({ _id: conversationId, participants: userId });
     if (!conversation) throw new AppError('Conversation not found', 404, 'CONVERSATION_NOT_FOUND');
 
-    const messageIds = messageIds || (await MessageModel.find({ conversationId, readAt: { $exists: false }, senderId: { $ne: userId } }).distinct('_id'));
+    const messageIds = messageIdsInput || (await MessageModel.find({ conversationId, readAt: { $exists: false }, senderId: { $ne: userId } }).distinct('_id'));
     
     if (messageIds.length > 0) {
       await MessageModel.updateMany(
@@ -425,7 +420,7 @@ export const messagingService = {
     };
   },
 
-  markAsRead: async (notificationId: string, userId: string): Promise<INotification> => {
+  markNotificationAsRead: async (notificationId: string, userId: string): Promise<INotification> => {
     const notification = await NotificationModel.findOneAndUpdate(
       { _id: notificationId, userId },
       { status: 'read', readAt: new Date(), 'channelsStatus.in_app.read': true, 'channelsStatus.in_app.readAt': new Date() },

@@ -1,7 +1,7 @@
-import admin from 'firebase-admin';
-import { AppError } from '../../common/errors/AppError.js';
+import { initializeApp, cert, type App } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 
-let firebaseApp: admin.app.App | null = null;
+let firebaseApp: App | null = null;
 
 export const fcmService = {
   initialize: () => {
@@ -15,8 +15,8 @@ export const fcmService = {
 
     try {
       const serviceAccountObj = JSON.parse(serviceAccount);
-      firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccountObj),
+      firebaseApp = initializeApp({
+        credential: cert(serviceAccountObj),
       });
       console.log('Firebase Admin initialized');
       return firebaseApp;
@@ -33,7 +33,7 @@ export const fcmService = {
     if (!firebaseApp) {
       throw new Error('Firebase Admin not initialized');
     }
-    return firebaseApp.messaging();
+    return getMessaging(firebaseApp);
   },
 
   sendToToken: async (token: string, notification: {
@@ -158,29 +158,6 @@ export const fcmService = {
     } catch (error) {
       console.error('FCM unsubscribe error:', error);
       throw new Error(`FCM unsubscribe failed: ${error}`);
-    }
-  },
-
-  sendToDeviceGroup: async (notificationKey: string, notification: {
-    title: string;
-    body: string;
-    imageUrl?: string;
-  }, data?: Record<string, string>) => {
-    const messaging = fcmService.getMessaging();
-    try {
-      const response = await messaging.send({
-        notification_key: notificationKey,
-        notification: {
-          title: notification.title,
-          body: notification.body,
-          imageUrl: notification.imageUrl,
-        },
-        data: data || {},
-      });
-      return response;
-    } catch (error) {
-      console.error('FCM device group send error:', error);
-      throw new Error(`FCM device group send failed: ${error}`);
     }
   },
 };

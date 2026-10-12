@@ -287,6 +287,6 @@ const fraudFlagSchemaTransform = (_doc: Document, ret: Record<string, unknown>) 
 fraudFlagSchema.set('toJSON', { transform: fraudFlagSchemaTransform });
 fraudCaseSchema.set('toJSON', { transform: toJSONTransform });
 
-export const FraudRuleModel = mongoose.models.FraudRule || mongoose.model('FraudRule', fraudRuleSchema);
-export const FraudFlagModel = mongoose.models.FraudFlag || mongoose.model('FraudFlag', fraudFlagSchema);
-export const FraudCaseModel = mongoose.models.FraudCase || mongoose.model('FraudCase', fraudCaseSchema);
+export const FraudRuleModel: Model<IFraudRule> = mongoose.models.FraudRule || mongoose.model<IFraudRule>('FraudRule', fraudRuleSchema);
+export const FraudFlagModel: Model<IFraudFlag> = mongoose.models.FraudFlag || mongoose.model<IFraudFlag>('FraudFlag', fraudFlagSchema);
+export const FraudCaseModel: Model<IFraudCase> = mongoose.models.FraudCase || mongoose.model<IFraudCase>('FraudCase', fraudCaseSchema);

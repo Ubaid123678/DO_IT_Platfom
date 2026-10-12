@@ -1,13 +1,8 @@
-import { Server as SocketIOServer, Socket } from 'socket.io';
+import { Server as SocketIOServer } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
 import jwt from 'jsonwebtoken';
 import { AppError } from '../../common/errors/AppError.js';
-
-interface AuthenticatedSocket extends Socket {
-  userId?: string;
-  userRole?: string;
-}
 
 interface ServerToClientEvents {
   new_message: (message: any) => void;
@@ -39,7 +34,6 @@ interface ServerToClientEvents {
   review_moderated: (review: any) => void;
   payout_status_changed: (payout: any) => void;
   wallet_updated: (wallet: any) => void;
-  payout_status_changed: (payout: any) => void;
   system_announcement: (announcement: any) => void;
   user_online: (userId: string) => void;
   user_offline: (userId: string) => void;
@@ -130,8 +124,6 @@ export const socketService = {
     io.on('connection', (socket: any) => {
       const userId = socket.data.userId;
       const userRole = socket.data.userRole;
-      const userName = socket.data.userName;
-      const userAvatar = socket.data.userAvatar;
 
       console.log(`User connected: ${userId} (${userRole})`);
 
@@ -186,6 +178,7 @@ export const socketService = {
       socket.on('delete_message', async (data: { messageId: string; deleteForEveryone: boolean }) => {
         io!.to(`conversation:*`).emit('message_deleted', {
           messageId: data.messageId,
+          conversationId: '*',
           deletedForEveryone: data.deleteForEveryone,
         });
       });
@@ -243,7 +236,7 @@ export const socketService = {
         });
       });
 
-      socket.on('mark_notification_read', (notificationId: string) => {
+      socket.on('mark_notification_read', (_notificationId: string) => {
         // Handle notification read
       });
 
@@ -251,12 +244,12 @@ export const socketService = {
         // Handle mark all as read
       });
 
-      socket.on('dismiss_notification', (notificationId: string) => {
+      socket.on('dismiss_notification', (_notificationId: string) => {
         // Handle dismiss notification
       });
 
       // Track online status
-      socket.on('disconnect', (reason) => {
+      socket.on('disconnect', (reason: string) => {
         console.log(`User disconnected: ${userId} (${reason})`);
         
         // Broadcast offline status
@@ -296,19 +289,19 @@ export const socketService = {
     return io;
   },
 
-  emitToUser: (userId: string, event: string, data: any) => {
+  emitToUser: (userId: string, event: keyof ServerToClientEvents, data: any) => {
     io!.to(`user:${userId}`).emit(event, data);
   },
 
-  emitToConversation: (conversationId: string, event: string, data: any) => {
+  emitToConversation: (conversationId: string, event: keyof ServerToClientEvents, data: any) => {
     io!.to(`conversation:${conversationId}`).emit(event, data);
   },
 
-  emitToRole: (role: string, event: string, data: any) => {
+  emitToRole: (role: string, event: keyof ServerToClientEvents, data: any) => {
     io!.to(`role:${role}`).emit(event, data);
   },
 
-  broadcast: (event: string, data: any) => {
+  broadcast: (event: keyof ServerToClientEvents, data: any) => {
     io!.emit(event, data);
   },
 
@@ -338,24 +331,20 @@ export const socketService = {
     io!.to(`user:${userId}`).emit('new_notification', notification);
   },
 
-  sendToConversation: (conversationId: string, event: string, data: any) => {
+  sendToConversation: (conversationId: string, event: keyof ServerToClientEvents, data: any) => {
     io!.to(`conversation:${conversationId}`).emit(event, data);
   },
 
-  emitJobEvent: (jobId: string, event: string, data: any) => {
+  emitJobEvent: (jobId: string, event: keyof ServerToClientEvents, data: any) => {
     io!.to(`job:${jobId}`).emit(event, data);
   },
 
-  emitProposalEvent: (proposalId: string, event: string, data: any) => {
+  emitProposalEvent: (proposalId: string, event: keyof ServerToClientEvents, data: any) => {
     io!.to(`proposal:${proposalId}`).emit(event, data);
   },
 
-  emitDisputeEvent: (disputeId: string, event: string, data: any) => {
+  emitDisputeEvent: (disputeId: string, event: keyof ServerToClientEvents, data: any) => {
     io!.to(`dispute:${disputeId}`).emit(event, data);
-  },
-
-  emitToRole: (role: string, event: string, data: any) => {
-    io!.to(`role:${role}`).emit(event, data);
   },
 
   shutdown: async () => {
