@@ -196,12 +196,13 @@ export const authController = {
     }
 
     const payload = validate(authValidators.updateMe, req.body);
-    const user = await authService.updateMe(req.auth.userId, payload);
+    const result = await authService.updateMe(req.auth.userId, payload);
 
     res.status(200).json({
       success: true,
       data: {
-        user,
+        user: result.user,
+        ...(result.accessToken ? { accessToken: result.accessToken, refreshToken: result.refreshToken } : {}),
       },
       meta: {
         message: 'Profile updated successfully.',

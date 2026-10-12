@@ -49,6 +49,7 @@ export const authValidators = {
     fullName: Joi.string().trim().min(2).max(120),
     role: Joi.string().valid('client', 'provider'),
     clientProfile: Joi.object({
+      fullName: Joi.string().trim().min(2).max(120),
       bio: Joi.string().allow('').max(500),
       city: Joi.string().allow('').max(120),
       languages: Joi.array().items(Joi.object({

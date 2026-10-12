@@ -259,6 +259,17 @@ userSchema.index({ track: 1, createdAt: -1 });
 userSchema.index({ emailVerified: 1, phoneVerified: 1, createdAt: -1 });
 userSchema.index({ createdAt: -1 });
 
+// Client profile is "complete" when the fields a client must provide are filled.
+// Derived at read time so it can never drift from the real data (no sentinel).
+const isClientProfileComplete = (profile: Record<string, any> | undefined): boolean => {
+  if (!profile) return false;
+  const hasName = typeof profile.fullName === 'string' && profile.fullName.trim().length >= 2;
+  const hasCity = typeof profile.city === 'string' && profile.city.trim().length > 0;
+  const hasBio = typeof profile.bio === 'string' && profile.bio.trim().length > 0;
+  const hasLanguages = Array.isArray(profile.languages) && profile.languages.length > 0;
+  return Boolean(hasName && hasCity && hasBio && hasLanguages);
+};
+
 userSchema.set('toJSON', {
   transform: (_doc, ret: Record<string, unknown>) => {
     delete ret.passwordHash;
@@ -266,6 +277,14 @@ userSchema.set('toJSON', {
     delete ret.phoneOtp;
     delete ret.passwordResetToken;
     delete ret.passwordResetExpiresAt;
+    // Derive per-role completion flags used by the mobile gates. Always emit
+    // client_profile so clients created before the field existed still get it.
+    const clientProfile = (ret.client_profile as Record<string, any> | undefined) ?? {};
+    ret.client_profile = {
+      ...clientProfile,
+      fullName: clientProfile.fullName ?? ret.fullName,
+      completed: isClientProfileComplete({ ...clientProfile, fullName: clientProfile.fullName ?? ret.fullName }),
+    };
     return ret;
   },
 });

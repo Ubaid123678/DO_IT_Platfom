@@ -440,12 +440,17 @@ export const authService = {
     return user;
   },
 
-  updateMe: async (userId: string, input: UpdateProfileInput): Promise<IUser> => {
+  updateMe: async (
+    userId: string,
+    input: UpdateProfileInput,
+  ): Promise<{ user: IUser; accessToken?: string; refreshToken?: string }> => {
     const user = await UserModel.findById(userId);
 
     if (!user) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
+
+    const roleChanged = input.role !== undefined && input.role !== user.role;
 
     if (input.fullName !== undefined) {
       user.fullName = input.fullName;
@@ -472,6 +477,14 @@ export const authService = {
       },
     });
 
-    return user;
+    // The role lives inside the access-token claims. If it changed, the old
+    // token is stale and role-gated routes (e.g. avatar upload) would 403, so
+    // mint fresh tokens for the client to store.
+    if (roleChanged) {
+      const tokens = buildAuthTokens(user);
+      return { user, ...tokens };
+    }
+
+    return { user };
   },
 };

@@ -354,14 +354,16 @@ describe('Auth API HTTP Integration', () => {
     });
 
     mockedAuthService.updateMe.mockResolvedValue({
-      id: 'user_2',
-      fullName: 'Updated Me User',
-      email: 'me@example.com',
-      phone: '+923009999999',
-      role: 'client',
-      countryCode: 'PK',
-      emailVerified: true,
-      phoneVerified: true,
+      user: {
+        id: 'user_2',
+        fullName: 'Updated Me User',
+        email: 'me@example.com',
+        phone: '+923009999999',
+        role: 'client',
+        countryCode: 'PK',
+        emailVerified: true,
+        phoneVerified: true,
+      },
     });
 
     const meResponse = await request(app).get('/api/v1/auth/me').set('Authorization', `Bearer ${accessToken}`);
