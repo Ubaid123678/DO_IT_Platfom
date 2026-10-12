@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Touchable
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useJobCreation } from '@/src/context/JobCreationContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
@@ -42,10 +43,39 @@ export default function JobScheduleStep() {
   };
 
   const handleDateSelect = (date: Date, field: 'startsAt' | 'endsAt') => {
-    const isoString = date.toISOString().split('T')[0];
+    const isoString = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
     dispatch({ type: 'UPDATE_NESTED_FORM', section: 'schedule', field, value: isoString });
+
+    const day = DAYS[date.getDay() === 0 ? 6 : date.getDay() - 1];
+    if (!preferredDays.includes(day)) {
+      dispatch({
+        type: 'UPDATE_NESTED_FORM',
+        section: 'schedule',
+        field: 'preferredDays',
+        value: [...preferredDays, day],
+      });
+    }
+  };
+
+  const handlePickerValueChange = (_event: DateTimePickerEvent, date?: Date) => {
+    if (!date || !showDatePicker) {
+      setShowDatePicker(null);
+      return;
+    }
+
+    handleDateSelect(date, showDatePicker === 'start' ? 'startsAt' : 'endsAt');
     setShowDatePicker(null);
   };
+
+  const selectedPickerDate = showDatePicker === 'end' && endsAt
+    ? new Date(`${endsAt}T12:00:00`)
+    : showDatePicker === 'start' && startsAt
+      ? new Date(`${startsAt}T12:00:00`)
+      : new Date();
 
   const toggleDay = (day: string) => {
     const next = preferredDays.includes(day)
@@ -179,26 +209,15 @@ export default function JobScheduleStep() {
         </TouchableOpacity>
       </View>
 
-      {/* Date Picker Modal */}
       {showDatePicker && (
-        <View style={styles.modalOverlay} onTouchStart={() => setShowDatePicker(null)}>
-          <View style={styles.modalContent} onTouchStart={() => {}}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{showDatePicker === 'start' ? 'Select Start Date' : 'Select End Date'}</Text>
-              <TouchableOpacity onPress={() => setShowDatePicker(null)}>
-                <Ionicons name="close" size={24} color={C.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.datePickerContainer}>
-              <Text style={styles.datePickerPlaceholder}>
-                Date picker would be implemented with react-native-date-picker
-              </Text>
-              <TouchableOpacity style={styles.modalDoneBtn} onPress={() => setShowDatePicker(null)}>
-                <Text style={styles.modalDoneBtnText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+        <DateTimePicker
+          mode="date"
+          value={selectedPickerDate}
+          display="default"
+          minimumDate={showDatePicker === 'end' && startsAt ? new Date(`${startsAt}T12:00:00`) : undefined}
+          onValueChange={handlePickerValueChange}
+          onDismiss={() => setShowDatePicker(null)}
+        />
       )}
     </SafeAreaViewCompat>
   );
@@ -240,12 +259,4 @@ const makeStyles = (C: AppColors) =>
     backBtnText: { fontSize: 16, fontWeight: '600', color: C.textPrimary },
     nextBtn: { flex: 1, paddingVertical: 16, borderRadius: 12, backgroundColor: C.primary, alignItems: 'center' },
     nextBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-    modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    modalContent: { backgroundColor: C.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '60%' },
-    modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: C.divider },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary },
-    datePickerContainer: { padding: 20, alignItems: 'center' },
-    datePickerPlaceholder: { fontSize: 16, color: C.textHint, marginBottom: 20 },
-    modalDoneBtn: { paddingHorizontal: 32, paddingVertical: 12, backgroundColor: C.primary, borderRadius: 12 },
-    modalDoneBtnText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   });

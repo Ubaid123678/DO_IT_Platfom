@@ -78,9 +78,9 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
     };
 
-    initAuth();
     // Register the refresh token function with the API interceptor
     setRefreshTokenFn(refreshAccessToken);
+    initAuth();
   }, []);
 
   const login = (user: AuthUser, accessToken: string, refreshToken: string) => {

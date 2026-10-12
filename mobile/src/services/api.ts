@@ -59,11 +59,15 @@ const isFormData = (data: unknown): boolean =>
     (data !== null && typeof data === 'object' && (data as Record<string, unknown>).constructor?.name === 'FormData'));
 
 api.interceptors.request.use(async (config) => {
+  const isRefreshRequest = config.url?.includes('/auth/refresh-token') === true;
   const hasExplicitAuthorization = Boolean(config.headers?.Authorization);
   const storedAccessToken = hasExplicitAuthorization ? null : await AsyncStorage.getItem('accessToken');
-  if (storedAccessToken) {
+  if (storedAccessToken && !isRefreshRequest) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${storedAccessToken}`;
+  }
+  if (isRefreshRequest && config.headers) {
+    delete config.headers.Authorization;
   }
 
   if (!isFormData(config.data)) {

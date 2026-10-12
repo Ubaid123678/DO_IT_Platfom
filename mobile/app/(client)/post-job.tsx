@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, View, BackHandler, Text } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useJobCreation } from '@/src/context/JobCreationContext';
 import { jobService } from '@/src/services/jobService';
@@ -92,6 +91,3 @@ export default function PostJobScreen() {
 
   return <StepComponent />;
 }
-
-import { useState } from 'react';
-import { Text } from 'react-native';

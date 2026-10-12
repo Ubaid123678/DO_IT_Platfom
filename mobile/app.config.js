@@ -18,6 +18,9 @@ module.exports = ({ config }) => {
       ...config.extra,
       mapTilerKey,
     },
+    plugins: [
+      ...(config.plugins || []),
+      '@react-native-community/datetimepicker',
+    ],
   };
 };
-    
