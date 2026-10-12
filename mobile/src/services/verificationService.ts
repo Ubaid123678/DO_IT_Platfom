@@ -31,6 +31,7 @@ export interface VerificationRecord {
   skill_item_id: string | null;
   skill_item?: string | null;
   evidence_type: string;
+  evidence_payload?: Record<string, any>;
   status: 'draft' | 'pending_review' | 'scheduled' | 'auto_approved' | 'approved' | 'rejected' | 'expired';
   sla_due_at?: string;
   rejection_reason?: string;

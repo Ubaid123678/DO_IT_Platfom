@@ -81,14 +81,38 @@ export default function ProviderProfileScreen() {
     const loadProfile = async () => {
       setLoading(true);
       try {
-        const [profileRes, walletRes, jobStatsRes, reviewStatsRes, ratingDistRes, myReviewsRes] = await Promise.allSettled([
+        const [profileRes, walletRes, jobStatsRes, reviewStatsRes, ratingDistRes, myReviewsRes, verifStatusRes, recordsRes] = await Promise.allSettled([
           verificationService.getProfile(),
           walletService.getWalletStats(),
           jobService.getProviderJobStats(),
           reviewService.getReviewStats('current'),
           reviewService.getRatingDistribution('current'),
           reviewService.getMyReviews({ limit: 5 }),
+          verificationService.getVerificationStatus(),
+          verificationService.getVerificationRecords(),
         ]);
+
+        // Real verified service categories (names), not track-data guesses.
+        const verifiedCategoryNames: string[] = [];
+        if (verifStatusRes.status === 'fulfilled') {
+          for (const c of verifStatusRes.value.categories ?? []) {
+            if (c.status === 'verified' && c.category_name) verifiedCategoryNames.push(c.category_name);
+          }
+        }
+
+        // Portfolio = work photos submitted during category verification +
+        // any explicit portfolio images stored on the profile.
+        const portfolioFromEvidence: string[] = [];
+        if (recordsRes.status === 'fulfilled') {
+          for (const rec of recordsRes.value ?? []) {
+            const payload = rec.evidence_payload ?? {};
+            const photos = Array.isArray(payload.photos) ? payload.photos : [];
+            for (const p of photos) {
+              const uri = typeof p === 'string' ? p : p?.uri;
+              if (uri) portfolioFromEvidence.push(uri);
+            }
+          }
+        }
 
         if (profileRes.status === 'fulfilled') {
           const profile = profileRes.value;
@@ -109,13 +133,21 @@ export default function ProviderProfileScreen() {
 
           // Build provider profile from track data
           const trackData = ((track ? td[track] : undefined) ?? {}) as any;
-          const categories = trackData.skills 
+          // Prefer real verified categories; fall back to a track-data label.
+          const fallbackCategories = trackData.skills
             ? trackData.skills.map((s: string) => ({ emoji: '💻', label: s }))
             : trackData.tools_equipment
               ? trackData.tools_equipment.map((t: string) => ({ emoji: '🛠️', label: t }))
               : trackData.transport_mode
                 ? [{ emoji: '🚚', label: trackData.transport_mode }]
                 : [];
+          const categories = verifiedCategoryNames.length > 0
+            ? verifiedCategoryNames.map((name) => ({ emoji: '✅', label: name }))
+            : fallbackCategories;
+          const portfolioImages: string[] = Array.from(new Set([
+            ...((trackData.portfolio_images ?? trackData.portfolio ?? []) as string[]),
+            ...portfolioFromEvidence,
+          ]));
 
           setProviderProfile({
             verified: profile.track !== null,
@@ -125,7 +157,7 @@ export default function ProviderProfileScreen() {
             categories: categories.length > 0 ? categories : [{ emoji: '📋', label: 'General' }],
             bio: pp.bio ?? '',
             serviceArea: trackData.service_area ? `${trackData.service_area.city} (${trackData.service_area.radius_km} km)` : pp.city ?? 'Not specified',
-            portfolio: trackData.portfolio_images ?? trackData.portfolio ?? [],
+            portfolio: portfolioImages,
             reviewsCount: 0,
             ratingsBreakdown: [],
           });

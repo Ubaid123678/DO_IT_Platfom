@@ -589,6 +589,7 @@ export const verificationService = {
         skill_item_id: skillRef?._id != null ? String(skillRef._id) : null,
         skill_item: skillRef?.name ?? null,
         evidence_type: r.evidence_type,
+        evidence_payload: r.evidence_payload,
         status: r.status,
         sla_due_at: r.sla_due_at ?? null,
         rejection_reason: r.rejection_reason ?? null,

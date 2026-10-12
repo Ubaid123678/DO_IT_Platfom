@@ -639,7 +639,7 @@ export default function ProfileCompletionStep() {
           <View style={styles.fieldGap}>
             {renderField('Bio', form.bio, (v) => setField('bio', v), { placeholder: 'Tell clients about your experience and expertise...', multiline: true, required: true, maxLength: 500 })}
           </View>
-          {effectiveTrack === 'physical' || effectiveTrack === 'errand' && (
+          {(effectiveTrack === 'physical' || effectiveTrack === 'errand') && (
             <View style={styles.fieldGap}>
               {renderField('City', form.city, (v) => setField('city', v), { 
                 placeholder: 'e.g. Lahore', 
