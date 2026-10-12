@@ -27,6 +27,17 @@ export default function ClientLayout() {
         return;
       }
 
+      // Guard against a stale/wrong-role session rendering this group. A client
+      // layout must never show for a provider/admin token.
+      if (user.role === 'provider') {
+        router.replace('/(provider)/home');
+        return;
+      }
+      if (user.role && user.role !== 'client') {
+        router.replace('/(auth)/login');
+        return;
+      }
+
       setGate(user.client_profile?.completed ? 'approved' : 'profile');
     } catch {
       router.replace('/(auth)/login');

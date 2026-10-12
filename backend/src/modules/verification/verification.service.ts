@@ -847,6 +847,21 @@ export const verificationService = {
       .populate('category_id', 'name job_type')
       .lean();
 
+    // Skills the provider selected are the concrete services they offer. Group
+    // their names by category so the profile can list them.
+    const skillsByCategory = new Map<string, string[]>();
+    const selectedSkillIds = (json.skill_items_selected ?? []) as string[];
+    if (selectedSkillIds.length > 0) {
+      const items = await SkillItemModel.find({ _id: { $in: selectedSkillIds } })
+        .select('name category_id')
+        .lean();
+      for (const item of items) {
+        const cid = String(item.category_id);
+        if (!skillsByCategory.has(cid)) skillsByCategory.set(cid, []);
+        skillsByCategory.get(cid)!.push(item.name);
+      }
+    }
+
     const categoryMap = new Map<string, { name: string; jobType: string; statuses: Set<VerificationStatus>; rejectionReason?: string }>();
     for (const r of records) {
       const catRef = r.category_id as unknown as { _id?: unknown; name?: string; job_type?: string } | null;
@@ -876,6 +891,7 @@ export const verificationService = {
         job_type: data.jobType,
         status: catStatus,
         rejection_reason: data.rejectionReason ?? null,
+        skills: skillsByCategory.get(id) ?? [],
       };
     });
 

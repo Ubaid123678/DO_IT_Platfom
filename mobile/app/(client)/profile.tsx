@@ -6,7 +6,7 @@ import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacit
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authService } from '@/src/services/authService';
-import { AUTH_STORAGE_KEYS } from '@/src/context/AuthContext';
+import { clearStoredSession } from '@/src/context/AuthContext';
 import { jobService } from '@/src/services/jobService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
@@ -78,7 +78,7 @@ export default function ClientProfileScreen() {
     } catch {
       // Continue clearing local auth state.
     } finally {
-      await AsyncStorage.multiRemove(AUTH_STORAGE_KEYS);
+      await clearStoredSession();
       router.replace('/(auth)/login');
     }
   };

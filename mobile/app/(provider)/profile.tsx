@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authService } from '@/src/services/authService';
+import { clearStoredSession } from '@/src/context/AuthContext';
 import { verificationService } from '@/src/services/verificationService';
 import { walletService } from '@/src/services/walletService';
 import { jobService } from '@/src/services/jobService';
@@ -37,7 +38,7 @@ type ProviderProfileState = {
   rating: number;
   jobsDone: number;
   earned: number;
-  categories: Array<{ emoji: string; label: string }>;
+  categories: Array<{ emoji: string; label: string; skills?: string[] }>;
   bio: string;
   serviceArea: string;
   portfolio: string[];
@@ -93,10 +94,17 @@ export default function ProviderProfileScreen() {
         ]);
 
         // Real verified service categories (names), not track-data guesses.
-        const verifiedCategoryNames: string[] = [];
+        // Each carries the provider's selected skills — the concrete services.
+        const verifiedCategories: Array<{ emoji: string; label: string; skills: string[] }> = [];
         if (verifStatusRes.status === 'fulfilled') {
           for (const c of verifStatusRes.value.categories ?? []) {
-            if (c.status === 'verified' && c.category_name) verifiedCategoryNames.push(c.category_name);
+            if (c.status === 'verified' && c.category_name) {
+              verifiedCategories.push({
+                emoji: '✅',
+                label: c.category_name,
+                skills: c.skills ?? [],
+              });
+            }
           }
         }
 
@@ -141,9 +149,9 @@ export default function ProviderProfileScreen() {
               : trackData.transport_mode
                 ? [{ emoji: '🚚', label: trackData.transport_mode }]
                 : [];
-          const categories = verifiedCategoryNames.length > 0
-            ? verifiedCategoryNames.map((name) => ({ emoji: '✅', label: name }))
-            : fallbackCategories;
+          const categories = verifiedCategories.length > 0
+            ? verifiedCategories
+            : fallbackCategories.map((c: { emoji: string; label: string }) => ({ ...c, skills: [] }));
           const portfolioImages: string[] = Array.from(new Set([
             ...((trackData.portfolio_images ?? trackData.portfolio ?? []) as string[]),
             ...portfolioFromEvidence,
@@ -217,7 +225,7 @@ export default function ProviderProfileScreen() {
       const refreshToken = await AsyncStorage.getItem('refreshToken');
       if (refreshToken) await authService.logout(refreshToken);
     } catch {} finally {
-      await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'role', 'user']);
+      await clearStoredSession();
       router.replace('/(auth)/login');
     }
   };
@@ -311,18 +319,31 @@ export default function ProviderProfileScreen() {
 
         <View style={styles.cardSection}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>My Service Categories</Text>
+            <Text style={styles.sectionTitle}>My Services</Text>
             <Ionicons name="pencil-outline" size={18} color={C.primary} />
           </View>
-          <View style={styles.chipsWrap}>
-            {providerProfile.categories.map((cat) => (
-              <View key={cat.label} style={styles.categoryChip}>
+          {providerProfile.categories.map((cat) => (
+            <View key={cat.label} style={styles.serviceRow}>
+              <View style={styles.serviceCatRow}>
                 <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
-                <Text style={styles.categoryText}>{cat.label}</Text>
+                <Text style={styles.serviceCatLabel}>{cat.label}</Text>
               </View>
-            ))}
-            <TouchableOpacity style={styles.addChip}><Text style={styles.addChipText}>+ Add Category</Text></TouchableOpacity>
-          </View>
+              {cat.skills && cat.skills.length > 0 ? (
+                <View style={styles.chipsWrap}>
+                  {cat.skills.map((skill) => (
+                    <View key={skill} style={styles.categoryChip}>
+                      <Text style={styles.categoryText}>{skill}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.serviceEmpty}>No skills selected</Text>
+              )}
+            </View>
+          ))}
+          <TouchableOpacity style={styles.addChip} onPress={() => router.push('/(provider-verification)')}>
+            <Text style={styles.addChipText}>+ Add Category</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.cardSection}>
@@ -456,6 +477,10 @@ const makeStyles = (C: AppColors) =>
     sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     sectionTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: C.textPrimary },
     chipsWrap: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    serviceRow: { marginTop: 12 },
+    serviceCatRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    serviceCatLabel: { fontSize: 13, fontWeight: '700', color: C.textPrimary },
+    serviceEmpty: { marginTop: 6, fontSize: 12, color: C.textHint, fontStyle: 'italic' },
     categoryChip: { backgroundColor: C.primaryLight, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
     categoryEmoji: { fontSize: 14 },
     categoryText: { fontSize: 12, color: C.primary, fontWeight: '500' },

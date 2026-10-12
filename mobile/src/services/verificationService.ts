@@ -46,6 +46,7 @@ export interface VerificationStatus {
     job_type?: string | null;
     status: string;
     rejection_reason?: string | null;
+    skills?: string[];
   }[];
   has_pending: boolean;
   has_rejected: boolean;

@@ -21,6 +21,7 @@ import { verificationService } from '@/src/services/verificationService';
 import { walletService } from '@/src/services/walletService';
 import { jobService } from '@/src/services/jobService';
 import { proposalService } from '@/src/services/proposalService';
+import { reviewService } from '@/src/services/reviewService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 type UserState = {
@@ -210,11 +211,19 @@ export default function ProviderHomeScreen() {
         // Ignore 404 or other errors - proposals might not exist yet
         console.warn('[Home] Proposals fetch failed:', e?.response?.status || e?.message, e?.response?.data);
       }
+      // Real rating from reviews (0 when there are none).
+      let rating = 0;
+      try {
+        const reviewStats = await reviewService.getReviewStats('current');
+        rating = reviewStats?.averageRating ?? 0;
+      } catch {
+        // No reviews yet / endpoint unavailable — show 0.
+      }
       setStats({
         activeJobs: jobStats.in_progress + jobStats.open,
         proposals: proposalsCount,
         completed: jobStats.completed,
-        rating: 4.8, // TODO: add rating API
+        rating,
       });
 
       // Load nearby jobs (browse with location filter)

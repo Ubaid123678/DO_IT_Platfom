@@ -5,8 +5,11 @@ import { authService } from '@/src/services/authService';
 import { api, setRefreshTokenFn } from '@/src/services/api';
 
 // Everything that must be wiped together on logout/register. Includes the
-// cached profile and the provider verification-complete sentinel so a new
-// account can never inherit the previous user's data or skip onboarding.
+// cached profile, the provider verification-complete sentinel, and per-user
+// banner flags so a new account can never inherit the previous user's data or
+// skip onboarding. `hasSeenOnboarding` is device-level and stays.
+// NOTE: pendingAuthEmail/password are transient login state, deliberately NOT
+// here — the login screen sets then clears them mid-flow.
 export const AUTH_STORAGE_KEYS = [
   'accessToken',
   'refreshToken',
@@ -14,7 +17,16 @@ export const AUTH_STORAGE_KEYS = [
   'user',
   'clientProfile',
   '@doit_verification_complete',
+  '@home_verif_banner_dismissed',
+  '@home_verif_banner_show_count',
 ];
+
+// Clear the session from anywhere (profile screens etc.) without needing the
+// AuthContext. Keeps the "what counts as session" list in one place.
+export const clearStoredSession = async (): Promise<void> => {
+  await AsyncStorage.multiRemove([...AUTH_STORAGE_KEYS, 'pendingAuthEmail', 'pendingAuthPassword']);
+  delete api.defaults.headers.common['Authorization'];
+};
 
 type UserRole = 'pending' | 'client' | 'provider' | 'admin';
 

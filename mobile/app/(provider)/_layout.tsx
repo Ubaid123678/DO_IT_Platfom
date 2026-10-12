@@ -5,6 +5,7 @@ import { ActivityIndicator, Text, TouchableOpacity, useColorScheme, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import KycFlow from '@/src/components/KycFlow';
+import { authService } from '@/src/services/authService';
 import { kycService } from '@/src/services/kycService';
 import { verificationService } from '@/src/services/verificationService';
 import { Colors } from '@/src/theme/colors';
@@ -19,6 +20,24 @@ export default function ProviderLayout() {
 
   const checkGate = useCallback(async () => {
     try {
+      // Guard against a stale/wrong-role session rendering this group. A client
+      // token must never be pushed into the provider KYC/verification flow.
+      const me = await authService.getMe();
+      const shape = me.data as unknown as { data?: { user?: any }; user?: any };
+      const currentUser = shape.data?.user ?? shape.user;
+      if (!currentUser) {
+        router.replace('/(auth)/login');
+        return;
+      }
+      if (currentUser.role === 'client') {
+        router.replace('/(client)/home');
+        return;
+      }
+      if (currentUser.role && currentUser.role !== 'provider') {
+        router.replace('/(auth)/login');
+        return;
+      }
+
       const kycStatus = await kycService.getProviderStatus();
       // Only the server saying "not approved" shows KYC. A network failure must
       // never be mistaken for "KYC required" or the provider gets trapped here.
