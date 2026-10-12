@@ -54,6 +54,100 @@ body {
   line-height: 1.7;
 }
 
+.admin-theme {
+  --background: #f5f7f7;
+  --foreground: #1a1a1a;
+  --color-ink: #1a1a1a;
+  --color-slate: #52615d;
+  --color-mist: #f5f7f7;
+  --color-paper: #ffffff;
+  --color-hairline: #d8e6e4;
+  --color-primary: #0f766e;
+  --color-primary-mid: #5faaa1;
+  --color-primary-light: #e0f4f2;
+  --color-primary-dark: #0d665f;
+  --color-amber: #9a6200;
+  --color-amber-light: #fff1cf;
+  --color-success: #176b3b;
+  --color-success-light: #e8f8f2;
+  --color-error: #b42318;
+  --color-error-light: #fdecea;
+  --color-warning: #805000;
+  --color-warning-light: #fef3dc;
+  --color-bg: #f5f7f7;
+  --color-surface: #ffffff;
+  --color-border: #d8e6e4;
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #52615d;
+  --color-text-hint: #52615d;
+  --color-sidebar-active: #0f766e;
+}
+
+.admin-theme .text-primary {
+  color: #0f766e;
+}
+
+.admin-theme .text-amber {
+  color: #7a4d00;
+}
+
+.admin-theme .text-success {
+  color: #176b3b;
+}
+
+.admin-theme .text-error {
+  color: #b42318;
+}
+
+.admin-theme .text-warning {
+  color: #805000;
+}
+
+@media (prefers-color-scheme: dark) {
+  .admin-theme {
+    --background: #101a19;
+    --foreground: #edf4f3;
+    --color-ink: #edf4f3;
+    --color-slate: #b3c2bf;
+    --color-mist: #101a19;
+    --color-paper: #182624;
+    --color-hairline: #30423f;
+    --color-primary-light: #193d39;
+    --color-amber-light: #463719;
+    --color-success-light: #18392d;
+    --color-error-light: #442522;
+    --color-warning-light: #463719;
+    --color-bg: #101a19;
+    --color-surface: #182624;
+    --color-border: #405652;
+    --color-text-primary: #edf4f3;
+    --color-text-secondary: #c0ceca;
+    --color-text-hint: #a7b7b3;
+    --color-sidebar-active: #0f766e;
+  }
+
+  .admin-theme .text-primary,
+  .admin-theme .text-primary-dark {
+    color: #73d8ce;
+  }
+
+  .admin-theme .text-amber {
+    color: #f6c768;
+  }
+
+  .admin-theme .text-success {
+    color: #72d79a;
+  }
+
+  .admin-theme .text-error {
+    color: #ff938a;
+  }
+
+  .admin-theme .text-warning {
+    color: #f5c46b;
+  }
+}
+
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;

@@ -10,7 +10,7 @@ export default function PrivacyPolicyPage() {
       title: 'Privacy Policy',
       content: (
         <p>
-          Welcome to Do It ("we," "our," "us"). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform, website, and mobile application (collectively, the "Services"). Please read this policy carefully. If you do not agree with the terms of this policy, please do not access the Services.
+          Welcome to Do It (&quot;we,&quot; &quot;our,&quot; &quot;us&quot;). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform, website, and mobile application (collectively, the &quot;Services&quot;). Please read this policy carefully. If you do not agree with the terms of this policy, please do not access the Services.
         </p>
       ),
     },
@@ -151,7 +151,7 @@ export default function PrivacyPolicyPage() {
       title: '9. Changes to This Policy',
       content: (
         <>
-          <p>We may update this policy periodically. Material changes will be posted on this page with a revised "Last updated" date. Continued use of the Services after changes constitutes acceptance.</p>
+          <p>We may update this policy periodically. Material changes will be posted on this page with a revised &quot;Last updated&quot; date. Continued use of the Services after changes constitutes acceptance.</p>
         </>
       ),
     },

@@ -1,7 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
+import type { PipelineStage } from 'mongoose';
 
 import { AppError } from '../../common/errors/AppError.js';
+import { getPagination } from '../../common/utils/pagination.js';
 import UserModel, { type IUser } from '../auth/auth.model.js';
 import KycImageModel from './kyc-image.model.js';
 import KycDocumentModel, { type IKycDocument, type KycDocumentType, type KycStatus } from './kyc.model.js';
@@ -15,6 +17,29 @@ type KycSubmissionInput = {
 };
 
 type KycReviewAction = 'approve' | 'reject';
+type KycAdminListQuery = {
+  page: number;
+  limit: number;
+  search?: string;
+  status?: KycStatus;
+  sort_order: 'asc' | 'desc';
+};
+
+type KycAdminSubmissionRow = {
+  _id: string;
+  userId: string;
+  status: KycStatus;
+  documentType: KycDocumentType;
+  countryCode: string;
+  submittedAt: Date;
+  reviewedBy?: string;
+  reviewedAt?: Date;
+  rejectionReason?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  user: { fullName: string; email: string };
+};
 
 const allowedProviderRoles = new Set<IUser['role']>(['pending', 'provider', 'admin']);
 
@@ -177,10 +202,11 @@ export const kycService = {
       submittedAt: new Date(),
     });
 
+    user.kyc_status = 'pending';
     if (user.role !== 'provider') {
       user.role = 'provider';
-      await user.save();
     }
+    await user.save();
 
     return serializeDocument(document);
   },
@@ -211,15 +237,81 @@ export const kycService = {
       submittedAt: new Date(),
     });
 
+    user.kyc_status = 'pending';
+    await user.save();
+
     return serializeDocument(document);
   },
 
-  listSubmissions: async (reviewerId: string, status?: KycStatus) => {
+  listSubmissions: async (reviewerId: string, query: KycAdminListQuery) => {
     const reviewer = await getUserOrThrow(reviewerId);
     assertAdmin(reviewer);
-    const filter = status ? { status } : {};
-    const documents = await KycDocumentModel.find(filter).sort({ createdAt: -1 }).limit(100);
-    return documents.map((d) => serializeDocument(d));
+    const { page, limit, skip } = getPagination(query);
+    const escapedSearch = query.search?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const sort = query.sort_order === 'asc' ? 1 : -1;
+    const match = query.status ? { status: query.status } : {};
+    const userMatch = escapedSearch
+      ? {
+          $or: [
+            { 'user.fullName': { $regex: `^${escapedSearch}`, $options: 'i' } },
+            { 'user.email': { $regex: `^${escapedSearch}`, $options: 'i' } },
+          ],
+        }
+      : null;
+    const pipeline: PipelineStage[] = [
+      { $match: match },
+      {
+        $lookup: {
+          from: UserModel.collection.name,
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      { $unwind: '$user' },
+      ...(userMatch ? [{ $match: userMatch }] : []),
+      {
+        $facet: {
+          submissions: [
+            { $sort: { submittedAt: sort, _id: sort } },
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                _id: 1,
+                userId: 1,
+                status: 1,
+                documentType: 1,
+                countryCode: 1,
+                submittedAt: 1,
+                reviewedBy: 1,
+                reviewedAt: 1,
+                rejectionReason: 1,
+                notes: 1,
+                createdAt: 1,
+                updatedAt: 1,
+                user: { fullName: '$user.fullName', email: '$user.email' },
+              },
+            },
+          ],
+          total: [{ $count: 'count' }],
+        },
+      },
+    ];
+    const [result] = await KycDocumentModel.aggregate<{
+      submissions: KycAdminSubmissionRow[];
+      total: { count: number }[];
+    }>(pipeline);
+    const total = result?.total[0]?.count ?? 0;
+    return {
+      submissions: (result?.submissions ?? []).map((row) => ({
+        ...row,
+        id: row._id,
+        userId: row.userId.toString(),
+        user: { fullName: row.user.fullName, email: row.user.email },
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   },
 
   reviewSubmission: async (reviewerId: string, userId: string, action: KycReviewAction, reason?: string) => {
@@ -238,10 +330,11 @@ export const kycService = {
     document.rejectionReason = action === 'reject' ? reason : undefined;
     await document.save();
 
+    user.kyc_status = action === 'approve' ? 'approved' : 'rejected';
     if (action === 'approve' && user.role !== 'provider') {
       user.role = 'provider';
-      await user.save();
     }
+    await user.save();
 
     return {
       document: serializeDocument(document),

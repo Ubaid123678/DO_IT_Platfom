@@ -10,7 +10,7 @@ export default function CookiePolicyPage() {
       title: 'Cookie Policy',
       content: (
         <p>
-          This Cookie Policy explains how Do It ("we," "our," "us") uses cookies and similar tracking technologies on our website and mobile application. By using our Services, you agree to the use of cookies as described in this policy. You can manage your preferences at any time via the cookie banner or your browser settings.
+          This Cookie Policy explains how Do It (&quot;we,&quot; &quot;our,&quot; &quot;us&quot;) uses cookies and similar tracking technologies on our website and mobile application. By using our Services, you agree to the use of cookies as described in this policy. You can manage your preferences at any time via the cookie banner or your browser settings.
         </p>
       ),
     },
@@ -20,7 +20,7 @@ export default function CookiePolicyPage() {
       title: '1. What Are Cookies',
       content: (
         <>
-          <p>Cookies are small text files stored on your device (computer, phone, tablet) when you visit a website. They help websites remember your preferences, recognize you on return visits, and enable certain functionality. "Cookies" in this policy also refers to similar technologies like local storage, session storage, and tracking pixels.</p>
+          <p>Cookies are small text files stored on your device (computer, phone, tablet) when you visit a website. They help websites remember your preferences, recognize you on return visits, and enable certain functionality. &quot;Cookies&quot; in this policy also refers to similar technologies like local storage, session storage, and tracking pixels.</p>
         </>
       ),
     },
@@ -110,7 +110,7 @@ export default function CookiePolicyPage() {
         <>
           <p>You can control cookies in several ways:</p>
           <ul>
-            <li><strong>Cookie Banner:</strong> Accept all, reject non-essential, or customize by category on first visit. Reopen via the footer "Cookie Preferences" link.</li>
+            <li><strong>Cookie Banner:</strong> Accept all, reject non-essential, or customize by category on first visit. Reopen via the footer &quot;Cookie Preferences&quot; link.</li>
             <li><strong>Browser Settings:</strong> Block, delete, or alert for cookies. Note: disabling essential cookies will break core functionality.</li>
             <li><strong>Mobile App:</strong> iOS/Android system settings for tracking (Limit Ad Tracking, App Tracking Transparency).</li>
             <li><strong>Opt-Out Tools:</strong> <a href="https://optout.networkadvertising.org/" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">NAI Opt-Out</a>, <a href="https://www.aboutads.info/choices/" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">DAA Opt-Out</a>.</li>
@@ -142,7 +142,7 @@ export default function CookiePolicyPage() {
       title: '7. Changes to This Policy',
       content: (
         <>
-          <p>We may update this Cookie Policy to reflect changes in our practices, technologies, or legal requirements. Material changes will be posted here with a revised "Last updated" date and highlighted in the cookie banner. Continued use after changes constitutes acceptance.</p>
+          <p>We may update this Cookie Policy to reflect changes in our practices, technologies, or legal requirements. Material changes will be posted here with a revised &quot;Last updated&quot; date and highlighted in the cookie banner. Continued use after changes constitutes acceptance.</p>
         </>
       ),
     },

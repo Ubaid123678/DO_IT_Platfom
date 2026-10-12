@@ -132,7 +132,7 @@ const computeCompleteness = (
   return { completeness, missing_fields: required.filter((r) => !r.done).map((r) => r.label) };
 };
 
-const serializeProviderProfile = (user: { toJSON?: () => Record<string, unknown> } | null, track: ProviderTrack | null) => {
+export const serializeProviderProfile = (user: { toJSON?: () => Record<string, unknown> } | null, track: ProviderTrack | null) => {
     const json = user?.toJSON?.() ?? {};
     const profile = (json.provider_profile ?? {}) as Record<string, unknown>;
     const trackData = (json.track_data ?? {}) as Record<string, unknown>;
@@ -313,6 +313,57 @@ const assertErrandBundleRequirements = async (
 };
 
 export const verificationService = {
+  getAdminProviderProfile: async (providerId: string) => {
+    if (!/^[a-fA-F0-9]{24}$/.test(providerId)) {
+      throw new AppError('Invalid provider ID', 400, 'INVALID_PROVIDER_ID');
+    }
+
+    const user = await UserModel.findById(providerId);
+    if (!user || user.role !== 'provider') {
+      throw new AppError('Provider not found', 404, 'PROVIDER_NOT_FOUND');
+    }
+
+    const track = await resolveProviderTrack(providerId);
+    const serializedProfile = serializeProviderProfile(user, track);
+    const userData = user.toJSON() as Record<string, unknown>;
+    let categoryIds = (userData.categories_selected ?? []) as string[];
+    if (categoryIds.length === 0) {
+      categoryIds = (await VerificationRecordModel.distinct('category_id', {
+        provider_id: providerId,
+      })) as string[];
+    }
+    const categories = categoryIds.length > 0
+      ? await SkillCategoryModel.find({ _id: { $in: categoryIds } }).lean()
+      : [];
+    const trackData = serializedProfile.track_data as Record<string, unknown>;
+    const activeTrackData = track ? { [track]: trackData[track] ?? {} } : {};
+
+    return {
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        countryCode: user.countryCode,
+        emailVerified: user.emailVerified,
+        phoneVerified: user.phoneVerified,
+        overall_status: user.overall_status ?? 'incomplete',
+        createdAt: user.createdAt,
+      },
+      categories: categories.map((category) => ({
+        id: category._id.toString(),
+        name: category.name,
+        job_type: category.job_type,
+      })),
+      provider_profile: serializedProfile.provider_profile,
+      track: serializedProfile.track,
+      track_data: activeTrackData,
+      completeness: serializedProfile.completeness,
+      missing_fields: serializedProfile.missing_fields,
+    };
+  },
+
   listCategories: async (jobType?: string, activeOnly = true) => {
     const filter: Record<string, unknown> = {};
     if (jobType) filter.job_type = jobType;

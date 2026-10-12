@@ -73,9 +73,9 @@ export const kycController = {
 
   listSubmissions: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = getAuthenticatedUserId(req);
-    const query = validate(kycValidators.statusQuery, req.query);
-    const submissions = await kycService.listSubmissions(userId, query.status);
-    res.status(200).json({ success: true, data: { submissions }, meta: { message: 'KYC submissions fetched successfully.' } });
+    const query = validate(kycValidators.adminListQuery, req.query);
+    const result = await kycService.listSubmissions(userId, query);
+    res.status(200).json({ success: true, data: result, meta: { message: 'KYC submissions fetched successfully.' } });
   }),
 
   approveSubmission: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

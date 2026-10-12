@@ -103,6 +103,7 @@ describe('kycService', () => {
     expect(mockedCreate).toHaveBeenCalledTimes(1);
     expect(pendingUser.save).toHaveBeenCalledTimes(1);
     expect(pendingUser.role).toBe('provider');
+    expect(pendingUser.kyc_status).toBe('pending');
   });
 
   it('approves pending submissions and updates provider access', async () => {
@@ -142,5 +143,41 @@ describe('kycService', () => {
     expect(result.document.status).toBe('approved');
     expect(pendingDocument.save).toHaveBeenCalledTimes(1);
     expect(pendingUser.role).toBe('provider');
+    expect(pendingUser.kyc_status).toBe('approved');
+  });
+
+  it('sets the user KYC status to rejected when an admin rejects a submission', async () => {
+    mockedFindById.mockImplementation(async (id: string) => {
+      if (id === 'user_admin_1') return adminUser;
+      if (id === 'user_pending_1') return pendingUser;
+      return null;
+    });
+    const pendingDocument = {
+      status: 'pending',
+      save: vi.fn(),
+      toJSON: () => ({
+        _id: 'kyc_rejected',
+        userId: 'user_pending_1',
+        userRole: 'provider',
+        status: 'rejected',
+        documentType: 'passport',
+        countryCode: 'PK',
+        submittedAt: new Date('2026-01-04T00:00:00.000Z'),
+        reviewedBy: 'user_admin_1',
+        reviewedAt: new Date('2026-01-04T00:00:00.000Z'),
+        rejectionReason: 'Image is unclear',
+        notes: null,
+        createdAt: new Date('2026-01-04T00:00:00.000Z'),
+        updatedAt: new Date('2026-01-04T00:00:00.000Z'),
+      }),
+    };
+    mockedFindOne.mockReturnValue({ sort: vi.fn().mockResolvedValue(pendingDocument) });
+
+    await kycService.reviewSubmission('user_admin_1', 'user_pending_1', 'reject', 'Image is unclear');
+
+    expect(pendingDocument.status).toBe('rejected');
+    expect(pendingDocument.save).toHaveBeenCalledOnce();
+    expect(pendingUser.kyc_status).toBe('rejected');
+    expect(pendingUser.save).toHaveBeenCalledOnce();
   });
 });

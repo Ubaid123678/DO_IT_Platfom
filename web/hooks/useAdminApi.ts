@@ -3,10 +3,9 @@
 import { useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { apiRequest, ApiRequestError, type RequestOptions } from "@/lib/api";
-import { useAdminAuthStore, type AdminUser } from "./useAdminAuth";
+import { useAdminAuthStore } from "./useAdminAuth";
 
 interface RefreshResponse {
-  user: AdminUser;
   accessToken: string;
   refreshToken: string;
 }
@@ -24,16 +23,23 @@ export function useAdminApi() {
 
   const refresh = useCallback(async (): Promise<string> => {
     if (!refreshToken) throw new ApiRequestError("No refresh token", 401);
+    if (!user) throw new ApiRequestError("No authenticated user", 401);
     const data = await apiRequest<RefreshResponse>("/auth/refresh-token", {
       method: "POST",
       body: { refreshToken },
+      skipUnauthorizedRedirect: true,
     });
-    login(data.user, data.accessToken, data.refreshToken);
+    login(user, data.accessToken, data.refreshToken);
     return data.accessToken;
-  }, [login, refreshToken]);
+  }, [login, refreshToken, user]);
 
   const call = useCallback(async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
-    const attempt = (tok?: string) => apiRequest<T>(path, { ...options, token: tok ?? options.token ?? token ?? undefined });
+    const attempt = (tok?: string) =>
+      apiRequest<T>(path, {
+        ...options,
+        token: tok ?? options.token ?? token ?? undefined,
+        skipUnauthorizedRedirect: true,
+      });
 
     try {
       return await attempt();

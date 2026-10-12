@@ -10,7 +10,7 @@ export default function TermsOfServicePage() {
       title: 'Terms of Service',
       content: (
         <p>
-          These Terms of Service ("Terms") govern your access to and use of the Do It platform, website, and mobile application (collectively, the "Services"). By creating an account or using the Services, you agree to these Terms. If you do not agree, you may not use the Services.
+          These Terms of Service (&quot;Terms&quot;) govern your access to and use of the Do It platform, website, and mobile application (collectively, the &quot;Services&quot;). By creating an account or using the Services, you agree to these Terms. If you do not agree, you may not use the Services.
         </p>
       ),
     },
@@ -21,12 +21,12 @@ export default function TermsOfServicePage() {
       content: (
         <>
           <ul>
-            <li><strong>"Client"</strong> — A user who posts jobs on the platform.</li>
-            <li><strong>"Provider"</strong> — A user who offers services and submits proposals.</li>
-            <li><strong>"Job"</strong> — A work request posted by a Client.</li>
-            <li><strong>"Proposal"</strong> — A Provider's offer to complete a Job.</li>
-            <li><strong>"Escrow"</strong> — Funds held by Do It on behalf of the Client until the Job is completed and confirmed.</li>
-            <li><strong>"Platform Fee"</strong> — The fee Do It charges on each completed transaction.</li>
+            <li><strong>&quot;Client&quot;</strong> — A user who posts jobs on the platform.</li>
+            <li><strong>&quot;Provider&quot;</strong> — A user who offers services and submits proposals.</li>
+            <li><strong>&quot;Job&quot;</strong> — A work request posted by a Client.</li>
+            <li><strong>&quot;Proposal&quot;</strong> — A Provider&apos;s offer to complete a Job.</li>
+            <li><strong>&quot;Escrow&quot;</strong> — Funds held by Do It on behalf of the Client until the Job is completed and confirmed.</li>
+            <li><strong>&quot;Platform Fee&quot;</strong> — The fee Do It charges on each completed transaction.</li>
           </ul>
         </>
       ),
@@ -85,7 +85,7 @@ export default function TermsOfServicePage() {
         <>
           <p><strong>Completion:</strong> Providers mark Jobs complete; Clients have 7 days to confirm or open a dispute. After 7 days, completion is auto-confirmed.</p>
           <p><strong>Reviews:</strong> Both parties may leave one review per completed Job. Reviews must be truthful and non-defamatory. Do It may remove reviews violating policy.</p>
-          <p><strong>Disputes:</strong> Either party may open a dispute within 7 days of completion. Both sides submit evidence; Do It's Trust & Safety team reviews and issues a binding decision. Funds remain locked until resolution.</p>
+          <p><strong>Disputes:</strong> Either party may open a dispute within 7 days of completion. Both sides submit evidence; Do It&apos;s Trust &amp; Safety team reviews and issues a binding decision. Funds remain locked until resolution.</p>
         </>
       ),
     },
@@ -124,7 +124,7 @@ export default function TermsOfServicePage() {
       title: '9. Disclaimers and Limitation of Liability',
       content: (
         <>
-          <p>The Services are provided "as is" and "as available" without warranties of any kind. Do It does not warrant that the Services will be uninterrupted, error-free, or secure. To the maximum extent permitted by law, Do It is not liable for indirect, incidental, consequential, or punitive damages, or for any loss of data, profits, or goodwill. Total liability is limited to fees paid in the 12 months preceding the claim.</p>
+          <p>The Services are provided &quot;as is&quot; and &quot;as available&quot; without warranties of any kind. Do It does not warrant that the Services will be uninterrupted, error-free, or secure. To the maximum extent permitted by law, Do It is not liable for indirect, incidental, consequential, or punitive damages, or for any loss of data, profits, or goodwill. Total liability is limited to fees paid in the 12 months preceding the claim.</p>
         </>
       ),
     },

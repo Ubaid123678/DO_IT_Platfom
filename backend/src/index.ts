@@ -2,23 +2,34 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
+import path from 'path';
 
 import { AppError } from './common/errors/AppError.js';
+import { createErrorResponse } from './common/errors/errorResponse.js';
+import config from './config/env.js';
 import { connectDatabase } from './config/database.js';
+import { authenticate } from './middleware/auth.middleware.js';
+import { requireAdmin } from './middleware/authorization.middleware.js';
 import apiRouter from './routes/index.js';
 import { initializeVerificationWorker } from './modules/verification/verification.worker.js';
 import { ensureAdminUser } from './modules/auth/auth.service.js';
-
-// Load environment variables
-dotenv.config();
 
 const app: Express = express();
 const PORT = process.env.PORT || 8080;
 
 // Security Middleware
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
+app.use(cors({
+  origin: (origin, callback) => {
+    const allowedOrigins = [config.web_origin];
+    if (process.env.NODE_ENV !== 'production') {
+      allowedOrigins.push('http://localhost:3001');
+    }
+    callback(null, !origin || allowedOrigins.includes(origin));
+  },
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -56,56 +67,73 @@ app.get('/api/v1/health', (_req: Request, res: Response) => {
   });
 });
 
-// Static file serving
-app.use('/uploads', express.static('uploads'));
+// KYC images are only readable by administrators.
+const uploadsRoot = path.resolve(process.cwd(), 'uploads');
+const kycUploadsRoot = path.resolve(uploadsRoot, 'kyc');
+const isWithinDirectory = (root: string, candidate: string): boolean => {
+  const relativePath = path.relative(root, candidate);
+  return relativePath === '' ||
+    (relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath));
+};
+
+app.use('/uploads', (_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+});
+
+app.use(
+  '/uploads/kyc',
+  authenticate,
+  requireAdmin,
+  express.static(kycUploadsRoot),
+  (_req: Request, res: Response) => {
+    res.status(404).json(createErrorResponse('NOT_FOUND', 'Upload not found'));
+  },
+);
+
+// Keep non-KYC upload folders public while preventing alternate paths from exposing KYC files.
+app.use('/uploads', (req: Request, _res: Response, next: NextFunction) => {
+  let decodedPath: string;
+  try {
+    decodedPath = decodeURIComponent(req.path);
+  } catch {
+    next(new AppError('Malformed upload path', 400, 'INVALID_PATH'));
+    return;
+  }
+
+  const targetPath = path.resolve(uploadsRoot, `.${decodedPath}`);
+  if (!isWithinDirectory(uploadsRoot, targetPath) || isWithinDirectory(kycUploadsRoot, targetPath)) {
+    next(new AppError('Upload not found', 404, 'NOT_FOUND'));
+    return;
+  }
+
+  next();
+}, express.static(uploadsRoot));
 
 // API routes
 app.use('/api/v1', apiRouter);
 
 // 404 Handler
 app.use((req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    error: {
-      code: 'NOT_FOUND',
-      message: `Route ${req.method} ${req.path} not found`,
-    },
-  });
+  res.status(404).json(createErrorResponse('NOT_FOUND', `Route ${req.method} ${req.path} not found`));
 });
 
 // Error Handler Middleware
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({
-      success: false,
-      error: {
-        code: err.code,
-        message: err.message,
-        ...(err.details ? { details: err.details } : {}),
-      },
-    });
+    res.status(err.statusCode).json(createErrorResponse(err.code, err.message, err.details));
     return;
   }
 
   if (err && typeof err === 'object' && 'type' in err && (err as { type: string }).type === 'request.aborted') {
-    res.status(499).json({
-      success: false,
-      error: {
-        code: 'REQUEST_ABORTED',
-        message: 'The connection was lost while receiving the request body. Please try again.',
-      },
-    });
+    res.status(499).json(
+      createErrorResponse('REQUEST_ABORTED', 'The connection was lost while receiving the request body. Please try again.'),
+    );
     return;
   }
 
   console.error('Unhandled error:', err);
-  res.status(500).json({
-    success: false,
-    error: {
-      code: 'INTERNAL_ERROR',
-      message: 'An unexpected error occurred',
-    },
-  });
+  res.status(500).json(createErrorResponse('INTERNAL_ERROR', 'An unexpected error occurred'));
 });
 
 const bootstrap = async (): Promise<void> => {

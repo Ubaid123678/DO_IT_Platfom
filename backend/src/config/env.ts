@@ -29,7 +29,7 @@ interface Config {
   s3_bucket_name: string;
   maxmind_license_key: string;
   platform_fee_percent: number;
-  cors_origin: string;
+  web_origin: string;
   admin_jwt_secret: string;
   admin_email: string;
   admin_password: string;
@@ -67,7 +67,7 @@ const config: Config = {
   s3_bucket_name: process.env.S3_BUCKET_NAME || '',
   maxmind_license_key: process.env.MAXMIND_LICENSE_KEY || '',
   platform_fee_percent: parseFloat(process.env.PLATFORM_FEE_PERCENT || '12'),
-  cors_origin: process.env.CORS_ORIGIN || '*',
+  web_origin: process.env.WEB_ORIGIN || 'http://localhost:3000',
   admin_jwt_secret: process.env.ADMIN_JWT_SECRET || 'change-me',
   admin_email: process.env.ADMIN_EMAIL || 'admin@do-it.app',
   admin_password: process.env.ADMIN_PASSWORD || 'Admin@123',

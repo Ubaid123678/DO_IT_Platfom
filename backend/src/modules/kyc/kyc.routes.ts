@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import { authenticate } from '../../middleware/auth.middleware.js';
-import { requireRoles } from '../../middleware/authorization.middleware.js';
+import { requireAdmin, requireRoles } from '../../middleware/authorization.middleware.js';
 import { handleMulter } from '../../common/utils/upload.js';
 import { kycController } from './kyc.controller.js';
 
@@ -25,9 +25,10 @@ kycRouter.delete('/provider/images/:imageId', authenticate, requireRoles('pendin
 kycRouter.post('/provider/submit', authenticate, requireRoles('pending', 'provider', 'admin'), kycController.submitKyc);
 kycRouter.post('/provider/resubmit', authenticate, requireRoles('pending', 'provider', 'admin'), kycController.resubmitKyc);
 
-kycRouter.get('/admin/submissions', authenticate, requireRoles('admin'), kycController.listSubmissions);
-kycRouter.get('/admin/submissions/:userId', authenticate, requireRoles('admin'), kycController.getSubmissionDetail);
-kycRouter.patch('/admin/:userId/approve', authenticate, requireRoles('admin'), kycController.approveSubmission);
-kycRouter.patch('/admin/:userId/reject', authenticate, requireRoles('admin'), kycController.rejectSubmission);
+kycRouter.use('/admin', authenticate, requireAdmin);
+kycRouter.get('/admin/submissions', kycController.listSubmissions);
+kycRouter.get('/admin/submissions/:userId', kycController.getSubmissionDetail);
+kycRouter.patch('/admin/:userId/approve', kycController.approveSubmission);
+kycRouter.patch('/admin/:userId/reject', kycController.rejectSubmission);
 
 export default kycRouter;

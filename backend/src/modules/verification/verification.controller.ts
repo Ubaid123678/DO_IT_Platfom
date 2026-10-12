@@ -103,6 +103,11 @@ export const verificationController = {
     res.status(200).json({ success: true, data: profile, meta: { message: 'Public profile fetched successfully' } });
   }),
 
+  getAdminProviderProfile: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const profile = await verificationService.getAdminProviderProfile(req.params.providerId);
+    res.status(200).json({ success: true, data: profile, meta: { message: 'Provider profile fetched successfully' } });
+  }),
+
   uploadResume: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = getUserId(req);
     if (!req.file) throw new AppError('Resume file is required', 400, 'VALIDATION_ERROR');

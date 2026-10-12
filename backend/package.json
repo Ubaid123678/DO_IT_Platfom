@@ -11,7 +11,9 @@
     "test": "vitest",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "seed": "tsx src/modules/verification/seed.ts"
+    "seed": "tsx src/modules/verification/seed.ts",
+    "seed:admin": "tsx scripts/seed-admin.ts",
+    "migrate:kyc-status": "tsx scripts/migrate-kyc-status.ts"
   },
   "keywords": [
     "marketplace",

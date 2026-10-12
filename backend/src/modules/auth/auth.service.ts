@@ -12,6 +12,8 @@ import {
   generateRefreshToken,
   verifyRefreshToken,
 } from './auth.utils.js';
+import { seedAdminIfMissing } from './admin-seed.js';
+import { hashPassword } from './password.js';
 
 type RegisterInput = {
   fullName: string;
@@ -48,34 +50,7 @@ const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCK_DURATION_MS = 15 * 60 * 1000;
 
 export const ensureAdminUser = async (): Promise<void> => {
-  const email = config.admin_email.trim().toLowerCase();
-  const passwordHash = await bcrypt.hash(config.admin_password, 12);
-  const existingAdmin = await UserModel.findOne({ email });
-
-  if (existingAdmin) {
-    existingAdmin.fullName = 'Admin User';
-    existingAdmin.passwordHash = passwordHash;
-    existingAdmin.role = 'admin';
-    existingAdmin.phone = config.admin_phone;
-    existingAdmin.countryCode = config.admin_country_code;
-    existingAdmin.emailVerified = true;
-    existingAdmin.phoneVerified = true;
-    existingAdmin.failedLoginAttempts = 0;
-    existingAdmin.lockUntil = undefined;
-    await existingAdmin.save();
-    return;
-  }
-
-  await UserModel.create({
-    fullName: 'Admin User',
-    email,
-    phone: config.admin_phone,
-    passwordHash,
-    role: 'admin',
-    countryCode: config.admin_country_code,
-    emailVerified: true,
-    phoneVerified: true,
-  });
+  await seedAdminIfMissing(config.admin_email, config.admin_password);
 };
 
 const buildAuthTokens = (user: IUser): { accessToken: string; refreshToken: string } => {
@@ -111,7 +86,7 @@ export const authService = {
       throw new AppError('Email or phone already registered', 409, 'USER_ALREADY_EXISTS');
     }
 
-    const passwordHash = await bcrypt.hash(input.password, 12);
+    const passwordHash = await hashPassword(input.password);
     const emailOtp = generateOtp();
     const phoneOtp = generateOtp();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
@@ -316,6 +291,18 @@ export const authService = {
       throw new AppError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
     }
 
+    if (user.isActive === false || user.deletedAt) {
+      logAuthAudit(
+        {
+          event: 'auth.login.failure.account_deactivated',
+          userId: user.id,
+          email: user.email,
+        },
+        'warn',
+      );
+      throw new AppError('This account is deactivated. Contact support for assistance.', 403, 'ACCOUNT_DISABLED');
+    }
+
     if (user.lockUntil && user.lockUntil.getTime() > Date.now()) {
       logAuthAudit(
         {
@@ -431,7 +418,7 @@ export const authService = {
       throw new AppError('Invalid or expired reset token', 400, 'RESET_TOKEN_INVALID');
     }
 
-    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.passwordHash = await hashPassword(newPassword);
     user.passwordResetToken = undefined;
     user.passwordResetExpiresAt = undefined;
     user.tokenVersion += 1;

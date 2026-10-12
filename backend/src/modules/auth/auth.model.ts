@@ -1,6 +1,9 @@
 import mongoose, { type Document, type Model, Schema } from 'mongoose';
 
 export type UserRole = 'pending' | 'client' | 'provider' | 'admin';
+export type KycUserStatus = 'approved' | 'pending' | 'rejected' | 'missing';
+export type UserOverallStatus =
+  'incomplete' | 'pending' | 'partially_verified' | 'verified' | 'rejected';
 
 export type ProviderTrack = 'physical' | 'digital' | 'errand';
 export type LanguageLevel = 'basic' | 'intermediate' | 'fluent';
@@ -45,8 +48,20 @@ export interface DigitalTrackData {
   project_rate?: number;
   timezone?: string;
   english_proficiency?: LanguageLevel;
-  work_history?: { title: string; company: string; start_date: string; end_date?: string; description?: string }[];
-  education?: { institution: string; degree: string; field?: string; start_year?: number; end_year?: number }[];
+  work_history?: {
+    title: string;
+    company: string;
+    start_date: string;
+    end_date?: string;
+    description?: string;
+  }[];
+  education?: {
+    institution: string;
+    degree: string;
+    field?: string;
+    start_year?: number;
+    end_year?: number;
+  }[];
   resume_file_url?: string;
 }
 
@@ -81,9 +96,13 @@ export interface IUser extends Document {
   phone: string;
   passwordHash: string;
   role: UserRole;
+  kyc_status: KycUserStatus;
   countryCode: string;
   emailVerified: boolean;
   phoneVerified: boolean;
+  isActive: boolean;
+  deletedAt?: Date;
+  deletedBy?: mongoose.Types.ObjectId;
   avatar_url?: string;
   client_profile?: {
     bio?: string;
@@ -103,13 +122,25 @@ export interface IUser extends Document {
   passwordResetExpiresAt?: Date;
   categories_selected?: string[];
   skill_items_selected?: string[];
-  overall_status?: string;
+  overall_status?: UserOverallStatus;
   headline?: string;
   bio?: string;
   years_experience?: number;
   languages?: string[];
-  work_history?: { title: string; company: string; start_date: string; end_date?: string; description?: string }[];
-  education?: { institution: string; degree: string; field?: string; start_year?: number; end_year?: number }[];
+  work_history?: {
+    title: string;
+    company: string;
+    start_date: string;
+    end_date?: string;
+    description?: string;
+  }[];
+  education?: {
+    institution: string;
+    degree: string;
+    field?: string;
+    start_year?: number;
+    end_year?: number;
+  }[];
   resume_file_url?: string;
   resume_parsed_at?: Date;
   public_profile?: boolean;
@@ -132,8 +163,21 @@ const otpSchema = new Schema<OtpState>(
 const userSchema = new Schema<IUser>(
   {
     fullName: { type: String, required: true, trim: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-    phone: { type: String, required: true, unique: true, trim: true, index: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      index: true,
+    },
+    phone: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      index: true,
+    },
     passwordHash: { type: String, required: true },
     role: {
       type: String,
@@ -142,9 +186,25 @@ const userSchema = new Schema<IUser>(
       required: true,
       index: true,
     },
-    countryCode: { type: String, required: true, uppercase: true, trim: true, minlength: 2, maxlength: 3 },
+    kyc_status: {
+      type: String,
+      enum: ['approved', 'pending', 'rejected', 'missing'],
+      default: 'missing',
+      index: true,
+    },
+    countryCode: {
+      type: String,
+      required: true,
+      uppercase: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 3,
+    },
     emailVerified: { type: Boolean, default: false },
     phoneVerified: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true, index: true },
+    deletedAt: { type: Date, required: false, index: true },
+    deletedBy: { type: Schema.Types.ObjectId, ref: 'User', required: false },
     avatar_url: { type: String, required: false },
     client_profile: { type: Schema.Types.Mixed, required: false, default: {} },
     tokenVersion: { type: Number, default: 0 },
@@ -156,7 +216,17 @@ const userSchema = new Schema<IUser>(
     passwordResetExpiresAt: { type: Date, required: false },
     categories_selected: { type: [String], required: false },
     skill_items_selected: { type: [String], required: false },
-    overall_status: { type: String, enum: ['incomplete', 'pending', 'partially_verified', 'verified', 'rejected'], default: 'incomplete' },
+    overall_status: {
+      type: String,
+      enum: [
+        'incomplete',
+        'pending',
+        'partially_verified',
+        'verified',
+        'rejected',
+      ],
+      default: 'incomplete',
+    },
     headline: { type: String, required: false, maxlength: 200 },
     bio: { type: String, required: false, maxlength: 500 },
     years_experience: { type: Number, required: false, min: 0, max: 100 },
@@ -166,12 +236,28 @@ const userSchema = new Schema<IUser>(
     resume_file_url: { type: String, required: false },
     resume_parsed_at: { type: Date, required: false },
     public_profile: { type: Boolean, default: false },
-    track: { type: String, enum: ['physical', 'digital', 'errand'], required: false, index: true },
-    provider_profile: { type: Schema.Types.Mixed, required: false, default: {} },
+    track: {
+      type: String,
+      enum: ['physical', 'digital', 'errand'],
+      required: false,
+      index: true,
+    },
+    provider_profile: {
+      type: Schema.Types.Mixed,
+      required: false,
+      default: {},
+    },
     track_data: { type: Schema.Types.Mixed, required: false, default: {} },
   },
   { timestamps: true },
 );
+
+userSchema.index({ role: 1, createdAt: -1 });
+userSchema.index({ kyc_status: 1, createdAt: -1 });
+userSchema.index({ overall_status: 1, createdAt: -1 });
+userSchema.index({ track: 1, createdAt: -1 });
+userSchema.index({ emailVerified: 1, phoneVerified: 1, createdAt: -1 });
+userSchema.index({ createdAt: -1 });
 
 userSchema.set('toJSON', {
   transform: (_doc, ret: Record<string, unknown>) => {
@@ -184,6 +270,7 @@ userSchema.set('toJSON', {
   },
 });
 
-const UserModel: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', userSchema);
+const UserModel: Model<IUser> =
+  mongoose.models.User || mongoose.model<IUser>('User', userSchema);
 
 export default UserModel;

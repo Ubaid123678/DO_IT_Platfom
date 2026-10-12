@@ -64,6 +64,8 @@ MONGODB_DB_NAME=do-it-platform
 ```bash
 cd backend
 npm install
+npm run seed:admin  # Create the initial admin from ADMIN_EMAIL / ADMIN_PASSWORD
+npm run migrate:kyc-status  # Backfill users.kyc_status from their latest KYC document
 npm run dev
 ```
 

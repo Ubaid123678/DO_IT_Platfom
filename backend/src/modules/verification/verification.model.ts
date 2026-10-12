@@ -4,13 +4,29 @@ export type JobType = 'physical' | 'digital' | 'errand';
 
 export type VerificationTrack = 'physical' | 'digital' | 'errand';
 
-export type EvidenceType = 'certificate' | 'prior_work' | 'portfolio' | 'oauth' | 'digital' | 'physical' | 'errand';
+export type EvidenceType =
+  | 'certificate'
+  | 'prior_work'
+  | 'portfolio'
+  | 'oauth'
+  | 'digital'
+  | 'physical'
+  | 'errand';
 
-export type VerificationStatus = 'draft' | 'pending_review' | 'scheduled' | 'auto_approved' | 'approved' | 'rejected' | 'expired';
+export type VerificationStatus =
+  | 'draft'
+  | 'pending_review'
+  | 'scheduled'
+  | 'auto_approved'
+  | 'approved'
+  | 'rejected'
+  | 'expired';
 
-export type OverallStatus = 'incomplete' | 'pending' | 'partially_verified' | 'verified' | 'rejected';
+export type OverallStatus =
+  'incomplete' | 'pending' | 'partially_verified' | 'verified' | 'rejected';
 
-export type AdminReviewAction = 'approved' | 'rejected' | 'requested_more_info' | 'escalated';
+export type AdminReviewAction =
+  'approved' | 'rejected' | 'requested_more_info' | 'escalated';
 
 export interface ISkillCategory extends Document {
   name: string;
@@ -83,10 +99,19 @@ export interface IResumeParseResult extends Document {
 const skillCategorySchema = new Schema<ISkillCategory>(
   {
     name: { type: String, required: true, unique: true, trim: true },
-    job_type: { type: String, enum: ['physical', 'digital', 'errand'], required: true, index: true },
+    job_type: {
+      type: String,
+      enum: ['physical', 'digital', 'errand'],
+      required: true,
+      index: true,
+    },
     icon_url: { type: String, required: false },
     active: { type: Boolean, default: true, index: true },
-    risk_tier: { type: String, enum: ['low', 'medium', 'high'], default: 'low' },
+    risk_tier: {
+      type: String,
+      enum: ['low', 'medium', 'high'],
+      default: 'low',
+    },
     sla_hours: { type: Number, default: 48 },
   },
   { timestamps: true },
@@ -94,7 +119,12 @@ const skillCategorySchema = new Schema<ISkillCategory>(
 
 const skillItemSchema = new Schema<ISkillItem>(
   {
-    category_id: { type: Schema.Types.ObjectId, ref: 'SkillCategory', required: true, index: true },
+    category_id: {
+      type: Schema.Types.ObjectId,
+      ref: 'SkillCategory',
+      required: true,
+      index: true,
+    },
     name: { type: String, required: true, trim: true },
     requires_certificate: { type: Boolean, default: false },
     requires_vehicle: { type: Boolean, default: false },
@@ -107,19 +137,54 @@ skillItemSchema.index({ category_id: 1, name: 1 }, { unique: true });
 
 const verificationRecordSchema = new Schema<IVerificationRecord>(
   {
-    provider_id: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    category_id: { type: Schema.Types.ObjectId, ref: 'SkillCategory', required: true, index: true },
-    skill_item_id: { type: Schema.Types.ObjectId, ref: 'SkillItem', required: false, index: true },
-    verification_track: { type: String, enum: ['physical', 'digital', 'errand'], required: true },
+    provider_id: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+    category_id: {
+      type: Schema.Types.ObjectId,
+      ref: 'SkillCategory',
+      required: true,
+      index: true,
+    },
+    skill_item_id: {
+      type: Schema.Types.ObjectId,
+      ref: 'SkillItem',
+      required: false,
+      index: true,
+    },
+    verification_track: {
+      type: String,
+      enum: ['physical', 'digital', 'errand'],
+      required: true,
+    },
     evidence_type: {
       type: String,
-      enum: ['certificate', 'prior_work', 'portfolio', 'oauth', 'digital', 'physical', 'errand'],
+      enum: [
+        'certificate',
+        'prior_work',
+        'portfolio',
+        'oauth',
+        'digital',
+        'physical',
+        'errand',
+      ],
       required: true,
     },
     evidence_payload: { type: Schema.Types.Mixed, required: true },
     status: {
       type: String,
-      enum: ['draft', 'pending_review', 'scheduled', 'auto_approved', 'approved', 'rejected', 'expired'],
+      enum: [
+        'draft',
+        'pending_review',
+        'scheduled',
+        'auto_approved',
+        'approved',
+        'rejected',
+        'expired',
+      ],
       default: 'pending_review',
       required: true,
       index: true,
@@ -138,10 +203,16 @@ const verificationRecordSchema = new Schema<IVerificationRecord>(
 verificationRecordSchema.index({ provider_id: 1, status: 1, created_at: -1 });
 verificationRecordSchema.index({ category_id: 1, status: 1 });
 verificationRecordSchema.index({ status: 1, sla_due_at: 1 });
+verificationRecordSchema.index({ status: 1, reviewed_at: 1 });
 
 const adminReviewSchema = new Schema<IAdminReview>(
   {
-    verification_record_id: { type: Schema.Types.ObjectId, ref: 'VerificationRecord', required: true, index: true },
+    verification_record_id: {
+      type: Schema.Types.ObjectId,
+      ref: 'VerificationRecord',
+      required: true,
+      index: true,
+    },
     admin_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     action: {
       type: String,
@@ -153,11 +224,22 @@ const adminReviewSchema = new Schema<IAdminReview>(
   },
   { timestamps: { createdAt: 'created_at', updatedAt: false } },
 );
+adminReviewSchema.index({ created_at: -1 });
 
 const connectedAccountSchema = new Schema<IConnectedAccount>(
   {
-    provider_id: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    platform: { type: String, enum: ['github', 'upwork', 'linkedin'], required: true, index: true },
+    provider_id: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+    platform: {
+      type: String,
+      enum: ['github', 'upwork', 'linkedin'],
+      required: true,
+      index: true,
+    },
     username: { type: String, required: true, trim: true },
     access_token: { type: String, required: false },
     token_expires_at: { type: Date, required: false },
@@ -174,7 +256,12 @@ connectedAccountSchema.index({ provider_id: 1, platform: 1 }, { unique: true });
 
 const resumeParseResultSchema = new Schema<IResumeParseResult>(
   {
-    provider_id: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    provider_id: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
     source_file_url: { type: String, required: true },
     parsed_fields: { type: Schema.Types.Mixed, required: false },
     confidence_score: { type: Number, required: false, min: 0, max: 1 },
@@ -186,8 +273,16 @@ const resumeParseResultSchema = new Schema<IResumeParseResult>(
 
 const toJSONTransform = (_doc: Document, ret: Record<string, unknown>) => {
   if (ret._id && typeof ret._id !== 'string') ret._id = ret._id.toString();
-  for (const key of ['provider_id', 'category_id', 'skill_item_id', 'reviewed_by', 'admin_id', 'verification_record_id']) {
-    if (ret[key] && typeof ret[key] !== 'string') ret[key] = ret[key].toString();
+  for (const key of [
+    'provider_id',
+    'category_id',
+    'skill_item_id',
+    'reviewed_by',
+    'admin_id',
+    'verification_record_id',
+  ]) {
+    if (ret[key] && typeof ret[key] !== 'string')
+      ret[key] = ret[key].toString();
   }
   return ret;
 };
@@ -197,19 +292,31 @@ adminReviewSchema.set('toJSON', { transform: toJSONTransform });
 resumeParseResultSchema.set('toJSON', { transform: toJSONTransform });
 
 export const SkillCategoryModel: Model<ISkillCategory> =
-  mongoose.models.SkillCategory || mongoose.model<ISkillCategory>('SkillCategory', skillCategorySchema);
+  mongoose.models.SkillCategory ||
+  mongoose.model<ISkillCategory>('SkillCategory', skillCategorySchema);
 
 export const SkillItemModel: Model<ISkillItem> =
-  mongoose.models.SkillItem || mongoose.model<ISkillItem>('SkillItem', skillItemSchema);
+  mongoose.models.SkillItem ||
+  mongoose.model<ISkillItem>('SkillItem', skillItemSchema);
 
 export const VerificationRecordModel: Model<IVerificationRecord> =
-  mongoose.models.VerificationRecord || mongoose.model<IVerificationRecord>('VerificationRecord', verificationRecordSchema);
+  mongoose.models.VerificationRecord ||
+  mongoose.model<IVerificationRecord>(
+    'VerificationRecord',
+    verificationRecordSchema,
+  );
 
 export const AdminReviewModel: Model<IAdminReview> =
-  mongoose.models.AdminReview || mongoose.model<IAdminReview>('AdminReview', adminReviewSchema);
+  mongoose.models.AdminReview ||
+  mongoose.model<IAdminReview>('AdminReview', adminReviewSchema);
 
 export const ConnectedAccountModel: Model<IConnectedAccount> =
-  mongoose.models.ConnectedAccount || mongoose.model<IConnectedAccount>('ConnectedAccount', connectedAccountSchema);
+  mongoose.models.ConnectedAccount ||
+  mongoose.model<IConnectedAccount>('ConnectedAccount', connectedAccountSchema);
 
 export const ResumeParseResultModel: Model<IResumeParseResult> =
-  mongoose.models.ResumeParseResult || mongoose.model<IResumeParseResult>('ResumeParseResult', resumeParseResultSchema);
+  mongoose.models.ResumeParseResult ||
+  mongoose.model<IResumeParseResult>(
+    'ResumeParseResult',
+    resumeParseResultSchema,
+  );

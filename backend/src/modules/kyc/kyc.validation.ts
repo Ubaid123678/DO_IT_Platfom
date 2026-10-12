@@ -1,11 +1,22 @@
 import Joi from 'joi';
 
-const documentType = Joi.string().valid('pass', 'driving_license', 'passport').required();
+const documentType = Joi.string()
+  .valid('pass', 'driving_license', 'passport')
+  .required();
 const countryCode = Joi.string().trim().uppercase().min(2).max(3).required();
-const objectId = Joi.string().pattern(/^[a-fA-F0-9]{24}$/).required();
+const objectId = Joi.string()
+  .pattern(/^[a-fA-F0-9]{24}$/)
+  .required();
 
 const kycImageType = Joi.string()
-  .valid('document_front', 'document_back', 'face_clear', 'move_left', 'move_right', 'smile')
+  .valid(
+    'document_front',
+    'document_back',
+    'face_clear',
+    'move_left',
+    'move_right',
+    'smile',
+  )
   .required();
 
 const base64Image = Joi.string()
@@ -21,7 +32,10 @@ export const kycValidators = {
     documentType,
     documentImageIds: Joi.object({
       front: objectId,
-      back: Joi.string().pattern(/^[a-fA-F0-9]{24}$/).optional().allow(''),
+      back: Joi.string()
+        .pattern(/^[a-fA-F0-9]{24}$/)
+        .optional()
+        .allow(''),
     }).required(),
     livenessImageIds: Joi.object({
       face_clear: objectId,
@@ -41,6 +55,15 @@ export const kycValidators = {
     action: Joi.string().valid('approve', 'reject').required(),
   }),
   statusQuery: Joi.object({
-    status: Joi.string().valid('missing', 'pending', 'approved', 'rejected').optional(),
+    status: Joi.string()
+      .valid('missing', 'pending', 'approved', 'rejected')
+      .optional(),
   }),
+  adminListQuery: Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(100).default(20),
+    search: Joi.string().trim().min(2).max(100).optional(),
+    status: Joi.string().valid('pending', 'approved', 'rejected').optional(),
+    sort_order: Joi.string().valid('asc', 'desc').default('desc'),
+  }).unknown(false),
 };
