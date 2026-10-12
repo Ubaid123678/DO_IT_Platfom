@@ -11,6 +11,18 @@ export type AuthUser = {
   countryCode: string;
   emailVerified: boolean;
   phoneVerified: boolean;
+  avatar_url?: string;
+  client_profile?: {
+    fullName?: string;
+    bio?: string;
+    city?: string;
+    languages?: { code: string; level: string }[];
+    notificationEmail?: boolean;
+    notificationPush?: boolean;
+    notificationSms?: boolean;
+    profileVisibility?: 'public' | 'private';
+    completed?: boolean;
+  };
 };
 
 type ApiResponse<T> = {
@@ -73,6 +85,7 @@ export type UpdateMePayload = {
   notificationSms?: boolean;
   profileVisibility?: 'public' | 'private';
   clientProfile?: {
+    fullName?: string;
     bio?: string;
     city?: string;
     languages?: { code: string; level: string }[];
@@ -151,7 +164,7 @@ export const authService = {
       },
     }),
   updateMe: (accessToken: string, payload: UpdateMePayload) =>
-    api.patch<ApiResponse<{ user: AuthUser }>>('/auth/me', payload, {
+    api.patch<ApiResponse<{ user: AuthUser; accessToken?: string; refreshToken?: string }>>('/auth/me', payload, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },

@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BottomSheet from '@/src/components/common/BottomSheet';
 import { authService } from '@/src/services/authService';
+import { AUTH_STORAGE_KEYS } from '@/src/context/AuthContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 type FieldName = 'fullName' | 'email' | 'phone' | 'password' | 'confirmPass' | 'country';
@@ -172,8 +173,10 @@ export default function RegisterScreen() {
       await AsyncStorage.multiSet([
         ['pendingAuthEmail', email.trim().toLowerCase()],
         ['pendingAuthPassword', password],
-        ['hasCompletedProfile', 'false'], // Reset profile completion flag for new registration
       ]);
+      // Wipe the whole previous auth session (tokens + cached user/profile) so a
+      // new signup can never inherit a stale token or another account's data.
+      await AsyncStorage.multiRemove(AUTH_STORAGE_KEYS);
 
       router.replace({
         pathname: '/(auth)/otp-verify',

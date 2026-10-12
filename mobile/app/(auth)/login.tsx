@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authService } from '@/src/services/authService';
+import { AUTH_STORAGE_KEYS } from '@/src/context/AuthContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 export default function LoginScreen() {
@@ -60,7 +61,7 @@ export default function LoginScreen() {
           ['pendingAuthPassword', password],
         ]);
 
-        await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'role', 'user']);
+        await AsyncStorage.multiRemove(AUTH_STORAGE_KEYS);
 
         router.replace({
           pathname: '/(auth)/verification-status',
@@ -81,7 +82,7 @@ export default function LoginScreen() {
           ['pendingAuthPassword', password],
         ]);
 
-        await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'role', 'user']);
+        await AsyncStorage.multiRemove(AUTH_STORAGE_KEYS);
         router.replace('/(onboarding)/role-select');
         return;
       }

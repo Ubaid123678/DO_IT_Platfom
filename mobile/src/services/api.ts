@@ -114,10 +114,14 @@ api.interceptors.response.use(
       message: error.message,
     });
 
-    // Handle 401 errors - attempt token refresh
-    const isRefreshRequest = originalRequest?.url?.includes('/auth/refresh-token');
+    // Handle 401 errors - attempt token refresh.
+    // Credential endpoints legitimately return 401 for bad input (e.g. wrong
+    // password) and must NOT trigger the refresh/session-clear dance, or the
+    // resulting redirect wipes the error the screen is trying to show.
+    const url = originalRequest?.url ?? '';
+    const isCredentialEndpoint = /\/(login|register|verify-email|verify-phone|resend-otp|forgot-password|reset-password|logout|refresh-token)(\?|$)/.test(url);
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isRefreshRequest && refreshTokenFn) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isCredentialEndpoint && refreshTokenFn) {
       if (isRefreshing) {
         // Wait for the ongoing refresh to complete
         return new Promise((resolve, reject) => {

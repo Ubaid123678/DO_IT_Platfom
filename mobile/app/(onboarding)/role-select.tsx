@@ -96,11 +96,18 @@ export default function RoleSelectScreen() {
         role: selectedRole,
       });
 
-      const updatedUser = updateResponse.data.data.user;
+      const updateData = updateResponse.data.data as {
+        user: typeof loginPayload.user;
+        accessToken?: string;
+        refreshToken?: string;
+      };
+      const updatedUser = updateData.user;
 
+      // The role lives in the access token, so the backend reissues tokens when
+      // the role changes. Store those; the old token still says "pending".
       await AsyncStorage.multiSet([
-        ['accessToken', loginPayload.accessToken],
-        ['refreshToken', loginPayload.refreshToken],
+        ['accessToken', updateData.accessToken ?? loginPayload.accessToken],
+        ['refreshToken', updateData.refreshToken ?? loginPayload.refreshToken],
         ['role', updatedUser.role],
         ['user', JSON.stringify(updatedUser)],
         [ONBOARDING_KEY, 'true'],
@@ -110,14 +117,11 @@ export default function RoleSelectScreen() {
 
       if (updatedUser.role === 'provider') {
         router.replace('/(provider-verification)');
+      } else if (updatedUser.client_profile?.completed) {
+        router.replace('/(client)/home');
       } else {
-        // Client goes to profile completion first
-        const hasCompletedProfile = await AsyncStorage.getItem('hasCompletedProfile');
-        if (hasCompletedProfile === 'true') {
-          router.replace('/(client)/home');
-        } else {
-          router.replace('/(onboarding)/client-profile');
-        }
+        // Client completes their profile first.
+        router.replace('/(onboarding)/client-profile');
       }
     } catch {
       setError('Unable to complete onboarding. Please try again.');

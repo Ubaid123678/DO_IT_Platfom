@@ -1,7 +1,12 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import { authService } from '@/src/services/authService';
 import { api, setRefreshTokenFn } from '@/src/services/api';
+
+// Everything that must be wiped together on logout/register. Includes the
+// cached profile so a new account can never inherit the previous user's data.
+export const AUTH_STORAGE_KEYS = ['accessToken', 'refreshToken', 'role', 'user', 'clientProfile'];
 
 type UserRole = 'pending' | 'client' | 'provider' | 'admin';
 
@@ -33,6 +38,27 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const [user, setUser] = useState<AuthUser | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Clears session state and returns to login. Used when the session is dead
+  // (no/expired refresh token, or refresh rejected) so authed screens can't sit
+  // on a dead token spamming 401s. Ref guards against repeated redirects when
+  // several requests 401 at once.
+  const redirectingRef = useRef(false);
+  const clearSessionToLogin = React.useCallback(async () => {
+    await AsyncStorage.multiRemove(AUTH_STORAGE_KEYS);
+    delete api.defaults.headers.common['Authorization'];
+    setIsAuthenticated(false);
+    setUser(null);
+    setRole(null);
+    if (!redirectingRef.current) {
+      redirectingRef.current = true;
+      try {
+        router.replace('/(auth)/login');
+      } finally {
+        setTimeout(() => { redirectingRef.current = false; }, 1000);
+      }
+    }
+  }, []);
 
   // Initialize auth state from AsyncStorage on app startup
   useEffect(() => {
@@ -68,7 +94,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
           setUser(userData);
         } else {
           // Clear any stale data
-          await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'role', 'user']);
+          await AsyncStorage.multiRemove(AUTH_STORAGE_KEYS);
           api.defaults.headers.common['Authorization'] = '';
         }
       } catch (error) {
@@ -103,7 +129,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     } catch {
       // Ignore errors
     } finally {
-      await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'role', 'user']);
+      await AsyncStorage.multiRemove(AUTH_STORAGE_KEYS);
       delete api.defaults.headers.common['Authorization'];
       setIsAuthenticated(false);
       setUser(null);
@@ -114,7 +140,10 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
   const refreshAccessToken = async (): Promise<string | null> => {
     try {
       const refreshToken = await AsyncStorage.getItem('refreshToken');
-      if (!refreshToken) return null;
+      if (!refreshToken) {
+        await clearSessionToLogin();
+        return null;
+      }
 
       const response = await authService.refreshToken(refreshToken);
       const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data.data;
@@ -128,11 +157,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       return newAccessToken;
     } catch (error) {
       console.error('Token refresh failed:', error);
-      await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'role', 'user']);
-      delete api.defaults.headers.common['Authorization'];
-      setIsAuthenticated(false);
-      setUser(null);
-      setRole(null);
+      await clearSessionToLogin();
       return null;
     }
   };
