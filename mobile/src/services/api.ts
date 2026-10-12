@@ -114,14 +114,23 @@ api.interceptors.response.use(
       message: error.message,
     });
 
-    // Handle 401 errors - attempt token refresh.
-    // Credential endpoints legitimately return 401 for bad input (e.g. wrong
-    // password) and must NOT trigger the refresh/session-clear dance, or the
-    // resulting redirect wipes the error the screen is trying to show.
+    // Handle 401 (expired) and 403 (stale role claim) by refreshing once and
+    // retrying. A user's role lives in the JWT; it can change server-side (role
+    // selection, KYC approval) without the token being reissued, which otherwise
+    // strands the user on a 403 until restart. A genuine permission denial just
+    // re-403s and is rejected as usual.
     const url = originalRequest?.url ?? '';
     const isCredentialEndpoint = /\/(login|register|verify-email|verify-phone|resend-otp|forgot-password|reset-password|logout|refresh-token)(\?|$)/.test(url);
+    const status = error.response?.status;
+    const refreshFn = refreshTokenFn;
+    const shouldRetryWithFreshToken =
+      (status === 401 || status === 403) &&
+      originalRequest &&
+      !originalRequest._retry &&
+      !isCredentialEndpoint &&
+      refreshFn;
 
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isCredentialEndpoint && refreshTokenFn) {
+    if (shouldRetryWithFreshToken && originalRequest && refreshFn) {
       if (isRefreshing) {
         // Wait for the ongoing refresh to complete
         return new Promise((resolve, reject) => {
@@ -139,7 +148,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const newToken = await refreshTokenFn();
+        const newToken = await refreshFn();
         if (newToken) {
           processQueue(null, newToken);
           originalRequest.headers = originalRequest.headers || {};

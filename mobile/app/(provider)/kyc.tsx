@@ -18,7 +18,8 @@ export default function KycRoute() {
                         return;
                     }
                 } catch {
-                    // stay on this screen
+                    // Network failed; fall through and let KycFlow retry its own
+                    // bootstrap rather than blocking forever.
                 } finally {
                     setChecking(false);
                 }
