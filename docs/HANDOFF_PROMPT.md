@@ -1,12 +1,12 @@
-# Do It Phase 10 Handoff Prompt (Fraud Detection and Security Hardening)
+# Do It Platform Handoff Prompt (current state)
 
-Use this prompt in a new chat to continue Phase 11 work from the current repository state.
+Use this prompt in a new chat to continue from the current repository state. Phases 0-10 are implemented; Phase 4 (Jobs Core) is under physical-device testing before Phase 11 (Analytics & Admin Dashboard) begins.
 
 ---
 
 I am continuing the Do It platform implementation.
 The app-first delivery path is active, with mobile and shared backend as the focus.
-Phases 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, and 10 are completed and validated.
+Phases 0 through 10 are implemented. Phase 4 (Jobs Core) is under physical-device testing; Phase 11 is next.
 
 Read these files first:
 - docs/LLM_ARCHITECTURE_PACK.md (condensed system architecture — read this first)
@@ -29,16 +29,15 @@ Execution mode:
 - Website/admin frontend remains deferred for now
 
 Current repo truth:
-- Phase 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, and 10 fully completed and verified; Phase 11 (Analytics & Admin Dashboard) is the next implementation focus.
-- Backend has auth, KYC, verification, jobs, proposals, wallet, payouts, disputes, reviews, messaging, notifications, fraud modules with full test coverage.
-- Mobile has auth screens, KYC flow, 11-step provider verification wizard, per-track profile completion, 7-step job creation wizard, provider job browse feed, job detail with status transitions, client/provider job management, full proposal/matching flow, complete wallet/escrow/payout flow, complete disputes/reviews flow, complete messaging/notifications/realtime flow, and complete fraud/security flow.
-- Fraud Detection: Rules engine with 12 rule types, Bull queue integration, admin review workflow with evidence, case management, security actions (block IP/device, lock account, require 2FA, notify), statistics, export.
-- Security: Fraud alerts screen, security settings (2FA, devices, sessions, login history), audit log viewer.
+- Phases 0 through 10 are implemented. Phase 4 (Jobs Core) is under physical-device testing; Phase 11 is the next phase after sign-off.
+- Backend has auth, KYC, verification, jobs, proposals, wallet, payouts, disputes, reviews, messaging, notifications, fraud modules.
+- Backend and mobile TypeScript are clean (`npx tsc --noEmit` — 0 errors each). Backend test suite: 11 files / 60 tests pass. (Older docs say "12/12 tests" — that was the suite size earlier; see IMPLEMENTATION_STATUS.md §8.)
+- Messaging (email/SMS via nodemailer+twilio, FCM via firebase-admin) compiles with the optional deps installed but needs real credentials to run.
 - Token refresh interceptor, OTP debug mode, and base64 image upload work.
 - Avatar/profile-photo upload uses base64 JSON transport (KYC-proven) after React Native multipart uploads kept failing.
 - Avatar persistence bug fixed: mutating the `provider_profile` / `track_data` Mixed subdocuments in place is silently dropped by Mongoose change tracking; the fix uses `user.markModified('provider_profile')` (and object reassignment in `updateProfile`).
 - Mobile TypeScript check passes: `cd mobile && npx tsc --noEmit`.
-- Backend checks pass: `cd backend && npx tsc --noEmit` (minor type warnings) and `cd backend && npx vitest run` (12/12 tests).
+- Backend checks pass: `cd backend && npx tsc --noEmit` and `cd backend && npx vitest run`.
 
 What has already been done in this repo:
 - Phase 3 complete: verification module (categories/skills, evidence records, admin review, OAuth connect, resume parse), 11 mobile wizard screens, status hub, and the per-track profile completion flow.
@@ -74,7 +73,7 @@ Definition of done for Phase 11:
 3. Business metrics (GMV, conversion, retention, provider quality).
 4. Export/reporting (scheduled reports, CSV/PDF).
 5. Mobile analytics screens (earnings, performance, insights).
-6. Backend `npx tsc --noEmit` and `npx vitest run` (12/12) pass.
+6. Backend `npx tsc --noEmit` (0 errors) and `npx vitest run` (60 tests) pass.
 7. Mobile `npx tsc --noEmit` passes.
 8. docs/IMPLEMENTATION_STATUS.md updated after completion.
 
@@ -85,7 +84,7 @@ Immediate next work:
    - Implement business metrics aggregation (GMV, conversion, retention)
    - Create scheduled reporting with CSV/PDF export
    - Build mobile analytics screens (earnings, performance, insights)
-   - Backend `npx tsc --noEmit` and `npx vitest run` (12/12) pass
+   - Backend `npx tsc --noEmit` (0 errors) and `npx vitest run` (60 tests) pass
    - Mobile `npx tsc --noEmit` passes
    - docs/IMPLEMENTATION_STATUS.md updated after completion
 

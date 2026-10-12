@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 2.9
-Last updated: 2026-09-08 (Phase 10 - Fraud Detection and Security Hardening complete; fraud rules engine, Bull queue, admin review workflow, security actions, mobile screens)
+Version: 3.0
+Last updated: 2026-10-12 (Phase 4 jobs-core stabilization: backend + mobile TypeScript clean, backend test suite 60/60. See §8 for the review-fix log.)
 Owner: Engineering
 
 ## 1. Purpose
@@ -10,13 +10,17 @@ This file is the single source of truth for implementation progress.
 Do not create separate phase completion files going forward.
 Update this file at the end of each completed phase.
 
+> Note on verification numbers: earlier entries in the phase log record "12/12 tests"
+> because that was the suite size when they were written. The current suite is
+> 11 files / 60 tests (see §8). Treat §8 as the current, verified state.
+
 ## 2. Overall Progress
 
 - Total phases planned: 14
 - Completed phases: 11 (Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7, Phase 8, Phase 9, Phase 10)
-- In progress phases: 0
-- Current phase: Phase 11 - Analytics & Admin Dashboard
-- Next phase: Phase 11 - Analytics & Admin Dashboard
+- In progress phases: 1 (Phase 4 jobs-core stabilization / device testing)
+- Current phase: Phase 4 - Jobs Core (stabilization and physical-device testing)
+- Next phase: Phase 11 - Analytics & Admin Dashboard (after Phase 4 sign-off)
 
 ## 2.1 Execution Mode
 
@@ -30,41 +34,7 @@ Phase 2 (KYC and Identity Verification) is fully implemented and verified:
 
 - Backend: KYC module with document upload (base64 + multipart), submission, resubmission, admin review (approve/reject with reason), provider role promotion, and restricted-action gating.
 - Mobile: Extracted `KycFlow` component with 5-step wizard + status screens. Layout-level KYC gate prevents access to tabs until approved. `useFocusEffect` for auto-refresh on navigation focus.
-- All 12 backend tests pass; mobile TypeScript compiles cleanly.
-
-## 3. Phase Completion Log
-
-## Phase 0 - Program Setup and Architecture Baseline
-
-Status: Completed
-Completion date: 2026-04-08
-
-### Completed scope
-
-- Project scaffolding completed for backend, mobile, and website
-- Dependencies installed for all three projects
-- Base backend server implemented and compiled
-- Core documentation set completed and aligned
-- Repository structure normalized to a single root git repository
-
-### What was created
-
-Back... (truncated)
-
-## 2.1 Execution Mode
-
-- Active delivery scope is mobile app + shared backend.
-- Website frontend and admin portal implementation are deferred until app completion.
-- Any existing web pages are scaffolding only and not part of current sprint commitments.
-
-## 2.2 Phase 2 Completion Summary
-
-Phase 2 (KYC and Identity Verification) is fully implemented and verified:
-
-- Backend: KYC module with document upload (base64 + multipart), submission, resubmission, admin review (approve/reject with reason), provider role promotion, and restricted-action gating.
-- Mobile: Extracted `KycFlow` component with 5-step wizard + status screens. Layout-level KYC gate prevents access to tabs until approved. `useFocusEffect` for auto-refresh on navigation focus.
-- All 12 backend tests pass; mobile TypeScript compiles cleanly.
-
+- Backend test suite passes; mobile TypeScript compiles cleanly. (See §8 for current counts.)
 ## 3. Phase Completion Log
 
 ## Phase 0 - Program Setup and Architecture Baseline
@@ -465,51 +435,6 @@ Closed the profile-strength/avatar discrepancies reported on the completion scre
 - Deferred mock areas (not blocking): public profile viewer and `profile.tsx` stats/reviews remain mock-driven; resume upload still uses multipart transport (candidate for the same base64 migration if it fails on device).
 
 ---
-
-## 4. Current Repositories and Source Layout
-
-Current workspace uses a single root git repository:
-- DO_IT_Platfom/.git
-
-No nested repositories are used in mobile or web folders.
-
-## 5. Next Planned Work
-
-Phase 3 (Provider Onboarding & Verification System) is complete, including the per-track profile completion enhancement and the avatar-persistence fix (§3.5.1). The sole remaining Phase 3 item is a manual end-to-end test of the per-track profile completion screen for all three track types — see the checklist in §3.5.1. After that checklist is closed, Phase 4 (Jobs Core) is the next implementation focus.
-
-## 6. Update Template For Future Phase Completions
-
-Copy this section and append for each completed phase.
-
-Phase X - Name
-- Status: Completed
-- Completion date: YYYY-MM-DD
-- Completed scope:
-  - item 1
-  - item 2
-- What was created:
-  - files
-  - endpoints
-  - components
-- Verification results:
-  - build/test/runtime checks
-- Risks/notes:
-  - open concerns
-- Next phase:
-  - name
-
-## 7. Handoff Prompt (Copy into a new chat)
-
-Use the text below as your complete context handoff prompt for a new chat:
-
-I am continuing the Do It Platform implementation in backend-first mode. Use docs/IMPLEMENTATION_STATUS.md as the source of truth for progress and only append updates there when a phase is completed.
-
-Project summary:
-- Product: global service marketplace connecting clients and providers
-- Frontends: mobile (Expo React Native) and web (Next.js)
-- Shared backend: Node.js + Express + MongoDB + Redis
-- Shared database/services for app and website
-
 ## Phase 4 - Jobs Core (Create, Browse, Manage)
 
 Status: Completed
@@ -705,47 +630,6 @@ Notes:
 ---
  
 ## Phase 9 - Messaging, Notifications, and Realtime
- 
-Status: Completed
-Completion date: 2026-08-11
- 
-### Completed scope
- 
-Backend (`backend/src/modules/messaging/`):
-- **Models** (`message.model.ts`): Complete Message, Conversation, Notification schemas with 2dsphere geo-indexing for location-based messages, status enums, compound indexes
-- **Validation** (`messaging.validation.ts`): Joi schemas for createConversation, sendMessage, updateMessage, deleteMessage, markAsRead, getMessages, getConversations, muteConversation, archiveConversation, pinConversation, getNotifications, markNotificationAsRead, markAllNotificationsAsRead, dismissNotification, getNotificationStats, registerPushToken, removePushToken, updatePushPreferences, adminSendNotification, adminBulkCreateNotifications
-- **Service** (`messaging.service.ts`): createConversation (direct/group/job/support), getOrCreateDirectConversation, getConversationById, getUserConversations, updateConversation, deleteConversation, sendMessage, getMessages, updateMessage, deleteMessage, markAsRead, sendNotification (multi-channel), getNotifications, markAsRead, markAllAsRead, dismissNotification, getNotificationStats, registerPushToken, removePushToken, updatePushPreferences, adminSendNotification, adminBulkCreateNotifications
-- **Socket Service** (`socket.service.ts`): Real-time events for messages, conversations, notifications, typing indicators, presence (online/offline), job/proposal/dispute events, role-based rooms, Redis adapter for scaling
-- **FCM Service** (`fcm.service.ts`): Push notifications via Firebase Cloud Messaging (token/token/multicast/topic/device group), webhook handling
-- **Email/SMS Service** (`email-sms.service.ts`): Nodemailer + Twilio, templates for all notification types, bulk SMS
-- **Controller** (`messaging.controller.ts`, `notification.controller.ts`, `payout.controller.ts`): 20+ handlers for balance, top-up, transactions, payouts, admin, internal escrow endpoints
-- **Routes** (`messaging.routes.ts`): 20+ endpoints at `/api/v1/messaging` and `/api/v1/wallet` + internal escrow endpoints
-- **Modified**: `src/routes/index.ts` to mount messaging router, updated wallet service for multi-currency, updated payout scheduler for Wise integration
- 
-Mobile frontend:
-- **Messaging Service** (`mobile/src/services/messagingService.ts`): Complete typed API client with Conversation, Message, Notification interfaces and all CRUD/escrow methods
-- **Notification Service** (`mobile/src/services/notificationService.ts`): Complete typed API client with Notification interfaces and all CRUD/matching methods
-- **Job Creation Wizard** (`mobile/src/context/JobCreationContext.tsx` + 7 step components): Multi-step flow (job-type → details → location → budget → schedule → requirements → review) with validation
-- **Job Browse Feed** (`mobile/app/(provider)/browse-jobs.tsx`): Geo-aware feed with filters (type, category, budget, radius, experience), sort options, pull-to-refresh, infinite scroll, stats tabs
-- **Job Detail** (`mobile/app/(shared)/job-detail/[jobId].tsx`): Full job view with status transitions (client/provider actions based on role), provider/client info, schedule, requirements
-- **Client Job Management** (`mobile/app/(client)/my-jobs.tsx`): Tabbed view (All/Open/In Progress/Completed/Cancelled), stats cards, applicant counts, navigation to job detail
-- **Provider Job Management** (`mobile/app/(provider)/browse-jobs.tsx`): Type filter + status tabs, assigned jobs with completion actions
-- **Expo-location** integration for auto-detecting user location in job creation
- 
-Verification results:
-- Backend `npx tsc --noEmit` clean
-- Backend `npx vitest run` — 12/12 tests pass
-- Mobile `npx tsc --noEmit` clean (core modules)
- 
-Notes:
-- Mobile wallet screens have minor TypeScript strictness warnings (non-blocking)
-- Stripe Connect integration for provider payouts deferred to Phase 7
-- Admin wallet moderation endpoints to be enhanced in Phase 7
-- Wise integration for cross-border payouts deferred to Phase 7
-
----
-
-## Phase 9 - Messaging, Notifications, and Realtime
 
 Status: Completed
 Completion date: 2026-08-11
@@ -854,8 +738,8 @@ Current workspace uses a single root git repository:
 No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
- 
-Phase 9 (Messaging, Notifications, and Realtime) is complete. Phase 10 (Fraud Detection and Security Hardening) is the next implementation focus.
+
+Phases 0 through 10 are implemented. The active focus is **Phase 4 (Jobs Core) stabilization on a physical device**. Phase 11 (Analytics & Admin Dashboard) starts after Phase 4 sign-off. See §8 for the current verified state and the review-fix log.
 
 ## 6. Update Template For Future Phase Completions
 
@@ -899,7 +783,8 @@ Current status:
 - Phase 7 (Payouts, FX, and Multi-Currency) is fully delivered: Wise integration for cross-border payouts, Stripe Connect Express onboarding, multi-currency wallet with FX rate caching, automated payout scheduling with Wise webhook reconciliation, mobile payout/Wise onboarding screens.
 - Phase 8 (Disputes, Reviews, and Resolution) is fully delivered: dispute model with state machine, evidence submission, admin verdict system with escrow routing, review system with 5-star + 4 detailed categories, flagging, moderation, helpful votes, client/provider dispute/review management screens.
 - Phase 9 (Messaging, Notifications, and Realtime) is fully delivered: Socket.io realtime chat with typing indicators/read receipts, FCM push notifications, multi-channel notifications (in-app/push/email/SMS), email/SMS templates, Socket.io Redis adapter, mobile chat/inbox/notification screens.
-- Phase 10 (Fraud Detection and Security Hardening) is the next implementation focus.
+- Phase 10 (Fraud Detection and Security Hardening) is fully delivered: fraud rules engine with 12 rule types, Bull queue integration, admin review workflow, security actions, mobile fraud/security screens.
+- Current verified state (2026-10-12): backend + mobile TypeScript clean; backend test suite 11 files / 60 tests pass. Phase 4 (Jobs Core) is under physical-device testing before Phase 11 begins.
 - Website and admin portal implementation remain deferred until app completion.
  
 Core docs:
@@ -911,20 +796,84 @@ Core docs:
 - web/ADMIN_REMAINING.md
  
 Instruction for this chat:
-- Continue implementation from Phase 10 as backend-first execution.
+- Continue implementation from the current state (Phases 0-10 implemented; Phase 4 under device testing) as backend-first execution.
 - Keep backend shared for mobile and website.
 - Keep website/admin web delivery paused until app completion.
 - Treat mobile screens as complete UI targets; prioritize wiring APIs and replacing mock data.
 - After each fully completed phase, update docs/IMPLEMENTATION_STATUS.md with exact completed scope, created files/endpoints, and verification.
 - Do not create separate phase completion markdown files.
- 
+
 Immediate next work:
-1. Phase 10 - Fraud Detection and Security Hardening:
-   - Design and implement fraud rules engine (Bull-based, initial rule set)
-   - Implement fraud flag creation and admin review workflow
-   - Security hardening pass (auth, input validation, logging hygiene, SSRF/file upload checks)
-   - Abuse controls for OTP, payment attempts, suspicious sessions
-   - Build mobile screens: fraud alerts, security settings, audit log
-   - Backend `npx tsc --noEmit` and `npx vitest run` (12/12) pass
-   - Mobile `npx tsc --noEmit` passes
-   - docs/IMPLEMENTATION_STATUS.md updated after completion
+1. Finish Phase 4 (Jobs Core) physical-device testing and sign off.
+2. Then Phase 11 - Analytics & Admin Dashboard.
+   - Backend gate: `cd backend && npx tsc --noEmit` and `npx vitest run` (currently 0 errors / 60 tests).
+   - Mobile gate: `cd mobile && npx tsc --noEmit` (currently 0 errors).
+   - Update docs/IMPLEMENTATION_STATUS.md after completion.
+
+---
+
+## 8. Phase 4 Stabilization and Review-Fix Log (2026-10-12)
+
+This section records the fixes applied during Phase 4 device testing, and the
+**current, verified** build/test state. It supersedes the "12/12 tests" wording
+that appears in older phase entries.
+
+### Current verified state
+
+- Backend `cd backend && npx tsc --noEmit` — **0 errors** (was 256).
+- Backend `cd backend && npx vitest run` — **11 files / 60 tests pass** (was 10 files / 52 tests).
+- Mobile `cd mobile && npx tsc --noEmit` — **0 errors** (was 80).
+
+### Fixes applied
+
+- **Job schedule picker (`JobScheduleStep.tsx`)** — corrected the `DateTimePicker`
+  handler type to `DateTimePickerChangeEvent` so the start/end date callbacks are
+  correctly typed for `@react-native-community/datetimepicker@9.1.0`.
+- **Client home screen (`app/(client)/home.tsx`)** — removed two accidentally
+  duplicated `StyleSheet.create` blocks (79 duplicate-key TS1117 errors). Kept the
+  effective (last-wins) values; behavior unchanged.
+- **Wallet multi-currency migration** — the model had been half-migrated to
+  currency Maps while the mobile app, controllers, and service all use scalar USD.
+  Completed the migration in the scalar direction: `balance` / `escrowBalance` /
+  `availableBalance` / `currency` are the source of truth; removed the dead Map
+  statics and the broken `releaseEscrow` path (now fetches the platform wallet,
+  creates the release transaction, and guards nulls).
+- **Payout scheduler** — deleted the never-wired scheduled-payout processing
+  (`processScheduledPayouts` / `schedulePayout` / `processPayout` /
+  `retryFailedPayouts`) which referenced nonexistent model statics; kept
+  `cancelPayout` and `getProviderPayoutStats`. Added `metadata` to `IPayout`.
+- **Stripe Connect service** — replaced hand-rolled interfaces with the Stripe SDK
+  types; fixed `updateAccount`/`listPayouts` signatures.
+- **Wise / FX services** — fixed `request()` calling convention, typed JSON
+  responses, removed dead interfaces.
+- **Messaging** — installed the missing optional deps (`nodemailer`, `twilio`,
+  `firebase-admin`, `@socket.io/redis-adapter`); migrated FCM to firebase-admin
+  v13 named imports; removed the deprecated `sendToDeviceGroup`; fixed
+  `MessageStatus` to include `deleted`; deduped `markAsRead` and `emitToRole`;
+  fixed the `deleteForEveryone` typo and shadowed `messageIds`.
+- **Reviews** — declared the instance methods/statics on `IReview`/`IReviewModel`;
+  aligned `moderate(adminId, 'approve'|'remove')`; removed a duplicate
+  `markHelpful`; fixed a null `expectedRevieweeId`.
+- **Fraud** — typed the models (so `._id` is a real `ObjectId`); widened lean-object
+  serializers; stopped writing the literal `'admin'` string into `reviewedBy`.
+- **Jobs (S1)** — made `disputed → resolved` reachable: added `resolved` to the
+  `Job` status enum and the status-transition Joi schema, and the dispute service
+  now sets `job.status = 'resolved'` when escrow is routed.
+- **Jobs (S2)** — fixed the `assignProvider` ownership check to compare
+  `ObjectId.toString()` against the caller id (previously always failed).
+- **Jobs (S3/S4)** — removed backend validation/model/Joi/mobile-type fields that
+  the client job form never collects: errand `baseFee`/`perKmFee`, physical
+  `yearsExperience`, and digital `workHistory`/`education`. The job-creation API
+  now matches what the mobile flow actually sends.
+- **Tests (S7)** — added `backend/src/modules/jobs/job.service.test.ts`
+  (create per type, ownership guard, transition permission, escrow release/refund,
+  provider assignment).
+
+### Notes carried forward
+
+- Mobile `app/(client)/home.tsx` style keys were deduped keeping last-wins
+  semantics; if a specific visual looks off, the earlier duplicate value was the
+  one being overridden.
+- The email/SMS/FCM integrations now compile but require real credentials to run.
+- Multi-currency (Wise/FX) endpoints exist but the wallet itself is single-currency
+  USD end-to-end; full per-currency wallets remain a future phase.
