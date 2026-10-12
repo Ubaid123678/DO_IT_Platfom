@@ -295,17 +295,27 @@ export const jobService = {
       filter['location.city'] = new RegExp(city, 'i');
     }
 
-    // Text search
+    // Text search. Uses regex (not $text) so it searches title *and* description
+    // and can coexist with a $near geo filter — MongoDB rejects $text + $near
+    // in the same query. Regex is unindexed; move to Atlas Search if volume grows.
     if (search) {
-      filter.$text = { $search: search };
+      const safe = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [
+        { title: { $regex: safe, $options: 'i' } },
+        { description: { $regex: safe, $options: 'i' } },
+      ];
     }
 
-    // Build sort
+    // Build sort. When a $near query is active Mongo already returns nearest-first,
+    // so we only set an explicit sort when the caller asked for a real field.
     let sort: Record<string, 1 | -1> = {};
     const order = sortOrder === 'asc' ? 1 : -1;
+    const hasGeo = type !== 'digital' && latitude !== undefined && longitude !== undefined;
 
-    if (sortBy === 'distance' && type !== 'digital' && latitude !== undefined && longitude !== undefined) {
-      sort = { 'metadata.distance': order };
+    if (sortBy === 'distance') {
+      // Distance ordering comes from the $near query itself; with no geo there is
+      // no distance to sort by, so fall back to newest.
+      sort = hasGeo ? {} : { createdAt: -1 };
     } else if (sortBy === 'budget') {
       sort = { 'budget.amount': order };
     } else if (sortBy === 'urgency') {
@@ -314,15 +324,29 @@ export const jobService = {
       sort = { [sortBy]: order };
     }
 
+    const query = JobModel.find(filter)
+      .skip(skip)
+      .limit(limit)
+      .populate('requirements.categories', 'name job_type icon_url')
+      .populate('requirements.skillItems', 'name requires_certificate requires_vehicle')
+      .lean();
+
+    if (Object.keys(sort).length > 0) query.sort(sort);
+
+    // countDocuments does not accept $near, so mirror the geo filter with
+    // $geoWithin (same circle) for the count.
+    const countFilter: Record<string, unknown> = { ...filter };
+    if (hasGeo) {
+      countFilter.location = {
+        $geoWithin: {
+          $centerSphere: [[longitude, latitude], (radiusKm * 1000) / 6378100],
+        },
+      };
+    }
+
     const [jobs, total] = await Promise.all([
-      JobModel.find(filter)
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .populate('requirements.categories', 'name job_type icon_url')
-        .populate('requirements.skillItems', 'name requires_certificate requires_vehicle')
-        .lean(),
-      JobModel.countDocuments(filter),
+      query,
+      JobModel.countDocuments(countFilter),
     ]);
 
     return {

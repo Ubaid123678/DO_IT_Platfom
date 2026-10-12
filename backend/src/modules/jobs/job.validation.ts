@@ -70,7 +70,6 @@ const jobRequirementsSchema = Joi.object({
   vehicleRequired: Joi.boolean().default(false),
   
   // Physical-specific (optional, validated in controller)
-  yearsExperience: Joi.number().integer().min(0).max(100).optional(),
   serviceRadiusKm: Joi.number().integer().min(1).max(500).optional(),
   toolsEquipment: Joi.array().items(Joi.string().trim().max(60)).max(20).optional(),
   teamSize: Joi.string().valid('solo', 'with_helper', 'with_team').optional(),
@@ -86,24 +85,6 @@ const jobRequirementsSchema = Joi.object({
   githubUsername: Joi.string().trim().max(100).optional().allow(''),
   timezone: Joi.string().trim().max(60).optional().allow(''),
   englishProficiency: Joi.string().valid('basic', 'intermediate', 'fluent').optional(),
-  workHistory: Joi.array().items(
-    Joi.object({
-      title: Joi.string().trim().max(120).required(),
-      company: Joi.string().trim().max(120).required(),
-      start_date: Joi.string().trim().max(20).required(),
-      end_date: Joi.string().trim().max(20).optional().allow(''),
-      description: Joi.string().trim().max(1000).optional().allow(''),
-    })
-  ).optional(),
-  education: Joi.array().items(
-    Joi.object({
-      institution: Joi.string().trim().max(160).required(),
-      degree: Joi.string().trim().max(160).required(),
-      field: Joi.string().trim().max(160).optional().allow(''),
-      start_year: Joi.number().integer().min(1900).max(2100).optional(),
-      end_year: Joi.number().integer().min(1900).max(2100).optional(),
-    })
-  ).optional(),
   
   // Errand-specific (optional, validated in controller)
   transportMode: Joi.string().valid('on_foot', 'bicycle', 'motorbike', 'car', 'van').optional(),
@@ -169,7 +150,7 @@ const browseJobsQuerySchema = Joi.object({
 });
 
 const jobStatusTransitionSchema = Joi.object({
-  status: Joi.string().valid('open', 'in_progress', 'completed', 'cancelled', 'disputed').required(),
+  status: Joi.string().valid('open', 'in_progress', 'completed', 'cancelled', 'disputed', 'resolved').required(),
 });
 
 const clientJobQuerySchema = Joi.object({

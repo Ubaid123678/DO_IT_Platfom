@@ -31,9 +31,6 @@ const validateRequirementsForType = (type: string, requirements: Record<string, 
 
   switch (type) {
     case 'physical': {
-      if (requirements.yearsExperience !== undefined && (typeof requirements.yearsExperience !== 'number' || requirements.yearsExperience < 0 || requirements.yearsExperience > 100)) {
-        errors.push('yearsExperience must be a number between 0 and 100');
-      }
       if (requirements.serviceRadiusKm !== undefined && (typeof requirements.serviceRadiusKm !== 'number' || requirements.serviceRadiusKm < 1 || requirements.serviceRadiusKm > 500)) {
         errors.push('serviceRadiusKm must be a number between 1 and 500');
       }
@@ -55,31 +52,11 @@ const validateRequirementsForType = (type: string, requirements: Record<string, 
       if (requirements.englishProficiency !== undefined && !['basic', 'intermediate', 'fluent'].includes(requirements.englishProficiency as string)) {
         errors.push('englishProficiency must be one of: basic, intermediate, fluent');
       }
-      if (requirements.workHistory !== undefined && Array.isArray(requirements.workHistory)) {
-        requirements.workHistory.forEach((wh: Record<string, unknown>, i: number) => {
-          if (!wh.title || !wh.company || !wh.start_date) {
-            errors.push(`workHistory[${i}] requires title, company, and start_date`);
-          }
-        });
-      }
-      if (requirements.education !== undefined && Array.isArray(requirements.education)) {
-        requirements.education.forEach((ed: Record<string, unknown>, i: number) => {
-          if (!ed.institution || !ed.degree) {
-            errors.push(`education[${i}] requires institution and degree`);
-          }
-        });
-      }
       break;
     }
     case 'errand': {
       if (requirements.transportMode !== undefined && !['on_foot', 'bicycle', 'motorbike', 'car', 'van'].includes(requirements.transportMode as string)) {
         errors.push('transportMode must be one of: on_foot, bicycle, motorbike, car, van');
-      }
-      if (requirements.baseFee !== undefined && (typeof requirements.baseFee !== 'number' || requirements.baseFee < 0 || requirements.baseFee > 1000000)) {
-        errors.push('baseFee must be a number between 0 and 1000000');
-      }
-      if (requirements.perKmFee !== undefined && (typeof requirements.perKmFee !== 'number' || requirements.perKmFee < 0 || requirements.perKmFee > 100000)) {
-        errors.push('perKmFee must be a number between 0 and 100000');
       }
       if (requirements.maxPayloadKg !== undefined && (typeof requirements.maxPayloadKg !== 'number' || requirements.maxPayloadKg < 0 || requirements.maxPayloadKg > 1000)) {
         errors.push('maxPayloadKg must be a number between 0 and 1000');
@@ -226,7 +203,7 @@ export const jobController = {
     const userRole = getUserRole(req);
 
     const job = await jobService.getJobById(req.params.jobId);
-    if (job.client.clientId !== userId && userRole !== 'admin') {
+    if (job.client.clientId.toString() !== userId && userRole !== 'admin') {
       throw new AppError('Not authorized to assign provider', 403, 'NOT_AUTHORIZED');
     }
 

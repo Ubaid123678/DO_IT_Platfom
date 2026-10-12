@@ -67,7 +67,6 @@ export interface IJobRequirements {
   vehicleRequired?: boolean; // for errand jobs
   
   // Physical-specific
-  yearsExperience?: number;
   serviceRadiusKm?: number;
   toolsEquipment?: string[];
   teamSize?: 'solo' | 'with_helper' | 'with_team';
@@ -80,8 +79,6 @@ export interface IJobRequirements {
   githubUsername?: string;
   timezone?: string;
   englishProficiency?: 'basic' | 'intermediate' | 'fluent';
-  workHistory?: Array<{ title: string; company: string; start_date: string; end_date?: string; description?: string }>;
-  education?: Array<{ institution: string; degree: string; field?: string; start_year?: number; end_year?: number }>;
   
   // Errand-specific
   transportMode?: 'on_foot' | 'bicycle' | 'motorbike' | 'car' | 'van';
@@ -320,7 +317,6 @@ const jobRequirementsSchema = new Schema<IJobRequirements>(
     vehicleRequired: { type: Boolean, default: false },
     
     // Physical-specific
-    yearsExperience: { type: Number, min: 0, max: 100 },
     serviceRadiusKm: { type: Number, min: 1, max: 500 },
     toolsEquipment: [{ type: String, trim: true, maxlength: 60 }],
     teamSize: { type: String, enum: ['solo', 'with_helper', 'with_team'] },
@@ -336,20 +332,6 @@ const jobRequirementsSchema = new Schema<IJobRequirements>(
     githubUsername: { type: String, trim: true, maxlength: 100 },
     timezone: { type: String, trim: true, maxlength: 60 },
     englishProficiency: { type: String, enum: ['basic', 'intermediate', 'fluent'] },
-    workHistory: [{
-      title: { type: String, trim: true, maxlength: 120 },
-      company: { type: String, trim: true, maxlength: 120 },
-      start_date: { type: String, trim: true, maxlength: 20 },
-      end_date: { type: String, trim: true, maxlength: 20 },
-      description: { type: String, trim: true, maxlength: 1000 },
-    }],
-    education: [{
-      institution: { type: String, trim: true, maxlength: 160 },
-      degree: { type: String, trim: true, maxlength: 160 },
-      field: { type: String, trim: true, maxlength: 160 },
-      start_year: { type: Number, min: 1900, max: 2100 },
-      end_year: { type: Number, min: 1900, max: 2100 },
-    }],
     
     // Errand-specific
     transportMode: { type: String, enum: ['on_foot', 'bicycle', 'motorbike', 'car', 'van'] },
@@ -437,7 +419,6 @@ const jobSchema = new Schema<IJob>(
       required: true,
       trim: true,
       maxlength: 120,
-      index: 'text',
     },
     description: {
       type: String,
@@ -453,7 +434,7 @@ const jobSchema = new Schema<IJob>(
     },
     status: {
       type: String,
-      enum: ['open', 'in_progress', 'completed', 'cancelled', 'disputed'],
+      enum: ['open', 'in_progress', 'completed', 'cancelled', 'disputed', 'resolved'],
       default: 'open',
       index: true,
     },
