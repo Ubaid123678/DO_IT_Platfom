@@ -133,12 +133,9 @@ export default function ClientLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="job-detail/[id]" options={{ href: null }} />
       <Tabs.Screen name="disputes" options={{ href: null }} />
       <Tabs.Screen name="job-proposals/[jobId]" options={{ href: null }} />
-      <Tabs.Screen name="proposals/[jobId]" options={{ href: null }} />
       <Tabs.Screen name="wallet" options={{ href: null }} />
-      <Tabs.Screen name="wallet-topup" options={{ href: null }} />
       <Tabs.Screen name="wallet-withdraw" options={{ href: null }} />
       <Tabs.Screen name="wallet/topup" options={{ href: null }} />
       <Tabs.Screen name="verification" options={{ href: null }} />

@@ -197,8 +197,8 @@ export default function ProviderActiveJobScreen() {
               style={styles.chatAction}
               onPress={() =>
                 router.push({
-                  pathname: '/(shared)/chat/[id]',
-                  params: { id: job.clientChatId },
+                  pathname: '/(shared)/chat/[conversationId]',
+                  params: { conversationId: job.clientChatId },
                 })
               }
             >
@@ -314,8 +314,8 @@ export default function ProviderActiveJobScreen() {
             style={styles.messageButton}
             onPress={() =>
               router.push({
-                pathname: '/(shared)/chat/[id]',
-                params: { id: job.clientChatId },
+                pathname: '/(shared)/chat/[conversationId]',
+                params: { conversationId: job.clientChatId },
               })
             }
           >

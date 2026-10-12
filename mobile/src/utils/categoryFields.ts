@@ -639,6 +639,60 @@ export const CATEGORY_FIELD_CONFIG: Record<string, CategoryFieldConfig> = {
   // ERRAND CATEGORIES (using base config from errand step)
   // These will use the base errand fields (transportMode, sameDayExpress, etc.)
   // with category-specific overrides if needed
+  'E-Commerce Management': {
+    techStack: true,
+    portfolioUrl: true,
+    timezone: true,
+    englishProficiency: true,
+    workHistory: true,
+    education: true,
+    fieldLabels: {
+      techStack: 'Platforms (e.g., Shopify, WooCommerce, Amazon Seller)',
+    },
+    fieldHints: {
+      techStack: 'e.g., Shopify, WooCommerce, Amazon Seller Central, Magento',
+    },
+  },
+  'AR/VR & 3D Modeling': {
+    techStack: true,
+    portfolioUrl: true,
+    timezone: true,
+    englishProficiency: true,
+    workHistory: true,
+    education: true,
+    fieldLabels: {
+      techStack: 'Engines & Tools (e.g., Unity, Unreal, Blender)',
+    },
+    fieldHints: {
+      techStack: 'e.g., Unity, Unreal Engine, Blender, Three.js',
+    },
+  },
+  'Parcel & Document Delivery': {
+    sameDayExpress: true,
+    deliveryCapabilities: true,
+    maxPayloadKg: true,
+    maxPackageSize: true,
+    goodsInsurance: true,
+  },
+  'Personal Errands': {
+    sameDayExpress: true,
+    deliveryCapabilities: true,
+    maxPayloadKg: true,
+  },
+  'Grocery & Shopping Delivery': {
+    sameDayExpress: true,
+    deliveryCapabilities: true,
+    maxPayloadKg: true,
+    maxPackageSize: true,
+    goodsInsurance: true,
+  },
+  'Move & Carry (Light)': {
+    sameDayExpress: true,
+    deliveryCapabilities: true,
+    maxPayloadKg: true,
+    maxPackageSize: true,
+    goodsInsurance: true,
+  },
 };
 
 export const getCategoryFieldConfig = (categoryName: string): CategoryFieldConfig => {

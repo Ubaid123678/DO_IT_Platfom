@@ -142,8 +142,8 @@ export default function ClientMessagesScreen() {
             style={styles.row}
             onPress={() =>
               router.push({
-                pathname: '/(shared)/chat/[id]',
-                params: { id: item.id },
+                pathname: '/(shared)/chat/[conversationId]',
+                params: { conversationId: item.id },
               })
             }
           >

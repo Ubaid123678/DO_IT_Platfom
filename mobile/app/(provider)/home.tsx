@@ -453,7 +453,7 @@ export default function ProviderHomeScreen() {
                 <TouchableOpacity
                   key={job.id}
                   style={styles.nearbyCard}
-                  onPress={() => router.push({ pathname: '/(provider)/job-detail/[id]', params: { id: job.id } })}
+                  onPress={() => router.push({ pathname: '/(shared)/job-detail/[jobId]', params: { jobId: job.id } })}
                 >
                   <JobStatusBadge status={job.status as any} />
                   <Text style={styles.nearbyTitle} numberOfLines={2}>{job.title}</Text>

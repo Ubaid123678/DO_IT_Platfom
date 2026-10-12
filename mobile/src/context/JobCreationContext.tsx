@@ -65,7 +65,6 @@ export interface JobCreationState {
       vehicleRequired: boolean;
       
       // Physical-specific
-      yearsExperience?: number;
       serviceRadiusKm?: number;
       toolsEquipment?: string[];
       teamSize?: 'solo' | 'with_helper' | 'with_team';
@@ -78,8 +77,6 @@ export interface JobCreationState {
       githubUsername?: string;
       timezone?: string;
       englishProficiency?: 'basic' | 'intermediate' | 'fluent';
-      workHistory?: Array<{ title: string; company: string; start_date: string; end_date?: string; description?: string }>;
-      education?: Array<{ institution: string; degree: string; field?: string; start_year?: number; end_year?: number }>;
       
       // Errand-specific
       transportMode?: 'on_foot' | 'bicycle' | 'motorbike' | 'car' | 'van';
@@ -167,7 +164,6 @@ const initialState: JobCreationState = {
       vehicleRequired: false,
       
       // Physical-specific
-      yearsExperience: undefined,
       serviceRadiusKm: undefined,
       toolsEquipment: [],
       teamSize: undefined,
@@ -180,8 +176,6 @@ const initialState: JobCreationState = {
       githubUsername: '',
       timezone: 'UTC',
       englishProficiency: undefined,
-      workHistory: [],
-      education: [],
       
       // Errand-specific
       transportMode: undefined,
@@ -256,7 +250,6 @@ const getInitialFormData = (jobType: JobCreationState['jobType']) => ({
     vehicleRequired: false,
     
     // Physical-specific
-    yearsExperience: undefined,
     serviceRadiusKm: undefined,
     toolsEquipment: [],
     teamSize: undefined,
@@ -269,8 +262,6 @@ const getInitialFormData = (jobType: JobCreationState['jobType']) => ({
     githubUsername: '',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     englishProficiency: undefined,
-    workHistory: [],
-    education: [],
     
     // Errand-specific
     transportMode: undefined,
@@ -387,8 +378,7 @@ function clearStepData(state: JobCreationState, step: JobCreationStep) {
         languages: [],
         certificationsRequired: false,
         vehicleRequired: false,
-        yearsExperience: undefined,
-        serviceRadiusKm: undefined,
+          serviceRadiusKm: undefined,
         toolsEquipment: [],
         teamSize: undefined,
         insurance: undefined,
@@ -398,8 +388,6 @@ function clearStepData(state: JobCreationState, step: JobCreationStep) {
         githubUsername: '',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
         englishProficiency: undefined,
-        workHistory: [],
-        education: [],
         transportMode: undefined,
         maxPayloadKg: undefined,
         maxPackageSize: '',

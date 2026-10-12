@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Touchable
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, { type DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
 import { useJobCreation } from '@/src/context/JobCreationContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
@@ -61,7 +61,7 @@ export default function JobScheduleStep() {
     }
   };
 
-  const handlePickerValueChange = (_event: DateTimePickerEvent, date?: Date) => {
+  const handlePickerValueChange = (_event: DateTimePickerChangeEvent, date: Date) => {
     if (!date || !showDatePicker) {
       setShowDatePicker(null);
       return;

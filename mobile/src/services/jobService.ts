@@ -59,7 +59,6 @@ export interface JobRequirements {
   vehicleRequired?: boolean;
   
   // Physical-specific
-  yearsExperience?: number;
   serviceRadiusKm?: number;
   toolsEquipment?: string[];
   teamSize?: 'solo' | 'with_helper' | 'with_team';
@@ -72,13 +71,9 @@ export interface JobRequirements {
   githubUsername?: string;
   timezone?: string;
   englishProficiency?: 'basic' | 'intermediate' | 'fluent';
-  workHistory?: Array<{ title: string; company: string; start_date: string; end_date?: string; description?: string }>;
-  education?: Array<{ institution: string; degree: string; field?: string; start_year?: number; end_year?: number }>;
   
   // Errand-specific
   transportMode?: 'on_foot' | 'bicycle' | 'motorbike' | 'car' | 'van';
-  baseFee?: number;
-  perKmFee?: number;
   sameDayExpress?: boolean;
   deliveryCapabilities?: string[];
   maxPayloadKg?: number;

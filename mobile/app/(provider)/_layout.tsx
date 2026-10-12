@@ -124,7 +124,6 @@ export default function ProviderLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="job-detail/[id]" options={{ href: null }} />
       <Tabs.Screen name="active-job/[id]" options={{ href: null }} />
       <Tabs.Screen name="kyc" options={{ href: null }} />
       <Tabs.Screen name="withdraw" options={{ href: null }} />

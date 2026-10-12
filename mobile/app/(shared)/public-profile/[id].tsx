@@ -343,8 +343,8 @@ export default function PublicProfileViewerScreen() {
                 style={styles.secondaryButton}
                 onPress={() =>
                   router.push({
-                    pathname: '/(shared)/chat/[id]',
-                    params: { id: profile.id },
+                    pathname: '/(shared)/chat/[conversationId]',
+                    params: { conversationId: profile.id },
                   })
                 }
               >
@@ -360,8 +360,8 @@ export default function PublicProfileViewerScreen() {
               style={[styles.primaryButton, styles.primaryButtonSingle]}
               onPress={() =>
                 router.push({
-                  pathname: '/(shared)/chat/[id]',
-                  params: { id: profile.id },
+                  pathname: '/(shared)/chat/[conversationId]',
+                  params: { conversationId: profile.id },
                 })
               }
             >

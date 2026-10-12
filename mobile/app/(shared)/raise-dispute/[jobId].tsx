@@ -229,8 +229,8 @@ export default function RaiseDisputeScreen() {
             style={styles.backToJobButton}
             onPress={() =>
               router.push({
-                pathname: '/(client)/job-detail/[id]',
-                params: { id: resolvedJobId },
+                pathname: '/(shared)/job-detail/[jobId]',
+                params: { jobId: resolvedJobId },
               })
             }
           >
