@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { AppError } from '../../common/errors/AppError.js';
 import { ReviewModel, type IReview } from './review.model.js';
 import { JobModel } from '../jobs/job.model.js';
@@ -305,10 +306,16 @@ export const reviewService = {
   },
 
   getReviewStats: async (revieweeId: string) => {
+    if (!mongoose.Types.ObjectId.isValid(revieweeId)) {
+      throw new AppError('Invalid user id', 400, 'INVALID_USER_ID');
+    }
     return ReviewModel.getAverageRating(revieweeId);
   },
 
   getRatingDistribution: async (revieweeId: string) => {
+    if (!mongoose.Types.ObjectId.isValid(revieweeId)) {
+      throw new AppError('Invalid user id', 400, 'INVALID_USER_ID');
+    }
     return ReviewModel.getRatingDistribution(revieweeId);
   },
 };

@@ -25,14 +25,22 @@ export default function ProviderLayout() {
         return;
       }
 
-      // KYC approved → check if skill verification is complete
-      const verifDone = await verificationService.isVerificationComplete();
-      if (verifDone) {
+      // KYC approved → require category + skill verification (server truth).
+      // The local sentinel is only used to know the profile-completion step was
+      // reached; it must never unlock the dashboard on its own.
+      const verif = await verificationService.getVerificationStatus();
+      if (verif.overall_status !== 'verified') {
+        router.replace('/(provider-verification)');
+        return;
+      }
+
+      const profileDone = await verificationService.isVerificationComplete();
+      if (profileDone) {
         setGate('approved');
         return;
       }
 
-      // Not complete → go to verification wizard
+      // Verified but profile completion not finished → wizard routes there.
       router.replace('/(provider-verification)');
     } catch {
       // Couldn't read KYC status — keep KYC first rather than skipping it.

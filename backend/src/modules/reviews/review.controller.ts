@@ -125,7 +125,8 @@ export const reviewController = {
   }),
 
   getReviewStats: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { revieweeId } = req.params;
+    // "current" means the caller's own id (mobile uses it for the profile screen).
+    const revieweeId = req.params.revieweeId === 'current' ? getUserId(req) : req.params.revieweeId;
     const stats = await reviewService.getReviewStats(revieweeId);
     res.status(200).json({
       success: true,
@@ -135,7 +136,7 @@ export const reviewController = {
   }),
 
   getRatingDistribution: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { revieweeId } = req.params;
+    const revieweeId = req.params.revieweeId === 'current' ? getUserId(req) : req.params.revieweeId;
     const distribution = await reviewService.getRatingDistribution(revieweeId);
     res.status(200).json({
       success: true,
