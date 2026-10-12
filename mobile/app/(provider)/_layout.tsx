@@ -35,7 +35,8 @@ export default function ProviderLayout() {
       // Not complete → go to verification wizard
       router.replace('/(provider-verification)');
     } catch {
-      router.replace('/(provider-verification)');
+      // Couldn't read KYC status — keep KYC first rather than skipping it.
+      setGate('kyc');
     }
   }, [router]);
 

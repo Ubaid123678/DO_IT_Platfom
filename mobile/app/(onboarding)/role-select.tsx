@@ -116,7 +116,9 @@ export default function RoleSelectScreen() {
       await AsyncStorage.multiRemove(['pendingAuthEmail', 'pendingAuthPassword']);
 
       if (updatedUser.role === 'provider') {
-        router.replace('/(provider-verification)');
+        // Strict order enforced by the (provider) layout gate:
+        // KYC -> category selection -> skill verification -> dashboard.
+        router.replace('/(provider)/home');
       } else if (updatedUser.client_profile?.completed) {
         router.replace('/(client)/home');
       } else {

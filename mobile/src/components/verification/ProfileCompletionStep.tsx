@@ -524,12 +524,6 @@ export default function ProfileCompletionStep() {
     }
   };
 
-  const handleSkip = async () => {
-    await verificationService.markVerificationComplete().catch(() => {});
-    console.log('[ProfileCompletion] Skipping, navigating to dashboard...');
-    router.replace('/(provider)/home');
-  };
-
   const updateWorkHistory = (index: number, field: keyof WorkHistoryEntry, value: string): void => {
     setForm((prev) => {
       const next = prev.workHistory.map((w, i) => (i === index ? { ...w, [field]: value } : w));
@@ -886,11 +880,12 @@ export default function ProfileCompletionStep() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} disabled={saving}>
-          <Text style={styles.skipText}>Skip for now</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-          {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Save & Continue</Text>}
+        <TouchableOpacity
+          style={[styles.saveBtn, { flex: 1 }, saving && { opacity: 0.5 }]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.saveBtnText}>Save & Go to Dashboard</Text>}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -1056,8 +1051,6 @@ const makeStyles = (C: AppColors) =>
     verifiedAreaTitle: { fontSize: 13, fontWeight: '700', color: C.primary },
     verifiedAreaText: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
     footer: { flexDirection: 'row', gap: 12, padding: 20, paddingBottom: 32, backgroundColor: C.background },
-    skipBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', height: 52, borderRadius: 12, borderWidth: 1, borderColor: C.divider },
-    skipText: { fontSize: 14, fontWeight: '600', color: C.textHint },
     saveBtn: { flex: 2, alignItems: 'center', justifyContent: 'center', backgroundColor: C.primary, height: 52, borderRadius: 12 },
     saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   });

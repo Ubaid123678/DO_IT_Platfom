@@ -5,8 +5,16 @@ import { authService } from '@/src/services/authService';
 import { api, setRefreshTokenFn } from '@/src/services/api';
 
 // Everything that must be wiped together on logout/register. Includes the
-// cached profile so a new account can never inherit the previous user's data.
-export const AUTH_STORAGE_KEYS = ['accessToken', 'refreshToken', 'role', 'user', 'clientProfile'];
+// cached profile and the provider verification-complete sentinel so a new
+// account can never inherit the previous user's data or skip onboarding.
+export const AUTH_STORAGE_KEYS = [
+  'accessToken',
+  'refreshToken',
+  'role',
+  'user',
+  'clientProfile',
+  '@doit_verification_complete',
+];
 
 type UserRole = 'pending' | 'client' | 'provider' | 'admin';
 
