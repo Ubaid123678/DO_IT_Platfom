@@ -287,7 +287,7 @@ export default function JobDetailScreen() {
         )}
 
         {/* Provider info if assigned */}
-        {job.provider.providerId && (
+        {job.provider?.providerId && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Assigned Provider</Text>
             <View style={styles.providerCard}>

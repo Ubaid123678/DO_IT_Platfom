@@ -179,7 +179,7 @@ export default function MyJobsScreen() {
         </View>
       </View>
 
-      {item.provider.providerId && (
+      {item.provider?.providerId && (
         <View style={styles.providerInfo}>
           <Text style={styles.providerLabel}>Assigned Provider</Text>
           <View style={styles.providerRow}>

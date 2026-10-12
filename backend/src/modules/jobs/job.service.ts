@@ -38,7 +38,16 @@ const PLATFORM_FEE_PERCENT = 10; // 10%
 
 const serializeJob = (job: any) => {
   const obj = job.toJSON?.() ?? job;
-  return obj;
+  // Mongoose .lean() does not apply the `{}` defaults for these subdocuments,
+  // so jobs with no provider (etc.) come back with the key missing entirely.
+  // Normalize here so every caller can rely on them existing.
+  return {
+    ...obj,
+    provider: obj.provider ?? {},
+    escrow: obj.escrow ?? {},
+    dispute: obj.dispute ?? {},
+    review: obj.review ?? {},
+  };
 };
 
 const serializeJobList = (jobs: any[]) => jobs.map(serializeJob);
