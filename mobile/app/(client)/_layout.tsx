@@ -1,9 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Redirect, Tabs, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Redirect, Tabs, useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { authService } from '@/src/services/authService';
 import { verificationService } from '@/src/services/verificationService';
@@ -16,39 +15,31 @@ export default function ClientLayout() {
   const router = useRouter();
 
   const [gate, setGate] = useState<'loading' | 'profile' | 'approved'>('loading');
-  const gateRanRef = useRef(false);
 
   const checkGate = useCallback(async () => {
     try {
-      // First check if user is authenticated
-      const userRaw = await AsyncStorage.getItem('user');
-      if (!userRaw) {
-        // Not logged in, let auth flow handle it
+      // Server is the source of truth for whether the profile is complete.
+      const res = await authService.getMe();
+      const shape = res.data as unknown as { data?: { user?: any }; user?: any };
+      const user = shape.data?.user ?? shape.user;
+      if (!user) {
         router.replace('/(auth)/login');
         return;
       }
 
-      const user = JSON.parse(userRaw);
-
-      // Check if client profile is completed
-      const hasCompletedProfile = await AsyncStorage.getItem('hasCompletedProfile');
-      if (hasCompletedProfile !== 'true') {
-        setGate('profile');
-        return;
-      }
-
-      setGate('approved');
+      setGate(user.client_profile?.completed ? 'approved' : 'profile');
     } catch {
       router.replace('/(auth)/login');
     }
   }, [router]);
 
-  // Runs once per mount
-  useEffect(() => {
-    if (gateRanRef.current) return;
-    gateRanRef.current = true;
-    void checkGate();
-  }, [checkGate]);
+  // Re-check on every focus so finishing the profile unlocks the tabs without
+  // needing an app restart.
+  useFocusEffect(
+    useCallback(() => {
+      void checkGate();
+    }, [checkGate]),
+  );
 
   if (gate === 'loading') {
     return (

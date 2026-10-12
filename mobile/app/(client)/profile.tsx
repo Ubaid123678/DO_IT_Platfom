@@ -6,6 +6,7 @@ import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacit
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authService } from '@/src/services/authService';
+import { AUTH_STORAGE_KEYS } from '@/src/context/AuthContext';
 import { jobService } from '@/src/services/jobService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
@@ -37,23 +38,21 @@ export default function ClientProfileScreen() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const [userResult, jobsResult, storedProfile] = await Promise.all([
+        const [userResult, jobsResult] = await Promise.all([
           authService.getMe(),
           jobService.getClientJobs({ limit: 1 }),
-          AsyncStorage.getItem('clientProfile'),
         ]);
         const responseData = userResult.data as unknown as { data?: { user?: any }; user?: any };
         const user = responseData.data?.user ?? responseData.user ?? {};
         const clientProfile = user.client_profile ?? {};
-        const saved = storedProfile ? JSON.parse(storedProfile) : {};
         setProfile({
-          fullName: user.fullName ?? saved.fullName ?? 'Client',
+          fullName: user.fullName ?? 'Client',
           email: user.email ?? '',
-          avatarUrl: user.avatar_url ?? saved.avatarUrl ?? null,
-          bio: clientProfile.bio ?? saved.bio ?? '',
-          city: clientProfile.city ?? saved.city ?? '',
-          languages: clientProfile.languages ?? saved.languages ?? [],
-          profileVisibility: clientProfile.profileVisibility ?? saved.profileVisibility ?? 'public',
+          avatarUrl: user.avatar_url ?? null,
+          bio: clientProfile.bio ?? '',
+          city: clientProfile.city ?? '',
+          languages: clientProfile.languages ?? [],
+          profileVisibility: clientProfile.profileVisibility ?? 'public',
           createdAt: user.createdAt,
         });
         setJobsPosted(jobsResult.total ?? jobsResult.jobs?.length ?? 0);
@@ -79,7 +78,7 @@ export default function ClientProfileScreen() {
     } catch {
       // Continue clearing local auth state.
     } finally {
-      await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'role', 'user', 'hasCompletedProfile']);
+      await AsyncStorage.multiRemove(AUTH_STORAGE_KEYS);
       router.replace('/(auth)/login');
     }
   };

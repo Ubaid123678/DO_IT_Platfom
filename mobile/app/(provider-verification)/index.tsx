@@ -68,7 +68,9 @@ export default function VerificationWizardScreen() {
         // Not verified, or verified but has incomplete categories → start category selection
         dispatch({ type: 'SET_STEP', step: 'category-selection' });
       } catch {
-        // Start from beginning if error
+        // Status check failed (e.g. network) — don't block a new provider;
+        // start them at category selection.
+        dispatch({ type: 'SET_STEP', step: 'category-selection' });
       } finally {
         setLoading(false);
       }
