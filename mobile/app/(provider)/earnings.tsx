@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -14,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors, type AppColors } from '@/src/theme/colors';
 import { walletService } from '@/src/services/walletService';
+import { jobService } from '@/src/services/jobService';
+import { reviewService } from '@/src/services/reviewService';
 
 type Period = 'week' | 'month' | 'all';
 type TxType = 'earning' | 'withdrawal' | 'bonus';
@@ -24,18 +26,13 @@ type EarningsTransaction = {
   label: string;
   date: string;
   amount: number;
-  bucket: 'week' | 'month';
 };
 
-type PeriodSummary = {
-  total: number;
-  jobs: number;
-  avgJob: number;
-  rating: number;
-  pending: number;
-  available: number;
-  bars: number[];
-  labels: string[];
+// Raw wallet transaction with a parsed date, used for the summary + chart.
+type EarningsTransactionRaw = {
+  id: string;
+  amount: number;
+  createdAt: Date | null;
 };
 
 const periodTabs: Array<{ key: Period; label: string }> = [
@@ -44,81 +41,81 @@ const periodTabs: Array<{ key: Period; label: string }> = [
   { key: 'all', label: 'All Time' },
 ];
 
-const summaryByPeriod: Record<Period, PeriodSummary> = {
-  week: {
-    total: 860,
-    jobs: 11,
-    avgJob: 78,
-    rating: 4.9,
-    pending: 40,
-    available: 820,
-    bars: [52, 44, 67, 58, 71, 80, 75],
-    labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-  },
-  month: {
-    total: 3450,
-    jobs: 47,
-    avgJob: 73,
-    rating: 4.9,
-    pending: 120,
-    available: 3330,
-    bars: [42, 58, 66, 78, 62, 86, 74],
-    labels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'],
-  },
-  all: {
-    total: 15320,
-    jobs: 204,
-    avgJob: 75,
-    rating: 4.9,
-    pending: 120,
-    available: 15200,
-    bars: [20, 32, 48, 58, 76, 84, 96],
-    labels: ['J', 'F', 'M', 'A', 'M', 'J', 'J'],
-  },
+type ComputedSummary = {
+  total: number;
+  jobs: number;
+  avgJob: number;
+  rating: number;
+  bars: number[];
+  labels: string[];
 };
 
-const mockTransactions: EarningsTransaction[] = [
-  {
-    id: 'e-101',
-    type: 'earning',
-    label: 'Payment Received - Delivery Job',
-    date: 'Apr 11, 09:30 AM',
-    amount: 50,
-    bucket: 'week',
-  },
-  {
-    id: 'e-102',
-    type: 'withdrawal',
-    label: 'Withdrawal to Bank',
-    date: 'Apr 10, 04:10 PM',
-    amount: -120,
-    bucket: 'week',
-  },
-  {
-    id: 'e-103',
-    type: 'bonus',
-    label: 'Performance Bonus',
-    date: 'Apr 08, 01:00 PM',
-    amount: 35,
-    bucket: 'week',
-  },
-  {
-    id: 'e-104',
-    type: 'earning',
-    label: 'Payment Received - Cleaning Job',
-    date: 'Apr 04, 11:45 AM',
-    amount: 80,
-    bucket: 'month',
-  },
-  {
-    id: 'e-105',
-    type: 'earning',
-    label: 'Payment Received - Design Job',
-    date: 'Mar 27, 08:20 PM',
-    amount: 145,
-    bucket: 'month',
-  },
-];
+const DAY = 24 * 60 * 60 * 1000;
+
+// Bucket dated transactions into a period and return the summary + bar chart.
+// `rating` is a live figure (not period-based) — reviews have no completion date
+// to filter by, so it reflects the provider's current average.
+const computeSummary = (
+  period: Period,
+  txns: EarningsTransactionRaw[],
+  completedJobs: number,
+  rating: number,
+): ComputedSummary => {
+  const now = Date.now();
+  const windowMs = period === 'week' ? 7 * DAY : period === 'month' ? 30 * DAY : null;
+  const inPeriod = windowMs == null
+    ? txns
+    : txns.filter((t) => t.createdAt != null && now - t.createdAt.getTime() <= windowMs);
+
+  const earnings = inPeriod.filter((t) => t.amount > 0);
+  const total = earnings.reduce((sum, t) => sum + t.amount, 0);
+  const jobs = earnings.length; // one positive credit ≈ one paid job
+  const avgJob = jobs > 0 ? Math.round(total / jobs) : 0;
+
+  // Bar chart: 7 buckets across the period (days for week, ~4-5 day groups for
+  // month, months for all-time — capped at 7 for layout).
+  const labels: string[] = [];
+  const bars: number[] = [];
+  if (period === 'all') {
+    // Last 7 months.
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - i);
+      const key = d.toISOString().slice(0, 7);
+      labels.push(d.toLocaleDateString('en-US', { month: 'short' }).slice(0, 1));
+      bars.push(
+        txns
+          .filter((t) => t.amount > 0 && t.createdAt && t.createdAt.toISOString().slice(0, 7) === key)
+          .reduce((s, t) => s + t.amount, 0),
+      );
+    }
+  } else {
+    // 7 equal day-buckets across the window.
+    const days = period === 'week' ? 7 : 30;
+    const bucketSize = Math.ceil(days / 7);
+    for (let i = 0; i < 7; i++) {
+      const from = now - (days - i * bucketSize) * DAY;
+      const to = now - (days - (i + 1) * bucketSize) * DAY;
+      labels.push(i === 6 ? 'Now' : `${bucketSize * (6 - i)}d`);
+      bars.push(
+        earnings
+          .filter((t) => t.createdAt && t.createdAt.getTime() > from && t.createdAt.getTime() <= to)
+          .reduce((s, t) => s + t.amount, 0),
+      );
+    }
+  }
+
+  return {
+    total,
+    jobs: period === 'all' ? Math.max(completedJobs, jobs) : jobs,
+    avgJob,
+    rating,
+    bars,
+    labels,
+  };
+};
+
 
 const formatAmount = (value: number) => {
   const abs = Math.abs(value);
@@ -134,6 +131,9 @@ export default function ProviderEarningsScreen() {
 
   const [period, setPeriod] = useState<Period>('month');
   const [transactions, setTransactions] = useState<EarningsTransaction[]>([]);
+  const [rawTxns, setRawTxns] = useState<EarningsTransactionRaw[]>([]);
+  const [completedJobs, setCompletedJobs] = useState(0);
+  const [rating, setRating] = useState(0);
   const [loading, setLoading] = useState(true);
   const [wallet, setWallet] = useState<{ balance: number; escrowBalance: number; availableBalance: number }>({
     balance: 0,
@@ -146,28 +146,46 @@ export default function ProviderEarningsScreen() {
       let active = true;
       const load = async () => {
         try {
-          const [stats, history] = await Promise.all([
+          const [stats, history, jobStats] = await Promise.all([
             walletService.getWalletStats(),
             walletService.getTransactionHistory({ limit: 50 }),
+            jobService.getProviderJobStats(),
           ]);
+          // Reviews are optional — a provider with none still gets the screen.
+          let avgRating = 0;
+          try {
+            const rs = await reviewService.getReviewStats('current');
+            avgRating = rs?.averageRating ?? 0;
+          } catch {
+            // ignore
+          }
           if (!active) return;
           setWallet({
             balance: stats.balance,
             escrowBalance: stats.escrowBalance,
             availableBalance: stats.availableBalance,
           });
-          // Map real wallet transactions into the earnings list shape.
-          const mapped: EarningsTransaction[] = (history.transactions || []).map((t: any) => ({
+          setCompletedJobs(jobStats?.completed ?? 0);
+          setRating(avgRating);
+
+          const list = history.transactions || [];
+          setRawTxns(list.map((t: any) => ({
+            id: t._id ?? t.transactionId,
+            amount: (t.amount ?? 0) / 100,
+            createdAt: t.createdAt ? new Date(t.createdAt) : null,
+          })));
+          setTransactions(list.map((t: any) => ({
             id: t._id ?? t.transactionId,
             type: t.type === 'payout' ? 'withdrawal' : t.amount >= 0 ? 'earning' : 'withdrawal',
             label: t.description || t.type,
             date: t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
             amount: (t.amount ?? 0) / 100,
-            bucket: 'month',
-          }));
-          setTransactions(mapped);
+          })));
         } catch {
-          if (active) setTransactions([]);
+          if (active) {
+            setTransactions([]);
+            setRawTxns([]);
+          }
         } finally {
           if (active) setLoading(false);
         }
@@ -179,19 +197,21 @@ export default function ProviderEarningsScreen() {
     }, []),
   );
 
-  const summary = summaryByPeriod[period];
+  const summary = useMemo(
+    () => computeSummary(period, rawTxns, completedJobs, rating),
+    [period, rawTxns, completedJobs, rating],
+  );
 
+  // Show only transactions inside the selected period window.
   const visibleTransactions = useMemo(() => {
-    if (period === 'all') {
-      return transactions;
-    }
-
-    if (period === 'month') {
-      return transactions;
-    }
-
-    return transactions.filter((item) => item.bucket === 'week');
-  }, [period, transactions]);
+    if (period === 'all') return transactions;
+    const windowMs = period === 'week' ? 7 * DAY : 30 * DAY;
+    const cutoff = Date.now() - windowMs;
+    const inWindow = new Set(
+      rawTxns.filter((t) => t.createdAt && t.createdAt.getTime() >= cutoff).map((t) => t.id),
+    );
+    return transactions.filter((item) => inWindow.has(item.id));
+  }, [period, transactions, rawTxns]);
 
   const maxBar = Math.max(...summary.bars, 1);
   const highlightedBarIndex = summary.bars.indexOf(maxBar);

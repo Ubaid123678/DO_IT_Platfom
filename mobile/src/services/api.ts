@@ -115,33 +115,27 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
-    // Log all errors for debugging
-    console.error('[API Error]', {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      url: error.config?.url,
-      method: error.config?.method,
-      data: error.response?.data,
-      message: error.message,
-    });
-
-    // Handle 401 (expired) and 403 (stale role claim) by refreshing once and
-    // retrying. A user's role lives in the JWT; it can change server-side (role
-    // selection, KYC approval) without the token being reissued, which otherwise
-    // strands the user on a 403 until restart. A genuine permission denial just
-    // re-403s and is rejected as usual.
     const url = originalRequest?.url ?? '';
     const isCredentialEndpoint = /\/(login|register|verify-email|verify-phone|resend-otp|forgot-password|reset-password|logout|refresh-token)(\?|$)/.test(url);
     const status = error.response?.status;
     const refreshFn = refreshTokenFn;
-    const shouldRetryWithFreshToken =
-      (status === 401 || status === 403) &&
-      originalRequest &&
-      !originalRequest._retry &&
-      !isCredentialEndpoint &&
-      refreshFn;
+    // A 401/403 on a normal endpoint is recoverable by refreshing + retrying
+    // once. Don't log the first (recoverable) hit as an error — only log a
+    // genuine, final failure (credential error, or a failed retry).
+    const willRetry = (status === 401 || status === 403) && !isCredentialEndpoint && !!refreshFn && !originalRequest?._retry;
 
-    if (shouldRetryWithFreshToken && originalRequest && refreshFn) {
+    if (!willRetry) {
+      console.error('[API Error]', {
+        status,
+        statusText: error.response?.statusText,
+        url: error.config?.url,
+        method: error.config?.method,
+        data: error.response?.data,
+        message: error.message,
+      });
+    }
+
+    if (willRetry && originalRequest && refreshFn) {
       if (isRefreshing) {
         // Wait for the ongoing refresh to complete
         return new Promise((resolve, reject) => {

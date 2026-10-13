@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme, ActivityIndicator } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
@@ -57,37 +57,39 @@ export default function WalletScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [skip, setSkip] = useState(0);
-  const [total, setTotal] = useState(0);
   const [activeTab, setActiveTab] = useState<'all' | TransactionType>('all');
   const [stats, setStats] = useState<{ balance: number; escrowBalance: number; availableBalance: number } | null>(null);
 
+  // Pagination values live in refs so loadWallet has a stable identity. If it
+  // depended on skip/hasMore, the focus effect would re-fire every time it
+  // advanced skip → infinite reload loop.
+  const skipRef = useRef(0);
+  const hasMoreRef = useRef(true);
+
   const loadWallet = useCallback(async (reset = false) => {
     if (reset) {
-      setSkip(0);
-      setTransactions([]);
-      setHasMore(true);
+      skipRef.current = 0;
+      hasMoreRef.current = true;
     }
-    if (!hasMore && !reset) return;
+    if (!hasMoreRef.current && !reset) return;
 
     try {
-      const currentSkip = reset ? 0 : skip;
+      const currentSkip = reset ? 0 : skipRef.current;
       const [walletRes, txnsRes, statsRes] = await Promise.all([
         walletService.getWallet(),
         walletService.getTransactionHistory({ skip: currentSkip, limit: 20 }),
         walletService.getWalletStats(),
       ]);
-      
+
       if (reset) {
         setWallet(walletRes);
         setTransactions(txnsRes.transactions);
       } else {
         setTransactions((prev) => [...prev, ...txnsRes.transactions]);
       }
-      setTotal(txnsRes.total);
-      setHasMore(txnsRes.transactions.length === 20);
-      setSkip(currentSkip + txnsRes.transactions.length);
+      const more = txnsRes.transactions.length === 20;
+      hasMoreRef.current = more;
+      skipRef.current = currentSkip + txnsRes.transactions.length;
       setStats({ balance: statsRes.balance, escrowBalance: statsRes.escrowBalance, availableBalance: statsRes.availableBalance });
     } catch (e) {
       console.error('Failed to load wallet:', e);
@@ -96,7 +98,7 @@ export default function WalletScreen() {
       setRefreshing(false);
       setLoadingMore(false);
     }
-  }, [skip, hasMore]);
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -104,13 +106,16 @@ export default function WalletScreen() {
   }, [loadWallet]);
 
   const onEndReached = useCallback(() => {
-    if (!loadingMore && hasMore) {
+    // hasMoreRef avoids depending on state (stable callback).
+    if (!loadingMore && hasMoreRef.current) {
       setLoadingMore(true);
       loadWallet(false);
     }
-  }, [loadingMore, hasMore, loadWallet]);
+  }, [loadingMore, loadWallet]);
 
   // Refresh on focus so the balance is current after a top-up or escrow event.
+  // reset=true replaces the list at the end rather than clearing it upfront, so
+  // there's no blank→refill flash when the tab re-opens.
   useFocusEffect(
     useCallback(() => {
       void loadWallet(true);
