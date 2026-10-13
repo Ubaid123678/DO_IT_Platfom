@@ -344,6 +344,22 @@ export default function JobDetailScreen() {
             <Text style={styles.statLabel}>Applications</Text>
           </View>
         </View>
+
+        {/* Owner: jump to the proposals for this job */}
+        {job.isOwner && (
+          <TouchableOpacity
+            style={styles.viewProposalsBtn}
+            onPress={() => router.push(`/(client)/job-proposals/${job._id}` as any)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="document-text-outline" size={18} color="#fff" />
+            <Text style={styles.viewProposalsText}>
+              {job.metadata.applicationsCount > 0
+                ? `View Proposals (${job.metadata.applicationsCount})`
+                : 'View Proposals'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Bottom actions */}
@@ -446,6 +462,8 @@ const makeStyles = (C: AppColors) =>
     statItem: { flex: 1, alignItems: 'center', paddingVertical: 12, backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.cardBorder },
     statValue: { fontSize: 20, fontWeight: '700', color: C.primary },
     statLabel: { fontSize: 11, color: C.textHint, marginTop: 2 },
+    viewProposalsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 20, marginTop: 16, paddingVertical: 14, borderRadius: 12, backgroundColor: C.primary },
+    viewProposalsText: { fontSize: 15, fontWeight: '700', color: '#fff' },
     bottomActions: { padding: 20, paddingBottom: 32, backgroundColor: C.background, borderTopWidth: 1, borderTopColor: C.divider },
     actionsContainer: { gap: 12 },
     actionButton: { flex: 1, paddingVertical: 16, borderRadius: 12, backgroundColor: C.primary, alignItems: 'center' },

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import { FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme, Alert } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
@@ -53,24 +53,28 @@ export default function JobProposalsScreen() {
     expired: { count: 0 },
   });
 
+  // Pagination + active tab in refs so loadProposals has a stable identity
+  // (otherwise the focus effect re-fires every time skip advances → reload loop).
   const inFlightRef = useRef(false);
+  const skipRef = useRef(0);
+  const hasMoreRef = useRef(true);
+  const activeTabRef = useRef<ProposalStatus | 'all'>('all');
   const loadProposals = useCallback(async (reset = false) => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     if (reset) {
-      setSkip(0);
-      setProposals([]);
-      setHasMore(true);
+      skipRef.current = 0;
+      hasMoreRef.current = true;
     }
-    if (!hasMore && !reset) {
+    if (!hasMoreRef.current && !reset) {
       inFlightRef.current = false;
       return;
     }
 
     try {
-      const currentSkip = reset ? 0 : skip;
+      const currentSkip = reset ? 0 : skipRef.current;
       const result = await proposalService.getProposalsForJob(jobId!, {
-        status: activeTab === 'all' ? undefined : activeTab,
+        status: activeTabRef.current === 'all' ? undefined : activeTabRef.current,
         skip: currentSkip,
         limit: 20,
       });
@@ -83,8 +87,11 @@ export default function JobProposalsScreen() {
         });
       }
       setTotal(result.total);
-      setHasMore(result.proposals.length === 20);
-      setSkip(currentSkip + result.proposals.length);
+      const more = result.proposals.length === 20;
+      hasMoreRef.current = more;
+      setHasMore(more);
+      skipRef.current = currentSkip + result.proposals.length;
+      setSkip(skipRef.current);
       setError(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to load proposals';
@@ -95,7 +102,7 @@ export default function JobProposalsScreen() {
       setRefreshing(false);
       setLoadingMore(false);
     }
-  }, [jobId, activeTab, skip, hasMore]);
+  }, [jobId]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -107,9 +114,17 @@ export default function JobProposalsScreen() {
   }, [jobId]);
 
   useEffect(() => {
+    activeTabRef.current = activeTab;
     loadProposals(true);
-    loadStats();
-  }, [jobId]);
+  }, [activeTab, loadProposals]);
+
+  // Refetch on focus so a new proposal shows without an app restart.
+  useFocusEffect(
+    useCallback(() => {
+      loadProposals(true);
+      loadStats();
+    }, [loadProposals, loadStats]),
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -252,7 +267,7 @@ export default function JobProposalsScreen() {
       </View>
 
       {/* Stats Tabs */}
-      <ScrollView horizontal contentContainerStyle={styles.statsContainer} showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal style={styles.statsScroll} contentContainerStyle={styles.statsContainer} showsHorizontalScrollIndicator={false}>
         {(['all', 'submitted', 'accepted', 'rejected', 'withdrawn'] as const).map((status) => {
           const count = status === 'all' ? total : stats[status]?.count || 0;
           return (
@@ -318,15 +333,16 @@ const makeStyles = (C: AppColors) =>
       borderBottomColor: C.divider,
     },
     headerTitle: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
-    statsContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8 },
+    statsContainer: { paddingHorizontal: 20, gap: 8, alignItems: 'center' },
+    statsScroll: { flexGrow: 0, paddingVertical: 12 },
     statTab: {
       paddingHorizontal: 16,
-      paddingVertical: 10,
+      paddingVertical: 8,
       borderRadius: 20,
       backgroundColor: C.card,
       borderWidth: 1,
       borderColor: C.cardBorder,
-      minWidth: 80,
+      minWidth: 72,
       alignItems: 'center',
     },
     statTabActive: { backgroundColor: C.primary, borderColor: C.primary },
@@ -334,7 +350,7 @@ const makeStyles = (C: AppColors) =>
     statTabLabelActive: { color: '#fff' },
     statTabCount: { fontSize: 11, color: C.textHint, marginTop: 2 },
     statTabCountActive: { color: 'rgba(255,255,255,0.8)' },
-    proposalCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 12, marginHorizontal: 20 },
+    proposalCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 12 },
     cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
     providerInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     providerAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center' },
@@ -355,8 +371,8 @@ const makeStyles = (C: AppColors) =>
     acceptBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: C.success },
     rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: C.error },
     actionBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
-    listContent: { paddingHorizontal: 20, paddingBottom: 24 },
-    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+    listContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 96, flexGrow: 1 },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingTop: 60 },
     emptyTitle: { fontSize: 16, fontWeight: '600', color: C.textPrimary, marginTop: 16 },
     emptySubtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', marginTop: 8 },
     loadMoreWrapper: { padding: 20, alignItems: 'center' },

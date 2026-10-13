@@ -205,7 +205,7 @@ export default function WalletScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Wallet</Text>
         <TouchableOpacity style={styles.topUpBtn} onPress={() => router.push('/wallet/topup')}>
-          <Ionicons name="add-circle-outline" size={24} color={C.primary} />
+          <Ionicons name="add" size={18} color="#fff" />
           <Text style={styles.topUpBtnText}>Top Up</Text>
         </TouchableOpacity>
       </View>

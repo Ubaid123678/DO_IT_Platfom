@@ -225,10 +225,13 @@ export const jobService = {
 
     const serialized = serializeJob(job);
 
-    // Add computed fields for the client
+    // Add computed fields for the client. Compare stringified ids — lean()
+    // returns ObjectIds, and ObjectId !== string would always be false.
     if (userId) {
-      serialized.isOwner = serialized.client.clientId === userId;
-      serialized.isAssignedProvider = serialized.provider.providerId === userId;
+      const clientId = serialized.client?.clientId;
+      const providerId = serialized.provider?.providerId;
+      serialized.isOwner = clientId != null && clientId.toString() === userId;
+      serialized.isAssignedProvider = providerId != null && providerId.toString() === userId;
     }
 
     return serialized;
