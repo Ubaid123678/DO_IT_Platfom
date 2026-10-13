@@ -4,6 +4,7 @@ import { asyncHandler } from '../../common/utils/asyncHandler.js';
 import type { AuthenticatedRequest } from '../../middleware/auth.middleware.js';
 import { jobService } from './job.service.js';
 import { jobValidators } from './job.validation.js';
+import UserModel from '../auth/auth.model.js';
 import type { IJobLocation, JobStatus, JobType } from './job.model.js';
 
 const validate = <T>(
@@ -156,6 +157,18 @@ export const jobController = {
 
   browseJobs: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const query = validate(jobValidators.browseJobsQuery, req.query) as Record<string, unknown>;
+
+    // Provider "relevant jobs" feed: restrict to the caller's verified
+    // categories + skills so they only see jobs they can actually apply for.
+    if (query.relevant === true) {
+      const provider = await UserModel.findById(getUserId(req)).lean();
+      const categories = ((provider?.categories_selected ?? []) as unknown[]).map(String);
+      const skillItems = ((provider?.skill_items_selected ?? []) as unknown[]).map(String);
+      query.categories = categories;
+      query.skillItems = skillItems;
+      query.matchAnyOfVerified = true;
+    }
+
     const result = await jobService.browseJobs(query);
     res.status(200).json({
       success: true,

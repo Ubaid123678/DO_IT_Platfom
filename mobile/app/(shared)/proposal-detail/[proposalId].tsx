@@ -194,7 +194,7 @@ export default function ProposalDetailScreen() {
           return (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Job</Text>
-              <TouchableOpacity style={styles.jobCard} onPress={() => router.push(`/job-detail/${job._id}` as any)}>
+              <TouchableOpacity style={styles.jobCard} onPress={() => router.push(`/(shared)/job-detail/${job._id}` as any)}>
                 <Text style={styles.jobTitle}>{job.title}</Text>
                 <View style={styles.jobMeta}>
                   <Text style={styles.jobMetaItem}>

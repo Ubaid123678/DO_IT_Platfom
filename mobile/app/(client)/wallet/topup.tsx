@@ -53,35 +53,15 @@ export default function TopUpScreen() {
 
     setLoading(true);
     try {
-      const idempotencyKey = `topup_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      const result = await walletService.createTopUp({
-        amountCents,
-        currency: 'USD',
-        idempotencyKey,
-      });
-
-      setClientSecret(result.clientSecret);
+      // Test-mode demo: credit the wallet directly (no live card flow).
+      await walletService.demoTopUp(amountCents);
+      Alert.alert('Success', `$${(amountCents / 100).toFixed(2)} added to your wallet.`);
+      router.back();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to create payment intent';
+      const msg = e instanceof Error ? e.message : 'Failed to top up';
       Alert.alert('Error', msg);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleStripeSuccess = async () => {
-    if (!clientSecret) return;
-    setConfirming(true);
-    try {
-      await walletService.confirmTopUp(clientSecret);
-      Alert.alert('Success', 'Top-up completed successfully!');
-      router.back();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to confirm payment';
-      Alert.alert('Error', msg);
-    } finally {
-      setConfirming(false);
-      setClientSecret(null);
     }
   };
 
@@ -154,51 +134,20 @@ export default function TopUpScreen() {
             </Text>
           </View>
 
-          {clientSecret && (
-            <View style={styles.stripeContainer}>
-              <Text style={styles.stripeTitle}>Complete Payment with Stripe</Text>
-              <Text style={styles.stripeHint}>You will be redirected to Stripe to complete the payment securely.</Text>
-              <TouchableOpacity
-                style={[
-                  styles.confirmBtn,
-                  (confirming || loading) && styles.confirmBtnDisabled,
-                ]}
-                onPress={handleStripeSuccess}
-                disabled={confirming || loading}
-              >
-                {confirming ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="card-outline" size={20} color="#fff" />
-                    <Text style={styles.confirmBtnText}>Pay ${amount}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={handleStripeCancel} disabled={confirming}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {!clientSecret && !loading && !confirming && (
-            <TouchableOpacity
-              style={[
-                styles.continueBtn,
-                (!amount || parseFloat(amount) < 1) && styles.continueBtnDisabled,
-              ]}
-              onPress={handleTopUp}
-              disabled={!amount || parseFloat(amount) < 1 || loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.continueBtnText}>Continue to Payment</Text>
-              )}
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[
+              styles.continueBtn,
+              (!amount || parseFloat(amount) < 1) && styles.continueBtnDisabled,
+            ]}
+            onPress={handleTopUp}
+            disabled={!amount || parseFloat(amount) < 1 || loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.continueBtnText}>Add Funds (Test Mode)</Text>
+            )}
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaViewCompat>

@@ -147,6 +147,8 @@ const browseJobsQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(50).default(20),
   skip: Joi.number().integer().min(0).default(0),
   search: Joi.string().trim().max(100).optional(),
+  // Provider feed: only jobs matching the caller's verified categories/skills.
+  relevant: Joi.boolean().optional(),
 });
 
 const jobStatusTransitionSchema = Joi.object({

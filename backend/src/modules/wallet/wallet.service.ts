@@ -95,6 +95,9 @@ const createLedgerEntries = async (
       throw new AppError('Wallet not found', 404, 'WALLET_NOT_FOUND');
     }
 
+    // Ledger is a RECORD of a balance change the caller already applied (or is
+    // about to). It must NOT mutate the wallet itself — doing so double-counted
+    // every escrow lock/release. `balanceAfter` reflects the post-change balance.
     const balanceAfter = entry.entryType === 'credit'
       ? wallet.balance + entry.amount
       : wallet.balance - entry.amount;
@@ -103,16 +106,9 @@ const createLedgerEntries = async (
       throw new AppError('Insufficient funds', 400, 'INSUFFICIENT_FUNDS');
     }
 
-    // Update wallet balance
-    if (entry.entryType === 'credit') {
-      wallet.balance += entry.amount;
-    } else {
-      wallet.balance -= entry.amount;
-    }
-
-    wallet.lastTransactionAt = new Date();
-    await wallet.save({ session });
-
+    // Ledger is a RECORD only — callers apply their own balance change first.
+    // (Previously this also mutated wallet.balance, double-counting escrow
+    // lock/release and corrupting balance vs availableBalance.)
     const ledgerEntry = await mongoose.model('LedgerEntry').create([{
       transactionId,
       walletId: entry.walletId,
@@ -133,8 +129,7 @@ const createLedgerEntries = async (
 
 export const walletService = {
   // Get or create user wallet
-  getOrCreateWallet: async (userId: string) => {
-    let wallet = await WalletModel.findOne({ userId });
+  getOrCreateWallet: async (userId: string) => {    let wallet = await WalletModel.findOne({ userId });
     if (!wallet) {
       wallet = await WalletModel.create({
         userId,
@@ -250,8 +245,12 @@ export const walletService = {
       const wallet = await WalletModel.findById(transaction.walletId).session(session);
       if (!wallet) throw new AppError('Wallet not found', 404, 'WALLET_NOT_FOUND');
 
-      // Create ledger entries for double-entry bookkeeping
-      // Credit user wallet
+      // Credit the wallet, then record it in the ledger.
+      wallet.balance += transaction.amount;
+      wallet.availableBalance += transaction.amount;
+      wallet.lastTransactionAt = new Date();
+      await wallet.save({ session });
+
       const ledgerEntries = await createLedgerEntries(session, transaction._id, [{
         walletId: wallet._id,
         userId: transaction.userId.toString(),
@@ -279,9 +278,58 @@ export const walletService = {
     }
   },
 
+  // DEMO ONLY: credit the wallet without Stripe so the escrow flow can be
+  // exercised in local/dev. Guarded at the route level (NODE_ENV !== production).
+  demoTopUp: async (userId: string, amountCents: number) => {
+    const wallet = await walletService.getOrCreateWallet(userId);
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const walletRef = await WalletModel.findById(wallet._id).session(session);
+      if (!walletRef) throw new AppError('Wallet not found', 404, 'WALLET_NOT_FOUND');
+
+      walletRef.balance += amountCents;
+      walletRef.availableBalance += amountCents;
+      walletRef.lastTransactionAt = new Date();
+      await walletRef.save({ session });
+
+      const transaction = await TransactionModel.create([{
+        transactionId: generateTransactionId(),
+        userId,
+        walletId: walletRef._id,
+        type: 'topup',
+        status: 'completed',
+        amount: amountCents,
+        currency: 'USD',
+        netAmount: amountCents,
+        feeAmount: 0,
+        description: 'Demo top-up (test mode)',
+        metadata: { demo: true },
+        completedAt: new Date(),
+      }], { session });
+
+      await createLedgerEntries(session, transaction[0]._id, [{
+        walletId: walletRef._id,
+        userId,
+        entryType: 'credit',
+        amount: amountCents,
+        description: 'Demo top-up (test mode)',
+        referenceId: transaction[0]._id,
+        referenceType: 'topup',
+      }]);
+
+      await session.commitTransaction();
+      await session.endSession();
+      return { balance: walletRef.balance, availableBalance: walletRef.availableBalance };
+    } catch (error) {
+      await session.abortTransaction();
+      await session.endSession();
+      throw error;
+    }
+  },
+
   // Handle Stripe webhook for payment confirmation
-  handleTopUpWebhook: async (event: any) => {
-    const paymentIntent = event.data.object;
+  handleTopUpWebhook: async (event: any) => {    const paymentIntent = event.data.object;
 
     if (event.type === 'payment_intent.succeeded') {
       // Find transaction by payment intent ID
@@ -456,14 +504,25 @@ export const walletService = {
       providerWalletRef.lastTransactionAt = new Date();
       await providerWalletRef.save({ session });
 
-      // Platform: collect fee (platform wallet is optional — skip crediting if not provisioned)
-      const platformWalletRef = await WalletModel.findOne({ type: 'platform' }).session(session);
-      if (platformWalletRef) {
-        platformWalletRef.balance += split.platformFee;
-        platformWalletRef.availableBalance = platformWalletRef.balance - platformWalletRef.escrowBalance;
-        platformWalletRef.lastTransactionAt = new Date();
-        await platformWalletRef.save({ session });
+      // Platform: collect fee. Auto-create the platform wallet on first fee so
+      // fees are never silently dropped (the admin holds them).
+      let platformWalletRef = await WalletModel.findOne({ type: 'platform' }).session(session);
+      if (!platformWalletRef) {
+        const created = await WalletModel.create([{
+          userId: new mongoose.Types.ObjectId('000000000000000000000000'),
+          type: 'platform',
+          balance: 0,
+          currency: 'USD',
+          escrowBalance: 0,
+          availableBalance: 0,
+          isActive: true,
+        }], { session });
+        platformWalletRef = created[0];
       }
+      platformWalletRef.balance += split.platformFee;
+      platformWalletRef.availableBalance = platformWalletRef.balance - platformWalletRef.escrowBalance;
+      platformWalletRef.lastTransactionAt = new Date();
+      await platformWalletRef.save({ session });
 
       // Create transaction record for the escrow release
       const transaction = await TransactionModel.create([{
@@ -525,12 +584,9 @@ export const walletService = {
           description: `Payment received for job`,
           referenceId: job._id,
           referenceType: 'job',
-        }
-      );
-
-      // Platform: fee collected (only if platform wallet exists)
-      if (platformWalletRef) {
-        ledgerEntries.push({
+        },
+        // Platform: fee collected
+        {
           walletId: platformWalletRef._id,
           userId: platformWalletRef.userId.toString(),
           entryType: 'credit',
@@ -538,8 +594,8 @@ export const walletService = {
           description: `Platform fee for job`,
           referenceId: job._id,
           referenceType: 'job',
-        });
-      }
+        }
+      );
 
       await createLedgerEntries(session, transaction[0]._id, ledgerEntries);
 

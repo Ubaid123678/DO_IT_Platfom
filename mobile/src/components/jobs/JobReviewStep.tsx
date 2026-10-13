@@ -7,6 +7,7 @@ import * as Localization from 'expo-localization';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useJobCreation } from '@/src/context/JobCreationContext';
 import { jobService } from '@/src/services/jobService';
+import { walletService } from '@/src/services/walletService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 import { getCurrencyFromLocaleObject, formatCurrency, PLATFORM_FEE_PERCENT } from '@/src/utils/currency';
 import type { Locale } from 'expo-localization';
@@ -72,6 +73,15 @@ export default function JobReviewStep() {
   const router = useRouter();
 
   const [submitting, setSubmitting] = useState(false);
+  const [availableBalance, setAvailableBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    walletService.getWalletStats()
+      .then((s) => { if (active) setAvailableBalance((s.availableBalance ?? 0) / 100); })
+      .catch(() => { if (active) setAvailableBalance(null); });
+    return () => { active = false; };
+  }, []);
 
   const formData = state.formData;
   const jobType = state.jobType;
@@ -444,6 +454,22 @@ export default function JobReviewStep() {
               </Text>
             </View>
           </View>
+          {availableBalance !== null && (
+            <View style={styles.reviewRow}>
+              <Ionicons
+                name={availableBalance >= budgetAmount ? 'wallet-outline' : 'alert-circle-outline'}
+                size={20}
+                color={availableBalance >= budgetAmount ? C.success : C.error}
+              />
+              <View>
+                <Text style={styles.reviewLabel}>Wallet balance</Text>
+                <Text style={[styles.reviewValue, availableBalance < budgetAmount && { color: C.error }]}>
+                  {`${currency.symbol}${availableBalance.toFixed(2)} available`}
+                  {availableBalance < budgetAmount ? ' — top up before accepting a proposal' : ''}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Schedule */}

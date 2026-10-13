@@ -257,7 +257,7 @@ export default function NotificationsScreen() {
       <View style={styles.notificationMeta}>
         <Text style={styles.notificationTime}>{formatDate(item.createdAt)}</Text>
         {item.data?.jobId && (
-          <TouchableOpacity onPress={() => router.push(`/job-detail/${item.data.jobId}`)}>
+          <TouchableOpacity onPress={() => router.push(`/(shared)/job-detail/${item.data.jobId}`)}>
             <Text style={styles.metaText}>Job: {item.data.jobId.substring(0, 8)}...</Text>
           </TouchableOpacity>
         )}

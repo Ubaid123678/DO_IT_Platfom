@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { walletService } from '@/src/services/walletService';
 
 type Period = 'week' | 'month' | 'all';
 type TxType = 'earning' | 'withdrawal' | 'bonus';
@@ -134,15 +135,49 @@ export default function ProviderEarningsScreen() {
   const [period, setPeriod] = useState<Period>('month');
   const [transactions, setTransactions] = useState<EarningsTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wallet, setWallet] = useState<{ balance: number; escrowBalance: number; availableBalance: number }>({
+    balance: 0,
+    escrowBalance: 0,
+    availableBalance: 0,
+  });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setTransactions(mockTransactions);
-      setLoading(false);
-    }, 320);
-
-    return () => clearTimeout(timer);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const load = async () => {
+        try {
+          const [stats, history] = await Promise.all([
+            walletService.getWalletStats(),
+            walletService.getTransactionHistory({ limit: 50 }),
+          ]);
+          if (!active) return;
+          setWallet({
+            balance: stats.balance,
+            escrowBalance: stats.escrowBalance,
+            availableBalance: stats.availableBalance,
+          });
+          // Map real wallet transactions into the earnings list shape.
+          const mapped: EarningsTransaction[] = (history.transactions || []).map((t: any) => ({
+            id: t._id ?? t.transactionId,
+            type: t.type === 'payout' ? 'withdrawal' : t.amount >= 0 ? 'earning' : 'withdrawal',
+            label: t.description || t.type,
+            date: t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+            amount: (t.amount ?? 0) / 100,
+            bucket: 'month',
+          }));
+          setTransactions(mapped);
+        } catch {
+          if (active) setTransactions([]);
+        } finally {
+          if (active) setLoading(false);
+        }
+      };
+      void load();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const summary = summaryByPeriod[period];
 
@@ -199,7 +234,7 @@ export default function ProviderEarningsScreen() {
             })}
           </View>
 
-          <Text style={styles.totalText}>{`$${summary.total.toFixed(2)}`}</Text>
+          <Text style={styles.totalText}>{`$${(wallet.balance / 100).toFixed(2)}`}</Text>
           <Text style={styles.totalSubText}>Total earnings</Text>
 
           <View style={styles.metricsRow}>
@@ -247,12 +282,12 @@ export default function ProviderEarningsScreen() {
         <View style={styles.breakdownRow}>
           <View style={styles.pendingCard}>
             <Text style={styles.breakdownLabel}>Pending</Text>
-            <Text style={styles.pendingValue}>{`$${summary.pending.toFixed(2)}`}</Text>
+            <Text style={styles.pendingValue}>{`$${(wallet.escrowBalance / 100).toFixed(2)}`}</Text>
           </View>
 
           <View style={styles.availableCard}>
             <Text style={styles.breakdownLabel}>Available</Text>
-            <Text style={styles.availableValue}>{`$${summary.available.toFixed(2)}`}</Text>
+            <Text style={styles.availableValue}>{`$${(wallet.availableBalance / 100).toFixed(2)}`}</Text>
           </View>
         </View>
 

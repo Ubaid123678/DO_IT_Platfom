@@ -8,7 +8,9 @@ import { walletService } from '../wallet/wallet.service.js';
 interface BrowseJobsOptions {
   type?: JobType;
   category?: string;
+  categories?: string[];
   skillItem?: string;
+  skillItems?: string[];
   status?: JobStatus;
   minBudget?: number;
   maxBudget?: number;
@@ -25,6 +27,9 @@ interface BrowseJobsOptions {
   limit?: number;
   skip?: number;
   search?: string;
+  // When set, only return jobs whose category (and optionally skill) is in the
+  // provider's verified set. `true` = match any of categories/skillItems.
+  matchAnyOfVerified?: boolean;
 }
 
 interface BrowseResult {
@@ -253,7 +258,9 @@ export const jobService = {
     const {
       type,
       category,
+      categories,
       skillItem,
+      skillItems,
       status = 'open',
       minBudget,
       maxBudget,
@@ -270,13 +277,27 @@ export const jobService = {
       limit = 20,
       skip = 0,
       search,
+      matchAnyOfVerified,
     } = options;
 
     const filter: Record<string, unknown> = { status };
 
     if (type) filter.type = type;
-    if (category) filter['requirements.categories'] = category;
-    if (skillItem) filter['requirements.skillItems'] = skillItem;
+    // Multi-value matching: a job is relevant if its categories include any of
+    // the provider's verified categories ($in), optionally narrowed by skills.
+    const categoryList = categories && categories.length > 0 ? categories : category ? [category] : [];
+    const skillList = skillItems && skillItems.length > 0 ? skillItems : skillItem ? [skillItem] : [];
+
+    if (matchAnyOfVerified && (categoryList.length > 0 || skillList.length > 0)) {
+      // Relevant = shares a category OR a skill with the provider's verified set.
+      const or: Record<string, unknown>[] = [];
+      if (categoryList.length > 0) or.push({ 'requirements.categories': { $in: categoryList } });
+      if (skillList.length > 0) or.push({ 'requirements.skillItems': { $in: skillList } });
+      filter.$or = or;
+    } else {
+      if (categoryList.length > 0) filter['requirements.categories'] = { $in: categoryList };
+      if (skillList.length > 0) filter['requirements.skillItems'] = { $in: skillList };
+    }
     if (experienceLevel) filter['requirements.experienceLevel'] = experienceLevel;
     if (isUrgent !== undefined) filter['metadata.isUrgent'] = isUrgent;
     if (isFeatured !== undefined) filter['metadata.isFeatured'] = isFeatured;

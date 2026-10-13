@@ -98,12 +98,24 @@ export default function ProviderJobsScreen() {
 
     try {
       const currentSkip = reset ? 0 : skip;
-      const result = await jobService.getProviderJobs({
-        status: activeTab === 'all' ? undefined : activeTab,
-        type: filterType === 'all' ? undefined : filterType,
-        skip: currentSkip,
-        limit: 20,
-      });
+      // Open jobs come from the "relevant" feed (only jobs matching the
+      // provider's verified categories/skills) so they can apply. Other tabs
+      // show jobs assigned to this provider.
+      const statusFilter = activeTab === 'all' ? undefined : activeTab;
+      const result = statusFilter && statusFilter !== 'open'
+        ? await jobService.getProviderJobs({
+            status: statusFilter,
+            type: filterType === 'all' ? undefined : filterType,
+            skip: currentSkip,
+            limit: 20,
+          })
+        : await jobService.browseJobs({
+            status: 'open',
+            relevant: true,
+            type: filterType === 'all' ? undefined : filterType,
+            skip: currentSkip,
+            limit: 20,
+          });
       if (reset) {
         setJobs(result.jobs);
       } else {
@@ -168,7 +180,7 @@ export default function ProviderJobsScreen() {
   }, [loadingMore, hasMore, loadJobs]);
 
   const renderJobCard = ({ item }: { item: Job }) => (
-    <TouchableOpacity style={styles.jobCard} onPress={() => router.push(`/job-detail/${item._id}`)} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.jobCard} onPress={() => router.push(`/(shared)/job-detail/${item._id}`)} activeOpacity={0.8}>
       <View style={styles.cardHeader}>
         <View style={styles.typeBadgeContainer}>
           <View style={[styles.typeBadge, { backgroundColor: item.type === 'physical' ? C.primary : item.type === 'digital' ? '#6C5CE7' : '#E17055' }]}>
@@ -199,9 +211,21 @@ export default function ProviderJobsScreen() {
         </View>
       </View>
 
+      {item.status === 'open' && (
+        <View style={styles.providerActions}>
+          <TouchableOpacity
+            style={styles.applyBtn}
+            onPress={() => router.push(`/(provider)/submit-proposal/${item._id}` as any)}
+          >
+            <Ionicons name="paper-plane-outline" size={16} color="#fff" />
+            <Text style={styles.completeBtnText}>Apply / Send Proposal</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {item.status === 'in_progress' && (
         <View style={styles.providerActions}>
-          <TouchableOpacity style={styles.completeBtn} onPress={() => router.push(`/job-detail/${item._id}`)}>
+          <TouchableOpacity style={styles.completeBtn} onPress={() => router.push(`/(shared)/job-detail/${item._id}`)}>
             <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
             <Text style={styles.completeBtnText}>Mark Complete</Text>
           </TouchableOpacity>
@@ -371,7 +395,16 @@ const makeStyles = (C: AppColors) =>
       backgroundColor: C.primary,
     },
     completeBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
-    listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+    applyBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: C.amber,
+    },
+    listContent: { paddingHorizontal: 20, paddingBottom: 24 },
     emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
     emptyTitle: { fontSize: 16, fontWeight: '600', color: C.textPrimary, marginTop: 16 },
     emptySubtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', marginTop: 8 },

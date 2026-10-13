@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -63,65 +63,71 @@ export default function ClientHomeScreen() {
   const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
   const [categories, setCategories] = useState<CategoryChip[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(true);
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [userRes, walletRes, jobStatsRes, myJobsRes] = await Promise.allSettled([
+        authService.getMe(),
+        walletService.getWalletStats(),
+        jobService.getProviderJobStats(),
+        jobService.getClientJobs({ limit: 5 }),
+      ]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const [userRes, walletRes, jobStatsRes, myJobsRes] = await Promise.allSettled([
-          authService.getMe(),
-          walletService.getWalletStats(),
-          jobService.getProviderJobStats(),
-          jobService.getClientJobs({ limit: 5 }),
-        ]);
+      if (userRes.status === 'fulfilled') {
+        const responseData = userRes.value.data as unknown as {
+          user?: { fullName?: string; avatar_url?: string; email?: string; createdAt?: string };
+          data?: { user?: { fullName?: string; avatar_url?: string; email?: string; createdAt?: string } };
+        };
+        const cachedUser = await AsyncStorage.getItem('user');
+        const userData = responseData.data?.user ?? responseData.user ?? (cachedUser ? JSON.parse(cachedUser) : null);
 
-        if (userRes.status === 'fulfilled') {
-          const responseData = userRes.value.data as unknown as {
-            user?: { fullName?: string; avatar_url?: string; email?: string; createdAt?: string };
-            data?: { user?: { fullName?: string; avatar_url?: string; email?: string; createdAt?: string } };
-          };
-          const cachedUser = await AsyncStorage.getItem('user');
-          const userData = responseData.data?.user ?? responseData.user ?? (cachedUser ? JSON.parse(cachedUser) : null);
-
-          if (userData) {
-            setUser({
-              name: userData.fullName ?? 'User',
-              avatarUrl: userData.avatar_url,
-              email: userData.email ?? '',
-              memberSince: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'New',
-              profileCompleteness: 0,
-              missingFields: [],
-            });
-          }
+        if (userData) {
+          setUser({
+            name: userData.fullName ?? 'User',
+            avatarUrl: userData.avatar_url,
+            email: userData.email ?? '',
+            memberSince: userData.createdAt ? new Date(userData.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'New',
+            profileCompleteness: 0,
+            missingFields: [],
+          });
         }
-
-        if (walletRes.status === 'fulfilled') {
-          // Wallet data loaded
-        }
-
-        if (jobStatsRes.status === 'fulfilled') {
-          // Job stats loaded
-        }
-
-        if (myJobsRes.status === 'fulfilled') {
-          const jobs = myJobsRes.value.jobs || [];
-          setActiveJobs(jobs.map((job: any) => ({
-            id: job._id,
-            title: job.title,
-            category: job.requirements?.categories?.[0]?.name || 'General',
-            budget: job.budget?.amount ? `$${(job.budget.amount / 100).toFixed(2)}` : '$0.00',
-            status: job.status,
-          })));
-        }
-      } catch (e) {
-        console.error('[ClientHome] Load error:', e);
-      } finally {
-        setLoading(false);
       }
-    };
-    void loadData();
+
+      if (walletRes.status === 'fulfilled') {
+        const w = walletRes.value;
+        setWalletBalance((w.availableBalance ?? 0) / 100);
+      }
+
+      if (jobStatsRes.status === 'fulfilled') {
+        // Job stats loaded
+      }
+
+      if (myJobsRes.status === 'fulfilled') {
+        const jobs = myJobsRes.value.jobs || [];
+        setActiveJobs(jobs.map((job: any) => ({
+          id: job._id,
+          title: job.title,
+          category: job.requirements?.categories?.[0]?.name || 'General',
+          budget: job.budget?.amount ? `$${(job.budget.amount / 100).toFixed(2)}` : '$0.00',
+          status: job.status,
+        })));
+      }
+    } catch (e) {
+      console.error('[ClientHome] Load error:', e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Refetch whenever the screen regains focus so a newly-created job shows up
+  // without an app restart.
+  useFocusEffect(
+    useCallback(() => {
+      void loadData();
+    }, [loadData]),
+  );
 
   const initials = useMemo(() => {
     if (!user?.name) return 'U';
@@ -207,8 +213,8 @@ export default function ClientHomeScreen() {
 
         <View style={styles.walletCard}>
           <Text style={styles.walletLabel}>Wallet Balance</Text>
-          <Text style={styles.walletAmount}>$240.00</Text>
-          <Text style={styles.walletConverted}>≈ PKR 66,840</Text>
+          <Text style={styles.walletAmount}>{`$${walletBalance.toFixed(2)}`}</Text>
+          <Text style={styles.walletConverted}>Available balance</Text>
 
           <View style={styles.walletActionsRow}>
             <TouchableOpacity

@@ -148,7 +148,7 @@ export default function MyJobsScreen() {
   }, [loadingMore, hasMore, loadJobs]);
 
   const renderJobCard = ({ item }: { item: Job }) => (
-    <TouchableOpacity style={styles.jobCard} onPress={() => router.push(`/job-detail/${item._id}`)} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.jobCard} onPress={() => router.push(`/(shared)/job-detail/${item._id}`)} activeOpacity={0.8}>
       <View style={styles.cardHeader}>
         <View style={styles.typeBadgeContainer}>
           <View style={[styles.typeBadge, { backgroundColor: item.type === 'physical' ? C.primary : item.type === 'digital' ? '#6C5CE7' : '#E17055' }]}>
@@ -196,7 +196,7 @@ export default function MyJobsScreen() {
       )}
 
       {item.status === 'open' && item.metadata.applicationsCount > 0 && (
-        <TouchableOpacity style={styles.viewApplicantsBtn} onPress={() => router.push(`/job-detail/${item._id}`)}>
+        <TouchableOpacity style={styles.viewApplicantsBtn} onPress={() => router.push(`/(shared)/job-detail/${item._id}`)}>
           <Ionicons name="people-outline" size={16} color={C.primary} />
           <Text style={styles.viewApplicantsText}>View Details ({item.metadata.applicationsCount} applicants)</Text>
         </TouchableOpacity>

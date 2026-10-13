@@ -46,8 +46,19 @@ export const api = axios.create({
   timeout: 10000,
 });
 
-export const getMediaUrl = (path: string): string => {
-  if (!path) return path;
+// Extract the backend's human message from an axios error so screens can show
+// e.g. "Insufficient funds for escrow" instead of the generic axios text.
+export const getApiErrorMessage = (error: unknown, fallback = 'Something went wrong. Please try again.'): string => {
+  const e = error as { response?: { data?: { error?: { message?: string } } }; message?: string };
+  const apiMessage = e?.response?.data?.error?.message;
+  if (typeof apiMessage === 'string' && apiMessage.trim().length > 0) return apiMessage;
+  if (typeof e?.message === 'string' && e.message.trim().length > 0 && !/status code/.test(e.message)) {
+    return e.message;
+  }
+  return fallback;
+};
+
+export const getMediaUrl = (path: string): string => {  if (!path) return path;
   if (/^(?:https?:|data:|file:)/i.test(path)) return path;
   const origin = resolveApiBaseUrl().replace(/\/api\/v1$/, '');
   return `${origin}${path.startsWith('/') ? path : `/${path}`}`;

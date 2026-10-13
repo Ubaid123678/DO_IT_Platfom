@@ -16,6 +16,10 @@ router.get('/stats', walletController.getWalletStats);
 router.post('/topup', walletController.createTopUp);
 router.post('/topup/confirm', walletController.confirmTopUp);
 
+// Dev/demo top-up (disabled in production) — lets the escrow flow be tested
+// without a live Stripe card flow.
+router.post('/topup/demo', walletController.demoTopUp);
+
 // Stripe webhook (no auth required for webhook)
 router.post('/webhook/stripe', walletController.stripeWebhook);
 

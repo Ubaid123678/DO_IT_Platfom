@@ -178,6 +178,8 @@ export interface BrowseJobsParams {
   limit?: number;
   skip?: number;
   search?: string;
+  // Provider feed: only jobs matching the caller's verified categories/skills.
+  relevant?: boolean;
 }
 
 export interface BrowseJobsResponse {

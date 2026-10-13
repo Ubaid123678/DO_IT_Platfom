@@ -76,6 +76,24 @@ export const walletController = {
     });
   }),
 
+  // DEMO ONLY: direct wallet credit for local testing (no Stripe).
+  demoTopUp: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (process.env.NODE_ENV === 'production') {
+      throw new AppError('Demo top-up is disabled in production', 403, 'DEMO_DISABLED');
+    }
+    const userId = getUserId(req);
+    const amountCents = Number(req.body?.amountCents);
+    if (!Number.isFinite(amountCents) || amountCents <= 0 || amountCents > 10000000) {
+      throw new AppError('amountCents must be between 1 and 10000000', 400, 'VALIDATION_ERROR');
+    }
+    const wallet = await walletService.demoTopUp(userId, Math.round(amountCents));
+    res.status(200).json({
+      success: true,
+      data: wallet,
+      meta: { message: 'Demo top-up applied' },
+    });
+  }),
+
   // Stripe webhook handler
   stripeWebhook: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const signature = req.headers['stripe-signature'] as string;

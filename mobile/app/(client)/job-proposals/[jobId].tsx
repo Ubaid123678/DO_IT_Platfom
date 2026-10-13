@@ -5,10 +5,11 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { proposalService, type Proposal, type ProposalStatus, type ProposalListResponse } from '@/src/services/proposalService';
+import { getApiErrorMessage } from '@/src/services/api';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const STATUS_LABELS: Record<ProposalStatus, string> = {
-  submitted: 'Submitted',
+  submitted: 'New',
   withdrawn: 'Withdrawn',
   accepted: 'Accepted',
   rejected: 'Rejected',
@@ -183,7 +184,7 @@ export default function JobProposalsScreen() {
               Alert.alert('Success', 'Proposal accepted! Other proposals have been rejected.');
               loadProposals(true);
             } catch (e) {
-              const msg = e instanceof Error ? e.message : 'Failed to accept proposal';
+              const msg = getApiErrorMessage(e, 'Failed to accept proposal');
               Alert.alert('Error', msg);
             }
           },
@@ -206,7 +207,7 @@ export default function JobProposalsScreen() {
               Alert.alert('Success', 'Proposal rejected.');
               loadProposals(true);
             } catch (e) {
-              const msg = e instanceof Error ? e.message : 'Failed to reject proposal';
+              const msg = getApiErrorMessage(e, 'Failed to reject proposal');
               Alert.alert('Error', msg);
             }
           },
@@ -344,7 +345,7 @@ const makeStyles = (C: AppColors) =>
     acceptBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: C.success },
     rejectBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: C.error },
     actionBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
-    listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+    listContent: { paddingHorizontal: 20, paddingBottom: 24 },
     emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
     emptyTitle: { fontSize: 16, fontWeight: '600', color: C.textPrimary, marginTop: 16 },
     emptySubtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', marginTop: 8 },

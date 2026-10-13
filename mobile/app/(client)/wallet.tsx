@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme, ActivityIndicator } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
@@ -110,9 +110,12 @@ export default function WalletScreen() {
     }
   }, [loadingMore, hasMore, loadWallet]);
 
-  useEffect(() => {
-    loadWallet(true);
-  }, []);
+  // Refresh on focus so the balance is current after a top-up or escrow event.
+  useFocusEffect(
+    useCallback(() => {
+      void loadWallet(true);
+    }, [loadWallet]),
+  );
 
   const getTypeIcon = (type: TransactionType) => {
     switch (type) {

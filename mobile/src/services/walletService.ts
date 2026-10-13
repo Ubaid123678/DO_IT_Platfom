@@ -133,6 +133,12 @@ export const walletService = {
     return res.data.data;
   },
 
+  // Test/demo top-up: credits the wallet directly (dev only on the backend).
+  demoTopUp: async (amountCents: number): Promise<{ balance: number; availableBalance: number }> => {
+    const res = await api.post('/wallet/topup/demo', { amountCents });
+    return res.data.data;
+  },
+
   // Get transaction history
   getTransactionHistory: async (params: TransactionHistoryParams = {}): Promise<TransactionHistoryResponse> => {
     const queryParams = new URLSearchParams();
