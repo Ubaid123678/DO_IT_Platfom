@@ -20,16 +20,17 @@ function useAndroidBackHandler() {
         state.currentStep === 'pending-review' ||
         isCompletionStep
       ) {
-        // If the provider has already reached the dashboard, the back gesture
-        // returns there. Only when they have never continued to the dashboard
-        // (first-time flow) does the back gesture close the app.
-        verificationService.isVerificationComplete().then((done) => {
-          if (done) {
-            router.replace('/(provider)/home');
-          } else {
-            BackHandler.exitApp();
-          }
-        });
+        // If the profile is already complete (server truth), the back gesture
+        // returns to the dashboard; otherwise close the app (no in-wizard back).
+        verificationService.getProfile()
+          .then((p) => {
+            if (p.required_complete) {
+              router.replace('/(provider)/home');
+            } else {
+              BackHandler.exitApp();
+            }
+          })
+          .catch(() => BackHandler.exitApp());
         return true;
       }
       dispatch({ type: 'GO_BACK' });

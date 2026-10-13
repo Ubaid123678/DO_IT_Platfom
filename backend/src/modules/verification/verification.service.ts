@@ -70,7 +70,14 @@ const computeCompleteness = (
   track: ProviderTrack | null,
   profile: Record<string, unknown>,
   trackData: Record<string, unknown>,
-): { completeness: number; missing_fields: string[] } => {
+): {
+  completeness: number;
+  required_completeness: number;
+  required_complete: boolean;
+  required_fields: { label: string; done: boolean }[];
+  required_missing: string[];
+  missing_fields: string[];
+} => {
   const required: { label: string; done: boolean }[] = [];
   const optional: { label: string; done: boolean }[] = [];
 
@@ -96,17 +103,17 @@ const computeCompleteness = (
     optional.push({ label: 'Team size', done: hasValue(td.team_size) });
     optional.push({ label: 'Insurance', done: hasValue(td.insurance) });
     optional.push({ label: 'Transport', done: hasValue(td.has_transport) });
-} else if (track === 'digital') {
-      const td = (trackData.digital ?? {}) as Record<string, unknown>;
-      required.push({ label: 'Skills', done: hasValue(td.skills) });
-      required.push({ label: 'Tech stack', done: hasValue(td.tech_stack) });
-      required.push({ label: 'Hourly rate', done: hasValue(td.hourly_rate) });
-      required.push({ label: 'Timezone', done: hasValue(td.timezone) });
-      required.push({ label: 'English proficiency', done: hasValue(td.english_proficiency) });
-      optional.push({ label: 'Work history', done: hasValue(td.work_history) });
-      optional.push({ label: 'Project rate', done: hasValue(td.project_rate) });
-      required.push({ label: 'Education', done: hasValue(td.education) });
-      optional.push({ label: 'Resume', done: hasValue(td.resume_file_url) });
+  } else if (track === 'digital') {
+    const td = (trackData.digital ?? {}) as Record<string, unknown>;
+    required.push({ label: 'Skills', done: hasValue(td.skills) });
+    required.push({ label: 'Tech stack', done: hasValue(td.tech_stack) });
+    required.push({ label: 'Hourly rate', done: hasValue(td.hourly_rate) });
+    required.push({ label: 'Timezone', done: hasValue(td.timezone) });
+    required.push({ label: 'English proficiency', done: hasValue(td.english_proficiency) });
+    optional.push({ label: 'Work history', done: hasValue(td.work_history) });
+    optional.push({ label: 'Project rate', done: hasValue(td.project_rate) });
+    required.push({ label: 'Education', done: hasValue(td.education) });
+    optional.push({ label: 'Resume', done: hasValue(td.resume_file_url) });
   } else if (track === 'errand') {
     const td = (trackData.errand ?? {}) as Record<string, unknown>;
     required.push({ label: 'Service area', done: hasValue(td.service_area) });
@@ -124,12 +131,26 @@ const computeCompleteness = (
   const requiredTotal = required.length || 1;
   const optionalTotal = optional.length || 1;
 
+  // Strength meter: documented required(60%) + optional(40%) model.
   const completeness = Math.min(
     100,
     Math.max(0, Math.round((requiredDone / requiredTotal) * 60 + (optionalDone / optionalTotal) * 40)),
   );
 
-  return { completeness, missing_fields: required.filter((r) => !r.done).map((r) => r.label) };
+  // Relevant-data completion: % of the required fields the *track* actually
+  // asks for (ignores optional fields). This is what the profile form's `*`
+  // markers correspond to, and what unlocks the dashboard.
+  const requiredMissing = required.filter((r) => !r.done).map((r) => r.label);
+  const requiredCompleteness = Math.round((requiredDone / requiredTotal) * 100);
+
+  return {
+    completeness,
+    required_completeness: requiredCompleteness,
+    required_complete: requiredMissing.length === 0,
+    required_fields: required,
+    required_missing: requiredMissing,
+    missing_fields: requiredMissing,
+  };
 };
 
 export const serializeProviderProfile = (user: { toJSON?: () => Record<string, unknown> } | null, track: ProviderTrack | null) => {
@@ -149,12 +170,23 @@ export const serializeProviderProfile = (user: { toJSON?: () => Record<string, u
     // Include user's fullName from the user document
     if (json.fullName) profile.fullName = json.fullName;
 
-    const { completeness, missing_fields } = computeCompleteness(track, profile, trackData);
+    const {
+      completeness,
+      required_completeness,
+      required_complete,
+      required_fields,
+      required_missing,
+      missing_fields,
+    } = computeCompleteness(track, profile, trackData);
     return {
       provider_profile: profile,
       track,
       track_data: trackData,
       completeness,
+      required_completeness,
+      required_complete,
+      required_fields,
+      required_missing,
       missing_fields,
     };
   };

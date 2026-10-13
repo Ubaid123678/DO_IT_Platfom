@@ -265,7 +265,11 @@ export default function ProfileCompletionStep() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [completeness, setCompleteness] = useState(0);
+  // Relevant-track completion: % of the fields THIS track requires (the form's
+  // `*` markers). This is what unlocks the dashboard.
+  const [requiredCompleteness, setRequiredCompleteness] = useState(0);
+  const [requiredComplete, setRequiredComplete] = useState(false);
+  const [strength, setStrength] = useState(0);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
@@ -376,7 +380,9 @@ export default function ProfileCompletionStep() {
           goodsInsuranceCovered: (errand.goods_insurance as { covered?: boolean })?.covered ?? false,
           serviceAreaText: errand.service_area ? `${(errand.service_area as { city: string }).city} (${(errand.service_area as { radius_km: number }).radius_km} km)` : '',
         });
-        setCompleteness(profile.completeness ?? 0);
+        setRequiredCompleteness(profile.required_completeness ?? 0);
+        setRequiredComplete(profile.required_complete ?? false);
+        setStrength(profile.completeness ?? 0);
         setMissingFields(profile.missing_fields ?? []);
       } catch {
         // Prefill failures fall back to empty form; saving will still work.
@@ -401,7 +407,9 @@ export default function ProfileCompletionStep() {
       const mime = asset.mimeType ?? 'image/jpeg';
       const updated = await verificationService.uploadAvatar(asset.uri, mime);
       setForm((prev) => ({ ...prev, avatarUrl: updated.provider_profile.avatar_url ?? asset.uri }));
-      setCompleteness(updated.completeness ?? 0);
+      setRequiredCompleteness(updated.required_completeness ?? 0);
+      setRequiredComplete(updated.required_complete ?? false);
+      setStrength(updated.completeness ?? 0);
       setMissingFields(updated.missing_fields ?? []);
     } catch {
       Alert.alert('Error', 'Failed to upload profile photo.');
@@ -509,9 +517,10 @@ export default function ProfileCompletionStep() {
       console.log('[ProfileCompletion] Saving payload:', JSON.stringify(payload));
       const profile = await verificationService.updateProfile(payload);
       console.log('[ProfileCompletion] Save response:', profile);
-      setCompleteness(profile.completeness ?? completeness);
+      setRequiredCompleteness(profile.required_completeness ?? requiredCompleteness);
+      setRequiredComplete(profile.required_complete ?? false);
+      setStrength(profile.completeness ?? strength);
       setMissingFields(profile.missing_fields ?? []);
-      await verificationService.markVerificationComplete().catch(() => {});
       dispatch({ type: 'SET_RESUME_BIO_COMPLETE' });
       console.log('[ProfileCompletion] Navigating to dashboard...');
       router.replace('/(provider)/home');
@@ -605,13 +614,14 @@ export default function ProfileCompletionStep() {
 
         <View style={styles.completenessCard}>
           <View style={styles.completenessTextWrap}>
-            <Text style={styles.completenessTitle}>Profile strength</Text>
+            <Text style={styles.completenessTitle}>Profile completeness</Text>
             <Text style={styles.completenessSub}>
-              {completeness >= 100 ? 'Looks great! You are ready to apply.' : `Add ${missingFields.length > 0 ? missingFields.join(', ') : 'more details'} to boost your profile.`}
+              {requiredComplete ? 'Complete! You can go to the dashboard.' : `Add ${missingFields.length > 0 ? missingFields.join(', ') : 'more details'} to complete your profile.`}
             </Text>
+            <Text style={styles.completenessStrength}>Profile strength {strength}%</Text>
           </View>
           <View style={styles.completenessRing}>
-            <Text style={styles.completenessPct}>{completeness}%</Text>
+            <Text style={styles.completenessPct}>{requiredCompleteness}%</Text>
           </View>
         </View>
 
@@ -905,6 +915,7 @@ const makeStyles = (C: AppColors) =>
     completenessTextWrap: { flex: 1 },
     completenessTitle: { fontSize: 15, fontWeight: '700', color: C.textPrimary, marginBottom: 2 },
     completenessSub: { fontSize: 12, color: C.textSecondary, lineHeight: 17 },
+    completenessStrength: { fontSize: 11, color: C.textHint, marginTop: 2 },
     completenessRing: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginLeft: 12 },
     completenessPct: { fontSize: 16, fontWeight: '800', color: C.primary },
     sectionCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 16 },

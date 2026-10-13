@@ -4,19 +4,17 @@ import { router } from 'expo-router';
 import { authService } from '@/src/services/authService';
 import { api, setRefreshTokenFn } from '@/src/services/api';
 
-// Everything that must be wiped together on logout/register. Includes the
-// cached profile, the provider verification-complete sentinel, and per-user
-// banner flags so a new account can never inherit the previous user's data or
-// skip onboarding. `hasSeenOnboarding` is device-level and stays.
-// NOTE: pendingAuthEmail/password are transient login state, deliberately NOT
-// here — the login screen sets then clears them mid-flow.
+// Everything that must be wiped together on logout/register: the cached
+// profile and per-user banner flags so a new account can never inherit the
+// previous user's data or skip onboarding. `hasSeenOnboarding` is device-level
+// and stays. NOTE: pendingAuthEmail/password are transient login state,
+// deliberately NOT here — the login screen sets then clears them mid-flow.
 export const AUTH_STORAGE_KEYS = [
   'accessToken',
   'refreshToken',
   'role',
   'user',
   'clientProfile',
-  '@doit_verification_complete',
   '@home_verif_banner_dismissed',
   '@home_verif_banner_show_count',
 ];

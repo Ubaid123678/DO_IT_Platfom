@@ -1,9 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { api } from './api';
-
-const VERIF_COMPLETE_KEY = '@doit_verification_complete';
 
 let categoriesCache: SkillCategory[] | null = null;
 const skillItemsCache: Record<string, SkillItem[]> = {};
@@ -159,6 +156,12 @@ export interface ProviderProfileResponse {
   track: ProviderTrack | null;
   track_data: TrackData;
   completeness: number;
+  // Relevant-data completion (required-by-track fields only) and whether every
+  // required field is filled — this is what the dashboard gate uses.
+  required_completeness?: number;
+  required_complete?: boolean;
+  required_fields?: { label: string; done: boolean }[];
+  required_missing?: string[];
   missing_fields: string[];
 }
 
@@ -305,18 +308,5 @@ export const verificationService = {
   }): Promise<VerificationRecord> => {
     const res = await api.post('/providers/verification-records/auto-verify', evidence);
     return res.data.data.record;
-  },
-
-  markVerificationComplete: async (): Promise<void> => {
-    await AsyncStorage.setItem(VERIF_COMPLETE_KEY, 'true');
-  },
-
-  isVerificationComplete: async (): Promise<boolean> => {
-    const val = await AsyncStorage.getItem(VERIF_COMPLETE_KEY);
-    return val === 'true';
-  },
-
-  clearVerificationComplete: async (): Promise<void> => {
-    await AsyncStorage.removeItem(VERIF_COMPLETE_KEY);
   },
 };

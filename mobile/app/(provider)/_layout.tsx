@@ -53,9 +53,11 @@ export default function ProviderLayout() {
         return;
       }
 
-      // Verified but profile completion not finished → wizard routes there.
-      const profileDone = await verificationService.isVerificationComplete();
-      if (!profileDone) {
+      // Verified → require every *required* profile field for the track (server
+      // truth). No device-local sentinel: a completed profile must unlock the
+      // dashboard after any login/reload.
+      const profile = await verificationService.getProfile();
+      if (!profile.required_complete) {
         router.replace('/(provider-verification)');
         return;
       }

@@ -45,6 +45,7 @@ export default function VerificationWizardScreen() {
     if (initRef.current) return;
     initRef.current = true;
 
+    let attempts = 0;
     const determineStep = async () => {
       try {
         const status = await verificationService.getVerificationStatus();
@@ -54,24 +55,29 @@ export default function VerificationWizardScreen() {
         // some approved, some still pending) doesn't skip the status screen.
         if (status.has_pending || status.has_rejected) {
           dispatch({ type: 'SET_STEP', step: 'pending-review' });
-          return;
+        } else {
+          const hasIncompleteCategories = status.categories?.some(
+            (c: { status?: string }) => c.status === 'incomplete'
+          );
+          if (status.overall_status === 'verified' && !hasIncompleteCategories) {
+            // All categories verified → profile completion
+            dispatch({ type: 'SET_STEP', step: 'review-approved' });
+          } else {
+            // Not verified, or verified but has incomplete categories
+            dispatch({ type: 'SET_STEP', step: 'category-selection' });
+          }
         }
-        // Check if any category is incomplete (skill verification not done)
-        const hasIncompleteCategories = status.categories?.some(
-          (c: { status?: string }) => c.status === 'incomplete'
-        );
-        if (status.overall_status === 'verified' && !hasIncompleteCategories) {
-          // All categories verified → profile completion
-          dispatch({ type: 'SET_STEP', step: 'review-approved' });
-          return;
-        }
-        // Not verified, or verified but has incomplete categories → start category selection
-        dispatch({ type: 'SET_STEP', step: 'category-selection' });
+        setLoading(false);
       } catch {
-        // Status check failed (e.g. network) — don't block a new provider;
-        // start them at category selection.
+        // Network/transient failure — retry while keeping the loader up, rather
+        // than dumping a verified provider back on category selection.
+        attempts += 1;
+        if (attempts <= 5) {
+          setTimeout(() => { void determineStep(); }, 1500);
+          return;
+        }
+        // Give up gracefully: start at the beginning.
         dispatch({ type: 'SET_STEP', step: 'category-selection' });
-      } finally {
         setLoading(false);
       }
     };
