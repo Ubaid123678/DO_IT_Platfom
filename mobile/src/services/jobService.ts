@@ -50,9 +50,13 @@ export interface JobSchedule {
   preferredShifts?: string[];
 }
 
+// On create these are id strings; on read the backend populates them into
+// {_id, name, job_type} objects. Accept either so rendering never crashes.
+export type JobRef = string | { _id: string; name?: string; job_type?: string };
+
 export interface JobRequirements {
-  categories: string[];
-  skillItems?: string[];
+  categories: JobRef[];
+  skillItems?: JobRef[];
   experienceLevel?: 'entry' | 'intermediate' | 'expert';
   languages?: string[];
   certificationsRequired?: boolean;

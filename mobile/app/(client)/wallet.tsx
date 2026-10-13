@@ -146,9 +146,8 @@ export default function WalletScreen() {
     }
   };
 
-  const formatAmount = (amount: number, type: TransactionType) => {
-    const isCredit = ['topup', 'escrow_release', 'escrow_refund'].includes(type);
-    const prefix = isCredit ? '+' : '-';
+  const formatAmount = (amount: number) => {
+    const prefix = amount >= 0 ? '+' : '-';
     return `${prefix}${formatCurrency(Math.abs(amount))}`;
   };
 
@@ -170,8 +169,8 @@ export default function WalletScreen() {
       </View>
 
       <View style={styles.txnAmountRow}>
-        <Text style={[styles.txnAmount, { color: ['topup', 'escrow_release', 'escrow_refund'].includes(item.type) ? C.success : C.error }]}>
-          {formatCurrency(item.amount)}
+        <Text style={[styles.txnAmount, { color: item.amount >= 0 ? C.success : C.error }]}>
+          {formatAmount(item.amount)}
         </Text>
         <Text style={styles.txnDate}>{new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</Text>
       </View>
@@ -185,6 +184,11 @@ export default function WalletScreen() {
   );
 
   const TYPE_FILTERS: (TransactionType | 'all')[] = ['all', 'topup', 'escrow_lock', 'escrow_release', 'escrow_refund', 'payout', 'platform_fee', 'adjustment', 'refund'];
+
+  // The filter tabs actually filter the loaded list (they were decorative).
+  const visibleTransactions = activeTab === 'all'
+    ? transactions
+    : transactions.filter((t) => t.type === activeTab);
 
   if (loading && wallet === null) {
     return (
@@ -223,7 +227,7 @@ export default function WalletScreen() {
       </View>
 
       {/* Filter Tabs */}
-      <ScrollView horizontal contentContainerStyle={styles.filterContainer} showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal style={styles.filterScroll} contentContainerStyle={styles.filterContainer} showsHorizontalScrollIndicator={false}>
         {TYPE_FILTERS.map((type) => (
           <TouchableOpacity
             key={type}
@@ -242,7 +246,7 @@ export default function WalletScreen() {
 
       {/* Transaction List */}
       <FlatList
-        data={transactions}
+        data={visibleTransactions}
         renderItem={renderTransaction}
         keyExtractor={(item) => item._id}
         onRefresh={onRefresh}
@@ -292,13 +296,15 @@ const makeStyles = (C: AppColors) =>
     balanceContainer: { paddingHorizontal: 20, paddingVertical: 16, gap: 12 },
     balanceRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 16 },
     balanceCard: { flex: 1, backgroundColor: C.card, borderRadius: 16, paddingVertical: 16, paddingHorizontal: 8, borderWidth: 1, borderColor: C.cardBorder, alignItems: 'center' },
-    balanceLabel: { fontSize: 11, color: C.textHint, marginBottom: 4 },
-    balanceAmount: { fontSize: 16, fontWeight: '700', color: C.textPrimary },
-    filterContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8 },
+    balanceLabel: { fontSize: 11, color: C.textHint, marginBottom: 6 },
+    balanceAmount: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
+    // Fixed-height filter row so the chips don't reflow/jump.
+    filterScroll: { flexGrow: 0, maxHeight: 52 },
+    filterContainer: { paddingHorizontal: 20, gap: 8, alignItems: 'center', paddingVertical: 8 },
     filterTab: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 20,
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 18,
       backgroundColor: C.card,
       borderWidth: 1,
       borderColor: C.cardBorder,
@@ -306,21 +312,22 @@ const makeStyles = (C: AppColors) =>
     filterTabActive: { backgroundColor: C.primary, borderColor: C.primary },
     filterTabLabel: { fontSize: 12, fontWeight: '600', color: C.textSecondary },
     filterTabLabelActive: { color: '#fff' },
-    txnCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 12, marginHorizontal: 20 },
+    txnCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 12 },
     txnHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
     txnType: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-    typeIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    typeIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     txnTypeLabel: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
-    txnDescription: { fontSize: 12, color: C.textSecondary, marginTop: 1 },
+    txnDescription: { fontSize: 12, color: C.textSecondary, marginTop: 1, maxWidth: 200 },
     statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-    statusBadgeText: { fontSize: 10, fontWeight: '600', color: '#fff' },
+    statusBadgeText: { fontSize: 10, fontWeight: '600', color: '#fff', textTransform: 'capitalize' },
     txnAmountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
     txnAmount: { fontSize: 16, fontWeight: '700' },
     txnDate: { fontSize: 11, color: C.textHint },
     txnMeta: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: C.divider },
     txnMetaText: { fontSize: 11, color: C.textHint },
-    listContent: { paddingHorizontal: 20, paddingBottom: 100 },
-    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+    // paddingBottom clears the tab bar (60) + safe area.
+    listContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 96, flexGrow: 1 },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingTop: 60 },
     emptyTitle: { fontSize: 16, fontWeight: '600', color: C.textPrimary, marginTop: 16 },
     emptySubtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', marginTop: 8 },
     loadMoreWrapper: { padding: 20, alignItems: 'center' },

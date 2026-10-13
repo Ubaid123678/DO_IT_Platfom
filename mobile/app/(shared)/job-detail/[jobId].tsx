@@ -224,10 +224,20 @@ export default function JobDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Requirements</Text>
           <View style={styles.requirementsGrid}>
-            {(job.requirements.categories || []).map((catId, i) => (
-              <View key={i} style={styles.requirementItem}>
+            {(job.requirements.categories || []).map((cat, i) => (
+              <View key={typeof cat === 'string' ? cat : cat._id} style={styles.requirementItem}>
                 <Text style={styles.requirementLabel}>Category</Text>
-                <Text style={styles.requirementValue}>{catId}</Text>
+                <Text style={styles.requirementValue}>
+                  {typeof cat === 'string' ? cat : (cat.name || cat._id)}
+                </Text>
+              </View>
+            ))}
+            {(job.requirements.skillItems || []).map((skill, i) => (
+              <View key={typeof skill === 'string' ? skill : skill._id} style={styles.requirementItem}>
+                <Text style={styles.requirementLabel}>Skill</Text>
+                <Text style={styles.requirementValue}>
+                  {typeof skill === 'string' ? skill : (skill.name || skill._id)}
+                </Text>
               </View>
             ))}
             {job.requirements.experienceLevel && (

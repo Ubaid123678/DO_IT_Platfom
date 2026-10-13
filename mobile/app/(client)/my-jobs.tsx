@@ -244,7 +244,7 @@ export default function MyJobsScreen() {
       </View>
 
       {/* Stats Row */}
-      <ScrollView horizontal contentContainerStyle={styles.statsContainer} showsHorizontalScrollIndicator={false}>
+      <ScrollView horizontal style={styles.statsScroll} contentContainerStyle={styles.statsContainer} showsHorizontalScrollIndicator={false}>
         {tabs.map((status) => {
           // "All" is the sum of every status (stable), not the filtered page
           // total which changes with the active tab.
@@ -318,15 +318,17 @@ const makeStyles = (C: AppColors) =>
       borderBottomColor: C.divider,
     },
     headerTitle: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
-    statsContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8 },
+    // Fixed-height row so the tabs don't reflow/jump on first paint.
+    statsContainer: { paddingHorizontal: 20, gap: 8, alignItems: 'center' },
+    statsScroll: { flexGrow: 0, paddingVertical: 12 },
     statTab: {
       paddingHorizontal: 16,
-      paddingVertical: 10,
+      paddingVertical: 8,
       borderRadius: 20,
       backgroundColor: C.card,
       borderWidth: 1,
       borderColor: C.cardBorder,
-      minWidth: 80,
+      minWidth: 72,
       alignItems: 'center',
     },
     statTabActive: { backgroundColor: C.primary, borderColor: C.primary },
@@ -334,7 +336,7 @@ const makeStyles = (C: AppColors) =>
     statTabLabelActive: { color: '#fff' },
     statTabCount: { fontSize: 11, color: C.textHint, marginTop: 2 },
     statTabCountActive: { color: 'rgba(255,255,255,0.8)' },
-    jobCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 12, marginHorizontal: 20 },
+    jobCard: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, marginBottom: 12 },
     cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
     typeBadgeContainer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     typeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
@@ -353,8 +355,9 @@ const makeStyles = (C: AppColors) =>
     providerName: { fontSize: 13, fontWeight: '600', color: C.textPrimary },
     viewApplicantsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, marginTop: 12, paddingHorizontal: 16, borderRadius: 20, backgroundColor: C.primaryLight, borderWidth: 1, borderColor: C.primary },
     viewApplicantsText: { fontSize: 12, fontWeight: '600', color: C.primary },
-    listContent: { paddingHorizontal: 20, paddingBottom: 100 },
-    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+    // paddingBottom clears the tab bar (60) + safe area.
+    listContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 96, flexGrow: 1 },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingTop: 60 },
     emptyTitle: { fontSize: 16, fontWeight: '600', color: C.textPrimary, marginTop: 16 },
     emptySubtitle: { fontSize: 13, color: C.textSecondary, textAlign: 'center', marginTop: 8 },
     emptyActionBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: C.primary, borderRadius: 12 },
