@@ -61,16 +61,16 @@ export default function SubmitProposalScreen() {
   const youReceive = total - platformFee;
 
   const handleSubmit = async () => {
-    if (!bidAmount && bidType === 'fixed') {
+    if (bidType === 'fixed' && (!bidAmount || parseFloat(bidAmount) <= 0)) {
       Alert.alert('Error', 'Please enter a bid amount');
       return;
     }
-    if (bidType === 'hourly' && (!hourlyRate || !estimatedHours)) {
-      Alert.alert('Error', 'Please enter hourly rate and estimated hours');
+    if (bidType === 'hourly' && (!hourlyRate || !estimatedHours || parseFloat(hourlyRate) <= 0 || parseFloat(estimatedHours) <= 0)) {
+      Alert.alert('Error', 'Please enter a valid hourly rate and estimated hours');
       return;
     }
-    if (!coverLetter.trim()) {
-      Alert.alert('Error', 'Please write a cover letter');
+    if (coverLetter.trim().length < 20) {
+      Alert.alert('Error', 'Cover letter must be at least 20 characters');
       return;
     }
     if (!estimatedTimeline.trim()) {

@@ -60,28 +60,23 @@ export const proposalService = {
       throw new AppError('Only providers can submit proposals', 403, 'PROVIDER_REQUIRED');
     }
 
-    // Check the provider offers this job. A provider is relevant when they have
-    // selected the job's category AND (when the job lists skills) at least one
-    // of the job's skill items — skills are the concrete services they provide.
+    // A provider may apply when they share the job's category OR any of its
+    // skill items. This must match the "relevant" browse feed exactly, or the
+    // provider sees a job they can't actually apply to.
     const providerCategoryIds = (provider.categories_selected ?? []).map(String);
     const providerSkillIds = (provider.skill_items_selected ?? []).map(String);
     const jobCategoryIds = job.requirements.categories.map(String);
     const jobSkillIds = (job.requirements.skillItems ?? []).map(String);
 
     const sharesCategory = jobCategoryIds.some((catId) => providerCategoryIds.includes(catId));
-    if (!sharesCategory) {
-      throw new AppError('You are not verified for this job category', 403, 'NOT_VERIFIED_FOR_CATEGORY');
-    }
+    const sharesSkill = jobSkillIds.some((skillId) => providerSkillIds.includes(skillId));
 
-    if (jobSkillIds.length > 0) {
-      const sharesSkill = jobSkillIds.some((skillId) => providerSkillIds.includes(skillId));
-      if (!sharesSkill) {
-        throw new AppError(
-          'You have not selected a skill required by this job',
-          403,
-          'SKILL_NOT_SELECTED',
-        );
-      }
+    if (!sharesCategory && !sharesSkill) {
+      throw new AppError(
+        'You are not verified for this job. Select its category or a required skill first.',
+        403,
+        'NOT_VERIFIED_FOR_JOB',
+      );
     }
 
     const proposal = await ProposalModel.create({
