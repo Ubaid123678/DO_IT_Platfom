@@ -575,10 +575,13 @@ export const jobService = {
   getJobStats: async (userId: string, userRole: string) => {
     const match: Record<string, unknown> = {};
 
+    // Aggregations don't auto-cast strings to ObjectId like find() does, so the
+    // id must be cast or the $match silently returns nothing (all zeros).
+    const userObjectId = new mongoose.Types.ObjectId(userId);
     if (userRole === 'client') {
-      match['client.clientId'] = userId;
+      match['client.clientId'] = userObjectId;
     } else if (userRole === 'provider') {
-      match['provider.providerId'] = userId;
+      match['provider.providerId'] = userObjectId;
     }
 
     const stats = await JobModel.aggregate([

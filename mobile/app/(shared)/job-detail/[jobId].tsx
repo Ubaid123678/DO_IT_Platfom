@@ -16,6 +16,7 @@ import {
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
+import ConfirmSheet from '@/src/components/common/ConfirmSheet';
 import { jobService, type Job, type JobStatus } from '@/src/services/jobService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
@@ -103,6 +104,7 @@ export default function JobDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [confirmStatus, setConfirmStatus] = useState<JobStatus | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -120,46 +122,30 @@ export default function JobDetailScreen() {
     load();
   }, [jobId, router]);
 
-  const handleStatusTransition = async (newStatus: JobStatus) => {
-    // Destructive/irreversible transitions ask first.
-    const run = async () => {
-      setSaving(true);
-      try {
-        const updated = await jobService.transitionStatus(jobId, newStatus);
-        setJob(updated);
-        setShowActions(false);
-        Alert.alert('Success', `Job status updated to ${STATUS_LABELS[newStatus]}`);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Failed to update status';
-        Alert.alert('Error', msg);
-      } finally {
-        setSaving(false);
-      }
-    };
+  const runTransition = async (newStatus: JobStatus) => {
+    setSaving(true);
+    try {
+      const updated = await jobService.transitionStatus(jobId, newStatus);
+      setJob(updated);
+      setShowActions(false);
+      setConfirmStatus(null);
+      Alert.alert('Success', `Job status updated to ${STATUS_LABELS[newStatus]}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to update status';
+      Alert.alert('Error', msg);
+    } finally {
+      setSaving(false);
+    }
+  };
 
-    if (newStatus === 'cancelled') {
-      Alert.alert(
-        'Cancel Job',
-        'Are you sure you want to cancel this job? This cannot be undone.',
-        [
-          { text: 'No', style: 'cancel' },
-          { text: 'Yes, cancel', style: 'destructive', onPress: () => void run() },
-        ],
-      );
+  const handleStatusTransition = (newStatus: JobStatus) => {
+    // Destructive/irreversible transitions ask first via the themed sheet.
+    if (newStatus === 'cancelled' || newStatus === 'completed') {
+      setShowActions(false);
+      setConfirmStatus(newStatus);
       return;
     }
-    if (newStatus === 'completed') {
-      Alert.alert(
-        'Mark Completed',
-        'Confirm the work is done? Funds held in escrow will be released.',
-        [
-          { text: 'Not yet', style: 'cancel' },
-          { text: 'Confirm', onPress: () => void run() },
-        ],
-      );
-      return;
-    }
-    await run();
+    void runTransition(newStatus);
   };
 
   const showActionSheet = () => {
@@ -432,7 +418,7 @@ export default function JobDetailScreen() {
               <TouchableOpacity
                 key={status}
                 style={[styles.modalAction, status === 'cancelled' && styles.modalActionDestructive]}
-                onPress={() => { setShowActions(false); handleStatusTransition(status); }}
+                onPress={() => handleStatusTransition(status)}
               >
                 <Text style={[styles.modalActionText, status === 'cancelled' && styles.modalActionTextDestructive]}>
                   {ACTION_LABELS[status]}
@@ -442,6 +428,22 @@ export default function JobDetailScreen() {
           </View>
         </View>
       )}
+
+      <ConfirmSheet
+        visible={confirmStatus !== null}
+        title={confirmStatus === 'cancelled' ? 'Cancel Job' : 'Mark Completed'}
+        message={
+          confirmStatus === 'cancelled'
+            ? 'Are you sure you want to cancel this job? This cannot be undone.'
+            : 'Confirm the work is done? Funds held in escrow will be released.'
+        }
+        confirmLabel={confirmStatus === 'cancelled' ? 'Yes, cancel' : 'Confirm'}
+        cancelLabel={confirmStatus === 'cancelled' ? 'No' : 'Not yet'}
+        destructive={confirmStatus === 'cancelled'}
+        busy={saving}
+        onConfirm={() => { if (confirmStatus) void runTransition(confirmStatus); }}
+        onCancel={() => setConfirmStatus(null)}
+      />
     </SafeAreaViewCompat>
   );
 }

@@ -4,6 +4,7 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, use
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
+import ConfirmSheet from '@/src/components/common/ConfirmSheet';
 import { proposalService, type Proposal, type ProposalStatus } from '@/src/services/proposalService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
@@ -47,6 +48,8 @@ export default function ProposalDetailScreen() {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  // Which confirmation is open: accept | reject | withdraw.
+  const [confirmAction, setConfirmAction] = useState<'accept' | 'reject' | 'withdraw' | null>(null);
 
   useEffect(() => {
     if (proposalId) {
@@ -67,86 +70,50 @@ export default function ProposalDetailScreen() {
     }
   };
 
-  const handleAccept = async () => {
-    if (!proposal) return;
-    Alert.alert(
-      'Accept Proposal',
-      'Are you sure you want to accept this proposal? This will automatically reject all other proposals for this job.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Accept',
-          onPress: async () => {
-            setActionLoading(true);
-            try {
-              await proposalService.acceptProposal(proposalId!);
-              Alert.alert('Success', 'Proposal accepted! Other proposals have been rejected.');
-              router.back();
-            } catch (e) {
-              const msg = e instanceof Error ? e.message : 'Failed to accept proposal';
-              Alert.alert('Error', msg);
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  const runAction = async (action: 'accept' | 'reject' | 'withdraw') => {
+    setActionLoading(true);
+    try {
+      if (action === 'accept') await proposalService.acceptProposal(proposalId!);
+      else if (action === 'reject') await proposalService.rejectProposal(proposalId!);
+      else await proposalService.withdrawProposal(proposalId!);
+      setConfirmAction(null);
+      Alert.alert(
+        'Success',
+        action === 'accept'
+          ? 'Proposal accepted. Other proposals were rejected.'
+          : action === 'reject'
+            ? 'Proposal rejected.'
+            : 'Proposal withdrawn.',
+      );
+      router.back();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : `Failed to ${action} proposal`;
+      Alert.alert('Error', msg);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleReject = async () => {
-    if (!proposal) return;
-    Alert.alert(
-      'Reject Proposal',
-      'Are you sure you want to reject this proposal?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reject',
-          onPress: async () => {
-            setActionLoading(true);
-            try {
-              await proposalService.rejectProposal(proposalId!);
-              Alert.alert('Success', 'Proposal rejected.');
-              router.back();
-            } catch (e) {
-              const msg = e instanceof Error ? e.message : 'Failed to reject proposal';
-              Alert.alert('Error', msg);
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleWithdraw = async () => {
-    if (!proposal) return;
-    Alert.alert(
-      'Withdraw Proposal',
-      'Are you sure you want to withdraw your proposal?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Withdraw',
-          onPress: async () => {
-            setActionLoading(true);
-            try {
-              await proposalService.withdrawProposal(proposalId!);
-              Alert.alert('Success', 'Proposal withdrawn.');
-              router.back();
-            } catch (e) {
-              const msg = e instanceof Error ? e.message : 'Failed to withdraw proposal';
-              Alert.alert('Error', msg);
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
+  const CONFIRM_COPY = {
+    accept: {
+      title: 'Accept Proposal',
+      message: 'Accept this proposal? All other proposals for this job will be rejected.',
+      confirmLabel: 'Accept',
+      destructive: false,
+    },
+    reject: {
+      title: 'Reject Proposal',
+      message: 'Are you sure you want to reject this proposal?',
+      confirmLabel: 'Reject',
+      destructive: true,
+    },
+    withdraw: {
+      title: 'Withdraw Proposal',
+      message: 'Are you sure you want to withdraw your proposal?',
+      confirmLabel: 'Withdraw',
+      destructive: true,
+    },
+  } as const;
 
   const isProvider = proposal?.providerId;
   const isClient = proposal?.clientId;
@@ -310,7 +277,7 @@ export default function ProposalDetailScreen() {
         {/* Actions */}
         {(isProvider && canWithdraw) && (
           <View style={styles.providerActions}>
-            <TouchableOpacity style={styles.withdrawBtn} onPress={handleWithdraw}>
+            <TouchableOpacity style={styles.withdrawBtn} onPress={() => setConfirmAction('withdraw')}>
               <Ionicons name="arrow-back-circle-outline" size={18} color="#fff" />
               <Text style={styles.actionBtnText}>Withdraw Proposal</Text>
             </TouchableOpacity>
@@ -319,17 +286,30 @@ export default function ProposalDetailScreen() {
 
         {(isClient && canAcceptReject) && (
           <View style={styles.clientActions}>
-            <TouchableOpacity style={styles.rejectBtn} onPress={handleReject}>
+            <TouchableOpacity style={styles.rejectBtn} onPress={() => setConfirmAction('reject')}>
               <Ionicons name="close-circle-outline" size={18} color="#fff" />
               <Text style={styles.actionBtnText}>Reject</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.acceptBtn} onPress={handleAccept}>
+            <TouchableOpacity style={styles.acceptBtn} onPress={() => setConfirmAction('accept')}>
               <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
               <Text style={styles.actionBtnText}>Accept Proposal</Text>
             </TouchableOpacity>
           </View>
         )}
       </ScrollView>
+
+      {confirmAction && (
+        <ConfirmSheet
+          visible
+          title={CONFIRM_COPY[confirmAction].title}
+          message={CONFIRM_COPY[confirmAction].message}
+          confirmLabel={CONFIRM_COPY[confirmAction].confirmLabel}
+          destructive={CONFIRM_COPY[confirmAction].destructive}
+          busy={actionLoading}
+          onConfirm={() => void runAction(confirmAction)}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
 
       {(actionLoading) && (
         <View style={styles.loadingOverlay}>

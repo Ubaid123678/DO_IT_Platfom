@@ -4,6 +4,7 @@ import { FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, T
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
+import ConfirmSheet from '@/src/components/common/ConfirmSheet';
 import { proposalService, type Proposal, type ProposalStatus, type ProposalListResponse } from '@/src/services/proposalService';
 import { getApiErrorMessage } from '@/src/services/api';
 import { Colors, type AppColors } from '@/src/theme/colors';
@@ -195,51 +196,24 @@ export default function JobProposalsScreen() {
     </TouchableOpacity>
   );
 
-  const handleAccept = async (proposalId: string) => {
-    Alert.alert(
-      'Accept Proposal',
-      'Are you sure you want to accept this proposal? This will automatically reject all other proposals for this job.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Accept',
-          onPress: async () => {
-            try {
-              await proposalService.acceptProposal(proposalId);
-              Alert.alert('Success', 'Proposal accepted! Other proposals have been rejected.');
-              loadProposals(true);
-            } catch (e) {
-              const msg = getApiErrorMessage(e, 'Failed to accept proposal');
-              Alert.alert('Error', msg);
-            }
-          },
-        },
-      ]
-    );
+  const [confirmAction, setConfirmAction] = useState<{ action: 'accept' | 'reject'; proposalId: string } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const runAction = async (action: 'accept' | 'reject', proposalId: string) => {
+    setActionLoading(true);
+    try {
+      if (action === 'accept') await proposalService.acceptProposal(proposalId);
+      else await proposalService.rejectProposal(proposalId);
+      setConfirmAction(null);
+      Alert.alert('Success', action === 'accept' ? 'Proposal accepted. Other proposals were rejected.' : 'Proposal rejected.');
+      loadProposals(true);
+    } catch (e) {
+      Alert.alert('Error', getApiErrorMessage(e, `Failed to ${action} proposal`));
+    } finally {
+      setActionLoading(false);
+    }
   };
-
-  const handleReject = async (proposalId: string) => {
-    Alert.alert(
-      'Reject Proposal',
-      'Are you sure you want to reject this proposal?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reject',
-          onPress: async () => {
-            try {
-              await proposalService.rejectProposal(proposalId);
-              Alert.alert('Success', 'Proposal rejected.');
-              loadProposals(true);
-            } catch (e) {
-              const msg = getApiErrorMessage(e, 'Failed to reject proposal');
-              Alert.alert('Error', msg);
-            }
-          },
-        },
-      ]
-    );
-  };
+  const handleAccept = (proposalId: string) => setConfirmAction({ action: 'accept', proposalId });
+  const handleReject = (proposalId: string) => setConfirmAction({ action: 'reject', proposalId });
 
   const getTabLabel = (status: ProposalStatus | 'all') => {
     if (status === 'all') return 'All';
@@ -313,6 +287,23 @@ export default function JobProposalsScreen() {
         <View style={styles.loadMoreWrapper}>
           <Text style={styles.loadingMoreText}>Loading more...</Text>
         </View>
+      )}
+
+      {confirmAction && (
+        <ConfirmSheet
+          visible
+          title={confirmAction.action === 'accept' ? 'Accept Proposal' : 'Reject Proposal'}
+          message={
+            confirmAction.action === 'accept'
+              ? 'Accept this proposal? All other proposals for this job will be rejected.'
+              : 'Are you sure you want to reject this proposal?'
+          }
+          confirmLabel={confirmAction.action === 'accept' ? 'Accept' : 'Reject'}
+          destructive={confirmAction.action === 'reject'}
+          busy={actionLoading}
+          onConfirm={() => void runAction(confirmAction.action, confirmAction.proposalId)}
+          onCancel={() => setConfirmAction(null)}
+        />
       )}
     </SafeAreaViewCompat>
   );
