@@ -190,6 +190,17 @@ export default function JobReviewStep() {
           goodsInsurance: formData.requirements.goodsInsurance,
         };
       }
+
+      // Drop empty values so an empty string/array can't trip a backend
+      // minlength validator (e.g. country) or store irrelevant empty fields.
+      const cleanRequirements = Object.fromEntries(
+        Object.entries(requirements).filter(([, v]) => {
+          if (v === undefined || v === null) return false;
+          if (typeof v === 'string' && v.trim() === '') return false;
+          if (Array.isArray(v) && v.length === 0) return false;
+          return true;
+        }),
+      ) as typeof requirements;
       
       await jobService.createJob({
         title: formData.title,
@@ -211,7 +222,7 @@ export default function JobReviewStep() {
           preferredDays: formData.schedule.preferredDays,
           preferredShifts: formData.schedule.preferredShifts,
         },
-        requirements,
+        requirements: cleanRequirements,
       });
 
       // Reset the tab's persistent wizard state so the next visit starts

@@ -43,7 +43,8 @@ console.log('[API] Base URL:', resolvedBaseUrl);
 
 export const api = axios.create({
   baseURL: resolveApiBaseUrl(),
-  timeout: 10000,
+  // Slow mobile networks: 10s was too tight and tripped on normal loads.
+  timeout: 20000,
 });
 
 // Extract the backend's human message from an axios error so screens can show
@@ -124,8 +125,13 @@ api.interceptors.response.use(
     // genuine, final failure (credential error, or a failed retry).
     const willRetry = (status === 401 || status === 403) && !isCredentialEndpoint && !!refreshFn && !originalRequest?._retry;
 
+    // No response = network/timeout (e.g. slow connection). Callers that matter
+    // retry, so log these as warnings rather than red errors.
+    const isNetworkError = status === undefined;
+
     if (!willRetry) {
-      console.error('[API Error]', {
+      const log = isNetworkError ? console.warn : console.error;
+      log('[API Error]', {
         status,
         statusText: error.response?.statusText,
         url: error.config?.url,

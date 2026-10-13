@@ -116,13 +116,12 @@ export const jobService = {
     let locationData: any;
     
     if (input.type === 'digital') {
+      // Digital jobs are remote: no address. Only set coordinates; omitting the
+      // optional address/city/country avoids the `country` minlength-2 validator
+      // rejecting an empty string (which surfaced as a 500).
       locationData = {
         type: 'Point' as const,
         coordinates: [0, 0] as [number, number],
-        address: '',
-        city: '',
-        country: '',
-        formattedAddress: '',
       };
     } else if (input.type === 'errand') {
       // Errand jobs have pickup and delivery locations
@@ -130,25 +129,25 @@ export const jobService = {
       locationData = {
         type: 'Point' as const,
         coordinates: loc.coordinates || [0, 0],
-        address: loc.address || '',
-        city: loc.city || '',
-        country: loc.country || '',
-        formattedAddress: loc.formattedAddress || '',
+        address: loc.address || undefined,
+        city: loc.city || undefined,
+        country: loc.country || undefined,
+        formattedAddress: loc.formattedAddress || undefined,
         pickupLocation: loc.pickupLocation ? {
           type: 'Point' as const,
           coordinates: loc.pickupLocation.coordinates,
-          address: loc.pickupLocation.address,
-          city: loc.pickupLocation.city,
-          country: loc.pickupLocation.country,
-          formattedAddress: loc.pickupLocation.formattedAddress,
+          address: loc.pickupLocation.address || undefined,
+          city: loc.pickupLocation.city || undefined,
+          country: loc.pickupLocation.country || undefined,
+          formattedAddress: loc.pickupLocation.formattedAddress || undefined,
         } : undefined,
         deliveryLocation: loc.deliveryLocation ? {
           type: 'Point' as const,
           coordinates: loc.deliveryLocation.coordinates,
-          address: loc.deliveryLocation.address,
-          city: loc.deliveryLocation.city,
-          country: loc.deliveryLocation.country,
-          formattedAddress: loc.deliveryLocation.formattedAddress,
+          address: loc.deliveryLocation.address || undefined,
+          city: loc.deliveryLocation.city || undefined,
+          country: loc.deliveryLocation.country || undefined,
+          formattedAddress: loc.deliveryLocation.formattedAddress || undefined,
         } : undefined,
       };
     } else {
@@ -157,10 +156,10 @@ export const jobService = {
       locationData = {
         type: 'Point' as const,
         coordinates: loc.coordinates,
-        address: loc.address,
-        city: loc.city,
-        country: loc.country,
-        formattedAddress: loc.formattedAddress,
+        address: loc.address || undefined,
+        city: loc.city || undefined,
+        country: loc.country || undefined,
+        formattedAddress: loc.formattedAddress || undefined,
       };
     }
 
