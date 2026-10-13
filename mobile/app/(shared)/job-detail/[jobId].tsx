@@ -28,6 +28,16 @@ const STATUS_LABELS: Record<JobStatus, string> = {
   resolved: 'Resolved',
 };
 
+// Friendlier action labels than "Mark as Cancelled".
+const ACTION_LABELS: Record<JobStatus, string> = {
+  open: 'Reopen Job',
+  in_progress: 'Start Job',
+  completed: 'Mark Completed',
+  cancelled: 'Cancel Job',
+  disputed: 'Raise Dispute',
+  resolved: 'Resolve',
+};
+
 const JOB_TYPE_LABELS: Record<Job['type'], string> = {
   physical: 'Physical Service',
   digital: 'Digital Service',
@@ -48,8 +58,7 @@ const formatDate = (dateString?: string): string => {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const getStatusColor = (status: JobStatus, C: AppColors): string => {
-  switch (status) {
+const getStatusColor = (status: JobStatus, C: AppColors): string => {  switch (status) {
     case 'open':
       return C.success;
     case 'in_progress':
@@ -112,18 +121,45 @@ export default function JobDetailScreen() {
   }, [jobId, router]);
 
   const handleStatusTransition = async (newStatus: JobStatus) => {
-    setSaving(true);
-    try {
-      const updated = await jobService.transitionStatus(jobId, newStatus);
-      setJob(updated);
-      setShowActions(false);
-      Alert.alert('Success', `Job status updated to ${STATUS_LABELS[newStatus]}`);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to update status';
-      Alert.alert('Error', msg);
-    } finally {
-      setSaving(false);
+    // Destructive/irreversible transitions ask first.
+    const run = async () => {
+      setSaving(true);
+      try {
+        const updated = await jobService.transitionStatus(jobId, newStatus);
+        setJob(updated);
+        setShowActions(false);
+        Alert.alert('Success', `Job status updated to ${STATUS_LABELS[newStatus]}`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Failed to update status';
+        Alert.alert('Error', msg);
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    if (newStatus === 'cancelled') {
+      Alert.alert(
+        'Cancel Job',
+        'Are you sure you want to cancel this job? This cannot be undone.',
+        [
+          { text: 'No', style: 'cancel' },
+          { text: 'Yes, cancel', style: 'destructive', onPress: () => void run() },
+        ],
+      );
+      return;
     }
+    if (newStatus === 'completed') {
+      Alert.alert(
+        'Mark Completed',
+        'Confirm the work is done? Funds held in escrow will be released.',
+        [
+          { text: 'Not yet', style: 'cancel' },
+          { text: 'Confirm', onPress: () => void run() },
+        ],
+      );
+      return;
+    }
+    await run();
   };
 
   const showActionSheet = () => {
@@ -374,7 +410,7 @@ export default function JobDetailScreen() {
                 disabled={saving}
               >
                 <Text style={[styles.actionButtonText, status === 'cancelled' && styles.actionButtonTextDestructive]}>
-                  {saving ? 'Updating...' : `Mark as ${STATUS_LABELS[status]}`}
+                  {saving ? 'Updating...' : ACTION_LABELS[status]}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -399,7 +435,7 @@ export default function JobDetailScreen() {
                 onPress={() => { setShowActions(false); handleStatusTransition(status); }}
               >
                 <Text style={[styles.modalActionText, status === 'cancelled' && styles.modalActionTextDestructive]}>
-                  Mark as {STATUS_LABELS[status]}
+                  {ACTION_LABELS[status]}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -465,8 +501,8 @@ const makeStyles = (C: AppColors) =>
     viewProposalsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 20, marginTop: 16, paddingVertical: 14, borderRadius: 12, backgroundColor: C.primary },
     viewProposalsText: { fontSize: 15, fontWeight: '700', color: '#fff' },
     bottomActions: { padding: 20, paddingBottom: 32, backgroundColor: C.background, borderTopWidth: 1, borderTopColor: C.divider },
-    actionsContainer: { gap: 12 },
-    actionButton: { flex: 1, paddingVertical: 16, borderRadius: 12, backgroundColor: C.primary, alignItems: 'center' },
+    actionsContainer: { gap: 10 },
+    actionButton: { paddingVertical: 15, paddingHorizontal: 20, borderRadius: 12, backgroundColor: C.primary, alignItems: 'center' },
     actionButtonDestructive: { backgroundColor: C.error },
     actionButtonText: { fontSize: 15, fontWeight: '700', color: '#fff' },
     actionButtonTextDestructive: { color: '#fff' },

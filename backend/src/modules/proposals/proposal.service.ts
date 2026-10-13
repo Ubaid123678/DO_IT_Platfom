@@ -108,10 +108,14 @@ export const proposalService = {
 
     if (!proposal) throw new AppError('Proposal not found', 404, 'PROPOSAL_NOT_FOUND');
 
-    // Check authorization: only provider who submitted, client who owns the job, or admin
-    const isProvider = proposal.providerId.toString() === userId;
-    const isClient = proposal.clientId.toString() === userId;
-    // We'd need to check role for admin - simplified for now
+    // Check authorization: only the provider who submitted or the client who
+    // owns the job (or admin) may view. providerId/clientId are populated into
+    // objects, so read `_id` — calling .toString() on the object gave
+    // "[object Object]" and always failed.
+    const providerId = String((proposal.providerId as any)?._id ?? proposal.providerId);
+    const clientId = String((proposal.clientId as any)?._id ?? proposal.clientId);
+    const isProvider = providerId === userId;
+    const isClient = clientId === userId;
 
     if (!isProvider && !isClient) {
       throw new AppError('Not authorized to view this proposal', 403, 'NOT_AUTHORIZED');

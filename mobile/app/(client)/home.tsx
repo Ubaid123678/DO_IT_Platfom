@@ -35,6 +35,7 @@ type ActiveJob = {
   category: string;
   budget: string;
   status: string;
+  applicationsCount: number;
 };
 
 type CategoryChip = {
@@ -112,6 +113,7 @@ export default function ClientHomeScreen() {
           category: job.requirements?.categories?.[0]?.name || 'General',
           budget: job.budget?.amount ? `$${(job.budget.amount / 100).toFixed(2)}` : '$0.00',
           status: job.status,
+          applicationsCount: job.metadata?.applicationsCount ?? 0,
         })));
       }
     } catch (e) {
@@ -251,7 +253,12 @@ export default function ClientHomeScreen() {
 
             <TouchableOpacity
               style={styles.quickActionItem}
-              onPress={() => router.push(activeJobs[0] ? `/(client)/job-proposals/${activeJobs[0].id}` : '/(client)/my-jobs')}
+              onPress={() => {
+                // Open proposals for a job that actually has applications;
+                // otherwise fall back to My Jobs so the client can pick one.
+                const withProposals = activeJobs.find((j) => j.applicationsCount > 0);
+                router.push(withProposals ? `/(client)/job-proposals/${withProposals.id}` : '/(client)/my-jobs');
+              }}
             >
               <View style={styles.quickActionIconBox}>
                 <Ionicons name="document-text" size={24} color={C.primary} />
