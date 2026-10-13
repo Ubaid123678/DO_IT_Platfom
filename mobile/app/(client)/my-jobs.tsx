@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -74,7 +74,6 @@ export default function MyJobsScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [skip, setSkip] = useState(0);
-  const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<JobStatus | 'all'>('all');
   const [stats, setStats] = useState<Record<JobStatus, number>>({
@@ -86,13 +85,23 @@ export default function MyJobsScreen() {
     resolved: 0,
   });
 
+  // Guard against concurrent loads: onEndReached can fire twice before state
+  // settles, and two in-flight calls reading the same `skip` append the same
+  // page twice (duplicate FlatList keys).
+  const inFlightRef = useRef(false);
+
   const loadJobs = useCallback(async (reset = false) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     if (reset) {
       setSkip(0);
       setJobs([]);
       setHasMore(true);
     }
-    if (!hasMore && !reset) return;
+    if (!hasMore && !reset) {
+      inFlightRef.current = false;
+      return;
+    }
 
     try {
       const currentSkip = reset ? 0 : skip;
@@ -104,9 +113,12 @@ export default function MyJobsScreen() {
       if (reset) {
         setJobs(result.jobs);
       } else {
-        setJobs((prev) => [...prev, ...result.jobs]);
+        // Dedupe by _id so a repeated page can never produce duplicate keys.
+        setJobs((prev) => {
+          const seen = new Set(prev.map((j) => j._id));
+          return [...prev, ...result.jobs.filter((j) => !seen.has(j._id))];
+        });
       }
-      setTotal(result.total);
       setHasMore(result.jobs.length === 20);
       setSkip(currentSkip + result.jobs.length);
       setError(null);
@@ -114,6 +126,7 @@ export default function MyJobsScreen() {
       const msg = e instanceof Error ? e.message : 'Failed to load jobs';
       setError(msg);
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
       setLoadingMore(false);
@@ -232,8 +245,12 @@ export default function MyJobsScreen() {
 
       {/* Stats Row */}
       <ScrollView horizontal contentContainerStyle={styles.statsContainer} showsHorizontalScrollIndicator={false}>
-        {(['all', 'open', 'in_progress', 'completed', 'cancelled'] as const).map((status) => {
-          const count = status === 'all' ? total : stats[status] || 0;
+        {tabs.map((status) => {
+          // "All" is the sum of every status (stable), not the filtered page
+          // total which changes with the active tab.
+          const count = status === 'all'
+            ? Object.values(stats).reduce((a, b) => a + b, 0)
+            : stats[status] || 0;
           return (
             <TouchableOpacity
               key={status}

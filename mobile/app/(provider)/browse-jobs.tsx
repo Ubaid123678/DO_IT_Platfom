@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -87,14 +87,21 @@ export default function ProviderJobsScreen() {
   });
   const [filterType, setFilterType] = useState<JobType | 'all'>('all');
   const [verifiedTypes, setVerifiedTypes] = useState<JobType[]>([]);
+  // Prevent concurrent page loads appending the same page twice (dup keys).
+  const inFlightRef = useRef(false);
 
   const loadJobs = useCallback(async (reset = false) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     if (reset) {
       setSkip(0);
       setJobs([]);
       setHasMore(true);
     }
-    if (!hasMore && !reset) return;
+    if (!hasMore && !reset) {
+      inFlightRef.current = false;
+      return;
+    }
 
     try {
       const currentSkip = reset ? 0 : skip;
@@ -119,9 +126,18 @@ export default function ProviderJobsScreen() {
       if (reset) {
         setJobs(result.jobs);
       } else {
-        setJobs((prev) => [...prev, ...result.jobs]);
+        setJobs((prev) => {
+          const seen = new Set(prev.map((j) => j._id));
+          return [...prev, ...result.jobs.filter((j) => !seen.has(j._id))];
+        });
       }
       setTotal(result.total);
+      // The "Open" tab shows the relevant-jobs feed (jobs the provider can
+      // apply to), not jobs assigned to them — so its count comes from this
+      // feed's total, not getProviderJobStats (which only counts assigned jobs).
+      if (!statusFilter || statusFilter === 'open') {
+        setStats((prev) => ({ ...prev, open: result.total }));
+      }
       setHasMore(result.jobs.length === 20);
       setSkip(currentSkip + result.jobs.length);
       setError(null);
@@ -129,6 +145,7 @@ export default function ProviderJobsScreen() {
       const msg = e instanceof Error ? e.message : 'Failed to load jobs';
       setError(msg);
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
       setLoadingMore(false);
@@ -141,12 +158,15 @@ export default function ProviderJobsScreen() {
         jobService.getProviderJobStats(),
         verificationService.getVerificationStatus(),
       ]);
-      setStats(statsData);
+      // Keep the feed-derived `open` count (set by loadJobs); only take the
+      // assigned-job statuses from job stats.
+      setStats((prev) => ({ ...statsData, open: prev.open }));
 
-      // Extract verified job types from categories
+      // Extract verified job types. The backend reports per-category status as
+      // 'verified' (not 'approved').
       const types = new Set<JobType>();
       verifData.categories?.forEach((cat) => {
-        if ((cat.status === 'approved' || cat.status === 'auto_approved') && cat.job_type) {
+        if (cat.status === 'verified' && cat.job_type) {
           types.add(cat.job_type as JobType);
         }
       });

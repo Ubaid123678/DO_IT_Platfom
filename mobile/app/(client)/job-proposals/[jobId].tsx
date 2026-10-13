@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme, Alert } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
@@ -53,13 +53,19 @@ export default function JobProposalsScreen() {
     expired: { count: 0 },
   });
 
+  const inFlightRef = useRef(false);
   const loadProposals = useCallback(async (reset = false) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     if (reset) {
       setSkip(0);
       setProposals([]);
       setHasMore(true);
     }
-    if (!hasMore && !reset) return;
+    if (!hasMore && !reset) {
+      inFlightRef.current = false;
+      return;
+    }
 
     try {
       const currentSkip = reset ? 0 : skip;
@@ -71,7 +77,10 @@ export default function JobProposalsScreen() {
       if (reset) {
         setProposals(result.proposals);
       } else {
-        setProposals((prev) => [...prev, ...result.proposals]);
+        setProposals((prev) => {
+          const seen = new Set(prev.map((p) => p._id));
+          return [...prev, ...result.proposals.filter((p) => !seen.has(p._id))];
+        });
       }
       setTotal(result.total);
       setHasMore(result.proposals.length === 20);
@@ -81,6 +90,7 @@ export default function JobProposalsScreen() {
       const msg = e instanceof Error ? e.message : 'Failed to load proposals';
       setError(msg);
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
       setLoadingMore(false);

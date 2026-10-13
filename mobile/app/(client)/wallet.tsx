@@ -207,7 +207,7 @@ export default function WalletScreen() {
       </View>
 
       {/* Balance Cards */}
-      <ScrollView horizontal contentContainerStyle={styles.balanceContainer} showsHorizontalScrollIndicator={false}>
+      <View style={styles.balanceRow}>
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available</Text>
           <Text style={styles.balanceAmount}>{formatCurrency(stats?.availableBalance || 0)}</Text>
@@ -220,7 +220,7 @@ export default function WalletScreen() {
           <Text style={styles.balanceLabel}>Total</Text>
           <Text style={styles.balanceAmount}>{formatCurrency(stats?.balance || 0)}</Text>
         </View>
-      </ScrollView>
+      </View>
 
       {/* Filter Tabs */}
       <ScrollView horizontal contentContainerStyle={styles.filterContainer} showsHorizontalScrollIndicator={false}>
@@ -290,9 +290,10 @@ const makeStyles = (C: AppColors) =>
     topUpBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: C.primary, borderRadius: 20 },
     topUpBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
     balanceContainer: { paddingHorizontal: 20, paddingVertical: 16, gap: 12 },
-    balanceCard: { flex: 1, minWidth: 100, backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, alignItems: 'center' },
-    balanceLabel: { fontSize: 12, color: C.textHint, marginBottom: 4 },
-    balanceAmount: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
+    balanceRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 16 },
+    balanceCard: { flex: 1, backgroundColor: C.card, borderRadius: 16, paddingVertical: 16, paddingHorizontal: 8, borderWidth: 1, borderColor: C.cardBorder, alignItems: 'center' },
+    balanceLabel: { fontSize: 11, color: C.textHint, marginBottom: 4 },
+    balanceAmount: { fontSize: 16, fontWeight: '700', color: C.textPrimary },
     filterContainer: { paddingHorizontal: 20, gap: 8, marginVertical: 8 },
     filterTab: {
       paddingHorizontal: 16,

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -55,14 +55,23 @@ export default function ProviderProposalsScreen() {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ProposalStatus | 'all'>('all');
+  const [counts, setCounts] = useState<Record<ProposalStatus, number>>({
+    submitted: 0, accepted: 0, rejected: 0, withdrawn: 0, expired: 0,
+  });
+  const inFlightRef = useRef(false);
 
   const loadProposals = useCallback(async (reset = false) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     if (reset) {
       setSkip(0);
       setProposals([]);
       setHasMore(true);
     }
-    if (!hasMore && !reset) return;
+    if (!hasMore && !reset) {
+      inFlightRef.current = false;
+      return;
+    }
 
     try {
       const currentSkip = reset ? 0 : skip;
@@ -74,7 +83,10 @@ export default function ProviderProposalsScreen() {
       if (reset) {
         setProposals(result.proposals);
       } else {
-        setProposals((prev) => [...prev, ...result.proposals]);
+        setProposals((prev) => {
+          const seen = new Set(prev.map((p) => p._id));
+          return [...prev, ...result.proposals.filter((p) => !seen.has(p._id))];
+        });
       }
       setTotal(result.total);
       setHasMore(result.proposals.length === 20);
@@ -84,15 +96,36 @@ export default function ProviderProposalsScreen() {
       const msg = e instanceof Error ? e.message : 'Failed to load proposals';
       setError(msg);
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
       setLoadingMore(false);
     }
   }, [activeTab, skip, hasMore]);
 
+  // Per-status counts for the tabs (all-time, independent of the active tab).
+  const loadCounts = useCallback(async () => {
+    try {
+      const statuses: ProposalStatus[] = ['submitted', 'accepted', 'rejected', 'withdrawn', 'expired'];
+      const results = await Promise.all(
+        statuses.map((s) => proposalService.getProviderProposals({ status: s, limit: 1 })),
+      );
+      const next = { submitted: 0, accepted: 0, rejected: 0, withdrawn: 0, expired: 0 } as Record<ProposalStatus, number>;
+      statuses.forEach((s, i) => { next[s] = results[i]?.total ?? 0; });
+      setCounts(next);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     loadProposals(true);
   }, [activeTab]);
+
+  // Counts are all-time; fetch once, not on every tab change.
+  useEffect(() => {
+    void loadCounts();
+  }, [loadCounts]);
 
 
   const renderProposal = ({ item }: { item: Proposal }) => (
@@ -204,7 +237,9 @@ export default function ProviderProposalsScreen() {
       {/* Status Tabs */}
       <ScrollView horizontal contentContainerStyle={styles.statsContainer} showsHorizontalScrollIndicator={false}>
         {(['all', 'submitted', 'accepted', 'rejected', 'withdrawn'] as const).map((status) => {
-          const count = status === 'all' ? total : 0;
+          const count = status === 'all'
+            ? Object.values(counts).reduce((a, b) => a + b, 0)
+            : counts[status] || 0;
           return (
             <TouchableOpacity
               key={status}

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
@@ -49,13 +49,19 @@ export default function DisputeListScreen() {
   const [activeTab, setActiveTab] = useState<'all' | 'open' | 'evidence_submitted' | 'under_review' | 'resolved' | 'closed'>('all');
   const [stats, setStats] = useState<IDisputeStats | null>(null);
 
+  const inFlightRef = useRef(false);
   const loadDisputes = useCallback(async (reset = false) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     if (reset) {
       setSkip(0);
       setDisputes([]);
       setHasMore(true);
     }
-    if (!hasMore && !reset) return;
+    if (!hasMore && !reset) {
+      inFlightRef.current = false;
+      return;
+    }
 
     try {
       const currentSkip = reset ? 0 : skip;
@@ -67,7 +73,10 @@ export default function DisputeListScreen() {
       if (reset) {
         setDisputes(result.disputes);
       } else {
-        setDisputes((prev) => [...prev, ...result.disputes]);
+        setDisputes((prev) => {
+          const seen = new Set(prev.map((d) => d._id));
+          return [...prev, ...result.disputes.filter((d) => !seen.has(d._id))];
+        });
       }
       setTotal(result.total);
       setHasMore(result.disputes.length === 20);
@@ -77,6 +86,7 @@ export default function DisputeListScreen() {
       const msg = e instanceof Error ? e.message : 'Failed to load disputes';
       setError(msg);
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
       setRefreshing(false);
       setLoadingMore(false);
