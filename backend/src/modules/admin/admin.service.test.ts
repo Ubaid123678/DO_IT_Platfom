@@ -25,11 +25,15 @@ vi.mock('../verification/verification.model.js', () => ({
   VerificationRecordModel: { aggregate: vi.fn() },
 }));
 
+vi.mock('../kyc/kyc.model.js', () => ({
+  default: { aggregate: vi.fn() },
+}));
+
 vi.mock('./admin-action-log.model.js', () => ({
   default: { create: mockedActionLogCreate },
 }));
 
-import { adminService } from './admin.service.js';
+import { adminService, deriveOverallStatus } from './admin.service.js';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -213,5 +217,45 @@ describe('adminService user protections', () => {
       }),
     );
     expect(result.isActive).toBe(false);
+  });
+});
+
+describe('deriveOverallStatus (realtime admin status)', () => {
+  const approved = (ids: string[]) => new Set(ids);
+
+  it('is pending until KYC is approved, regardless of records', () => {
+    expect(deriveOverallStatus('pending', ['c1'], approved(['c1']), false)).toBe(
+      'pending',
+    );
+    expect(deriveOverallStatus('missing', [], approved([]), false)).toBe(
+      'pending',
+    );
+  });
+
+  it('is incomplete when approved but no category was selected', () => {
+    expect(deriveOverallStatus('approved', [], approved(['c1']), false)).toBe(
+      'incomplete',
+    );
+  });
+
+  it('is verified when every selected category has an approved record', () => {
+    expect(
+      deriveOverallStatus('approved', ['c1', 'c2'], approved(['c2', 'c1']), false),
+    ).toBe('verified');
+  });
+
+  it('is partially_verified when only some categories are approved', () => {
+    expect(
+      deriveOverallStatus('approved', ['c1', 'c2'], approved(['c1']), false),
+    ).toBe('partially_verified');
+  });
+
+  it('is rejected when nothing is approved but a record was rejected', () => {
+    expect(deriveOverallStatus('approved', ['c1'], approved([]), true)).toBe(
+      'rejected',
+    );
+    expect(deriveOverallStatus('approved', ['c1'], approved([]), false)).toBe(
+      'pending',
+    );
   });
 });

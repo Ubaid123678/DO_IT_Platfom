@@ -172,11 +172,22 @@ const providerJobQuerySchema = Joi.object({
   skip: Joi.number().integer().min(0).default(0),
 });
 
+const adminJobQuerySchema = Joi.object({
+  status: Joi.string().valid('open', 'in_progress', 'completed', 'cancelled', 'disputed', 'resolved').optional(),
+  type: Joi.string().valid('physical', 'digital', 'errand').optional(),
+  search: Joi.string().trim().min(2).max(100).optional(),
+  sortBy: Joi.string().valid('createdAt', 'updatedAt', 'budget').default('createdAt'),
+  sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+  skip: Joi.number().integer().min(0).default(0),
+});
+
 export const jobValidators = {
   createJob: createJobSchema,
   updateJob: updateJobSchema,
   browseJobsQuery: browseJobsQuerySchema,
   jobStatusTransition: jobStatusTransitionSchema,
+  adminJobQuery: adminJobQuerySchema,
   clientJobQuery: clientJobQuerySchema,
   providerJobQuery: providerJobQuerySchema,
 };

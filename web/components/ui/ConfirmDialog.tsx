@@ -47,7 +47,7 @@ export function ConfirmDialog({
         </>
       }
     >
-      <p className="text-sm leading-6 text-text-secondary">{message}</p>
+      <div className="text-sm leading-6 text-text-secondary">{message}</div>
     </Modal>
   );
 }

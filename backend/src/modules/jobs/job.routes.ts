@@ -1,11 +1,15 @@
 import { Router } from 'express';
 import { jobController } from './job.controller.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
+import { requireAdmin } from '../../middleware/authorization.middleware.js';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+// Admin: all jobs (must precede /:jobId so "admin" isn't parsed as an id)
+router.get('/admin/list', requireAdmin, jobController.adminListJobs);
 
 // Client routes
 router.post('/', jobController.createJob);

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ClipboardCheck,
+  Briefcase,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -23,6 +24,7 @@ import { Toaster } from "@/components/ui/Toaster";
 const navigation = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/jobs", label: "Jobs", icon: Briefcase },
   {
     href: "/admin/kyc",
     label: "KYC Review",

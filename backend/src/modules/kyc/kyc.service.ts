@@ -318,10 +318,22 @@ export const kycService = {
     const reviewer = await getUserOrThrow(reviewerId);
     assertAdmin(reviewer);
     const user = await getUserOrThrow(userId);
-    const document = await KycDocumentModel.findOne({ userId: user._id, status: 'pending' }).sort({ createdAt: -1 });
+
+    // Approve only applies to a pending submission (idempotency guard). Reject
+    // also applies to the latest *approved* document so an admin can revoke a
+    // previously approved KYC with a reason (the reason is mandatory at the
+    // route/validation layer for reject).
+    const reviewableStatuses = action === 'approve' ? ['pending'] : ['pending', 'approved'];
+    const document = await KycDocumentModel.findOne({ userId: user._id, status: { $in: reviewableStatuses } }).sort({ createdAt: -1 });
 
     if (!document) {
-      throw new AppError('No pending KYC submission found for this user', 404, 'KYC_SUBMISSION_NOT_FOUND');
+      throw new AppError(
+        action === 'approve'
+          ? 'No pending KYC submission found for this user'
+          : 'No pending or approved KYC submission found for this user',
+        404,
+        'KYC_SUBMISSION_NOT_FOUND',
+      );
     }
 
     document.status = action === 'approve' ? 'approved' : 'rejected';

@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { AppError } from '../../common/errors/AppError.js';
 import UserModel, { type ProviderTrack } from '../auth/auth.model.js';
 import KycDocumentModel from '../kyc/kyc.model.js';
@@ -980,7 +981,14 @@ export const verificationService = {
 
     const record = await VerificationRecordModel.findById(recordId);
     if (!record) throw new AppError('Verification record not found', 404, 'RECORD_NOT_FOUND');
-    if (!['pending_review', 'scheduled'].includes(record.status)) {
+
+    // Reject can also revoke an already-approved record (with a mandatory
+    // reason). Approve/request_info only apply while a review is outstanding.
+    const reviewableStatuses =
+      action === 'reject'
+        ? ['pending_review', 'scheduled', 'approved', 'auto_approved']
+        : ['pending_review', 'scheduled'];
+    if (!reviewableStatuses.includes(record.status)) {
       throw new AppError('Record is not pending review', 409, 'RECORD_NOT_PENDING');
     }
 
@@ -1066,6 +1074,21 @@ export const verificationService = {
       .populate('admin_id', 'fullName email')
       .lean();
 
+    const providerIdForStatus = (record.provider_id as unknown as { _id?: Types.ObjectId })?._id;
+    const overallStatus = providerIdForStatus
+      ? await recomputeOverallStatus(providerIdForStatus.toString())
+      : null;
+
+    // Bundle payloads carry raw skill_item_ids; resolve them to names so admins
+    // never see bare ObjectIds.
+    const payloadSkillIds = (record.evidence_payload as { skill_item_ids?: unknown })
+      ?.skill_item_ids;
+    const skillItems = Array.isArray(payloadSkillIds)
+      ? await SkillItemModel.find({ _id: { $in: payloadSkillIds as string[] } })
+          .select('name')
+          .lean()
+      : [];
+
     return {
       id: record._id.toString(),
       provider: (record.provider_id as unknown as Record<string, unknown>) ?? null,
@@ -1074,7 +1097,9 @@ export const verificationService = {
       verification_track: record.verification_track,
       evidence_type: record.evidence_type,
       evidence_payload: record.evidence_payload,
+      skill_items: skillItems.map((s) => ({ id: s._id.toString(), name: s.name })),
       status: record.status,
+      overall_status: overallStatus,
       auto_check_result: record.auto_check_result ?? null,
       sla_due_at: record.sla_due_at ?? null,
       rejection_reason: record.rejection_reason ?? null,

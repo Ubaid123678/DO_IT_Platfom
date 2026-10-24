@@ -30,6 +30,14 @@ export function Modal({
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
+  // Keep the latest onClose without re-running the focus/overflow effect.
+  // Callers pass inline arrows (new identity each render); depending on it
+  // would re-run cleanup+setup on every render and steal focus back to the
+  // close button after each keystroke.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -43,7 +51,7 @@ export function Modal({
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
       }
       if (event.key !== "Tab" || !panelRef.current) return;
       const focusable = Array.from(
@@ -73,7 +81,7 @@ export function Modal({
       document.body.style.overflow = previousOverflow;
       previousFocus?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

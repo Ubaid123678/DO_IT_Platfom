@@ -35,7 +35,9 @@ interface VerificationRecordDetail {
   verification_track: string;
   evidence_type: string;
   evidence_payload: Record<string, unknown>;
+  skill_items?: { id: string; name: string }[];
   status: string;
+  overall_status?: string | null;
   auto_check_result: Record<string, unknown> | null;
   sla_due_at?: string | null;
   rejection_reason?: string | null;
@@ -114,6 +116,11 @@ const imageSource = (uri: string): string => {
   return `${API_ORIGIN}/${uri}`;
 };
 
+// Device-only picker URIs (file://) were never uploaded — they only exist on
+// the submitter's phone, so no browser can load them.
+const isDeviceLocalUri = (uri: string): boolean =>
+  /^(file:|content:)/i.test(uri);
+
 const scoreFrom = (result: Record<string, unknown>): number | null => {
   const value = result.verification_score ?? result.github_score ?? result.score;
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
@@ -158,16 +165,28 @@ function EvidenceItemCard({ item }: { item: EvidenceUriItem }) {
 
   return (
     <article className="min-w-0 rounded-xl border border-border bg-surface p-3">
-      <ImageViewer
-        src={imageSource(item.uri)}
-        alt={title}
-        authenticated={item.uri.startsWith("/uploads/kyc/")}
-        className="aspect-square"
-      />
+      {isDeviceLocalUri(item.uri) ? (
+        <div
+          className="flex min-h-32 w-full items-center justify-center rounded-xl border border-dashed border-border bg-bg p-4"
+          role="img"
+          aria-label={`${title}: image was never uploaded`}
+        >
+          <p className="text-center text-xs text-text-hint">
+            Image not uploaded — only a device reference exists
+          </p>
+        </div>
+      ) : (
+        <ImageViewer
+          src={imageSource(item.uri)}
+          alt={title}
+          authenticated={item.uri.startsWith("/uploads/kyc/")}
+          className="aspect-square"
+        />
+      )}
       {typeof item.name === "string" && (
         <h3 className="mt-3 text-sm font-semibold text-text-primary">{item.name}</h3>
       )}
-      {typeof item.caption === "string" && (
+      {typeof item.caption === "string" && item.caption.length > 0 && (
         <p className="mt-1 text-sm text-text-secondary">{item.caption}</p>
       )}
       {Object.keys(metadata).length > 0 && (
@@ -264,11 +283,19 @@ function EvidenceSection({
       "city" in value ||
       "radius_km" in value
     ) {
+      const { city, radius_km, experience_years, ...rest } = value;
       return (
         <Card title={label}>
-          <pre className="max-h-96 overflow-auto rounded-xl bg-bg p-3 text-xs text-text-secondary">
-            {safeJson(value)}
-          </pre>
+          <DetailRows
+            value={{
+              ...(city !== undefined ? { city } : {}),
+              ...(radius_km !== undefined ? { "radius (km)": radius_km } : {}),
+              ...(experience_years !== undefined
+                ? { "experience (years)": experience_years }
+                : {}),
+              ...rest,
+            }}
+          />
         </Card>
       );
     }
@@ -407,6 +434,14 @@ export default function AdminVerificationDetailPage() {
   const [currentTime, setCurrentTime] = useState<number | null>(null);
 
   const reviewable = Boolean(
+    record &&
+      (REVIEWABLE_STATUSES.includes(record.status as ReviewableStatus) ||
+        record.status === "approved" ||
+        record.status === "auto_approved"),
+  );
+  const isApproved =
+    record?.status === "approved" || record?.status === "auto_approved";
+  const canApproveRequestInfo = Boolean(
     record && REVIEWABLE_STATUSES.includes(record.status as ReviewableStatus),
   );
   const isOverdue = Boolean(
@@ -558,6 +593,17 @@ export default function AdminVerificationDetailPage() {
             <Badge variant={statusVariants[record.status] ?? "neutral"}>
               {humanize(record.status)}
             </Badge>
+            {(overallStatus ?? record.overall_status) && (
+              <Badge
+                variant={
+                  statusVariants[
+                    (overallStatus ?? record.overall_status) as string
+                  ] ?? "neutral"
+                }
+              >
+                Overall: {humanize((overallStatus ?? record.overall_status) as string)}
+              </Badge>
+            )}
             {providerId && (
               <Link
                 href={`/admin/users/${providerId}/profile`}
@@ -590,7 +636,9 @@ export default function AdminVerificationDetailPage() {
           </p>
         </div>
         {Object.entries(record.evidence_payload ?? {}).length > 0 ? (
-          Object.entries(record.evidence_payload ?? {}).map(([key, value]) => (
+          Object.entries(record.evidence_payload ?? {})
+            .filter(([key]) => key !== "skill_item_ids")
+            .map(([key, value]) => (
             <EvidenceSection
               key={key}
               fieldName={key}
@@ -601,6 +649,18 @@ export default function AdminVerificationDetailPage() {
         ) : (
           <Card title="Evidence payload">
             <p className="text-sm text-text-hint">No evidence payload provided.</p>
+          </Card>
+        )}
+
+        {record.skill_items && record.skill_items.length > 0 && (
+          <Card title="Verified skills">
+            <div className="flex flex-wrap gap-2">
+              {record.skill_items.map((skill) => (
+                <Badge key={skill.id} variant="neutral">
+                  {skill.name}
+                </Badge>
+              ))}
+            </div>
           </Card>
         )}
       </section>
@@ -662,17 +722,23 @@ export default function AdminVerificationDetailPage() {
       >
         {reviewable ? (
           <div className="space-y-4">
+            {isApproved && (
+              <p className="text-sm leading-6 text-text-secondary">
+                This record is approved. You can revoke it by rejecting with a
+                reason.
+              </p>
+            )}
             <div className="flex flex-wrap gap-3">
               <Button
                 loading={busyAction === "approve"}
-                disabled={busyAction !== null}
+                disabled={busyAction !== null || !canApproveRequestInfo}
                 onClick={() => void handleReview("approve")}
               >
                 Approve
               </Button>
               <Button
                 variant="secondary"
-                disabled={busyAction !== null}
+                disabled={busyAction !== null || !canApproveRequestInfo}
                 onClick={() => {
                   setReason("");
                   setReasonError("");
@@ -690,7 +756,7 @@ export default function AdminVerificationDetailPage() {
                   setActiveReasonAction("reject");
                 }}
               >
-                Reject
+                {isApproved ? "Reject approved" : "Reject"}
               </Button>
             </div>
             {activeReasonAction && (

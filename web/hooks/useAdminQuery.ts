@@ -36,7 +36,7 @@ export function useAdminQuery<T>(
 
   const refetch = useCallback(() => {
     setRequestVersion((version) => version + 1);
-  }, []);
+  }, [setRequestVersion]);
 
   useEffect(() => {
     if (!enabled) return;

@@ -616,7 +616,73 @@ export const jobService = {
     return jobService.browseJobs({
       ...filters,
       search: query,
-      status: filters.status || 'open',
     });
+  },
+
+  // Admin: all jobs across every client/provider, filtered by status/type and
+  // free-text. Read-only for now (job moderation endpoints are a later phase).
+  adminListJobs: async (options: {
+    status?: JobStatus;
+    type?: JobType;
+    search?: string;
+    sortBy?: 'createdAt' | 'updatedAt' | 'budget';
+    sortOrder?: 'asc' | 'desc';
+    limit?: number;
+    skip?: number;
+  }) => {
+    const filter: Record<string, unknown> = {};
+    if (options.status) filter.status = options.status;
+    if (options.type) filter.type = options.type;
+    if (options.search) {
+      const safe = options.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [
+        { title: { $regex: safe, $options: 'i' } },
+        { description: { $regex: safe, $options: 'i' } },
+      ];
+    }
+
+    const order = options.sortOrder === 'asc' ? 1 : -1;
+    const sortBy = options.sortBy ?? 'createdAt';
+    const sort: Record<string, 1 | -1> =
+      sortBy === 'budget' ? { 'budget.amount': order } : { [sortBy]: order };
+
+    const limit = options.limit ?? 20;
+    const skip = options.skip ?? 0;
+
+    const [jobs, total, statusCounts] = await Promise.all([
+      JobModel.find(filter)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .populate('client.clientId', 'fullName email')
+        .populate('provider.providerId', 'fullName email')
+        .populate('requirements.categories', 'name job_type icon_url')
+        .populate('requirements.skillItems', 'name')
+        .lean(),
+      JobModel.countDocuments(filter),
+      JobModel.aggregate<{ _id: JobStatus; count: number }>([
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const counts: Record<JobStatus, number> = {
+      open: 0,
+      in_progress: 0,
+      completed: 0,
+      cancelled: 0,
+      disputed: 0,
+      resolved: 0,
+    };
+    for (const row of statusCounts) {
+      if (row._id in counts) counts[row._id as JobStatus] = row.count;
+    }
+
+    return {
+      jobs: serializeJobList(jobs),
+      total,
+      limit,
+      skip,
+      status_counts: counts,
+    };
   },
 };

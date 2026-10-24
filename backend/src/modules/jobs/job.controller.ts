@@ -263,4 +263,25 @@ export const jobController = {
       meta: { message: 'Search results fetched successfully' },
     });
   }),
+
+  adminListJobs: asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (getUserRole(req) !== 'admin') {
+      throw new AppError('Admin access required', 403, 'ADMIN_REQUIRED');
+    }
+    const query = validate(jobValidators.adminJobQuery, req.query) as {
+      status?: JobStatus;
+      type?: JobType;
+      search?: string;
+      sortBy?: 'createdAt' | 'updatedAt' | 'budget';
+      sortOrder?: 'asc' | 'desc';
+      limit?: number;
+      skip?: number;
+    };
+    const result = await jobService.adminListJobs(query);
+    res.status(200).json({
+      success: true,
+      data: result,
+      meta: { message: 'Admin jobs fetched successfully' },
+    });
+  }),
 };

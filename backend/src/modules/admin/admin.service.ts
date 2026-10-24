@@ -2,7 +2,8 @@ import { Types } from 'mongoose';
 
 import { AppError } from '../../common/errors/AppError.js';
 import { getPagination } from '../../common/utils/pagination.js';
-import UserModel, { type IUser } from '../auth/auth.model.js';
+import UserModel, { type IUser, type KycUserStatus, type UserOverallStatus } from '../auth/auth.model.js';
+import KycDocumentModel from '../kyc/kyc.model.js';
 import {
   AdminReviewModel,
   VerificationRecordModel,
@@ -29,6 +30,7 @@ const USER_LIST_PROJECTION = [
   'overall_status',
   'track',
   'kyc_status',
+  'categories_selected',
   'isActive',
   'createdAt',
   'updatedAt',
@@ -70,6 +72,101 @@ const VERIFICATION_STATUSES: VerificationStatus[] = [
   'rejected',
   'expired',
 ];
+
+const APPROVED_VERIFICATION_STATUSES: VerificationStatus[] = [
+  'approved',
+  'auto_approved',
+];
+
+interface RealtimeStatusUser {
+  _id: Types.ObjectId;
+  categories_selected?: string[];
+}
+
+// The user document's `kyc_status` / `overall_status` are denormalized mirrors
+// that go stale (see scripts/migrate-kyc-status.ts). Admin screens must show the
+// source of truth, so derive both here from the KYC + verification records.
+// ponytail: 3 extra aggregations per admin list request; cache or persist if the
+// user list grows past a few thousand rows per page.
+const buildRealtimeStatusMap = async (
+  users: RealtimeStatusUser[],
+): Promise<
+  Map<string, { kyc_status: KycUserStatus; overall_status: UserOverallStatus }>
+> => {
+  const userIds = users.map((user) => user._id);
+  const result = new Map<
+    string,
+    { kyc_status: KycUserStatus; overall_status: UserOverallStatus }
+  >();
+  if (userIds.length === 0) return result;
+
+  const [kycGroups, approvedGroups, rejectedRows] = await Promise.all([
+    KycDocumentModel.aggregate<{ _id: Types.ObjectId; status: KycUserStatus }>([
+      { $match: { userId: { $in: userIds } } },
+      { $sort: { createdAt: -1, _id: -1 } },
+      { $group: { _id: '$userId', status: { $first: '$status' } } },
+    ]),
+    VerificationRecordModel.aggregate<{
+      _id: { provider_id: Types.ObjectId; category_id: Types.ObjectId };
+    }>([
+      {
+        $match: {
+          provider_id: { $in: userIds },
+          status: { $in: APPROVED_VERIFICATION_STATUSES },
+        },
+      },
+      {
+        $group: {
+          _id: { provider_id: '$provider_id', category_id: '$category_id' },
+        },
+      },
+    ]),
+    VerificationRecordModel.aggregate<{ _id: Types.ObjectId }>([
+      { $match: { provider_id: { $in: userIds }, status: 'rejected' } },
+      { $group: { _id: '$provider_id' } },
+    ]),
+  ]);
+
+  const kycByUser = new Map(kycGroups.map((row) => [row._id.toString(), row.status]));
+  const approvedCategoriesByUser = new Map<string, Set<string>>();
+  for (const row of approvedGroups) {
+    const userId = row._id.provider_id.toString();
+    const set = approvedCategoriesByUser.get(userId) ?? new Set<string>();
+    set.add(row._id.category_id.toString());
+    approvedCategoriesByUser.set(userId, set);
+  }
+  const rejectedUsers = new Set(rejectedRows.map((row) => row._id.toString()));
+
+  for (const user of users) {
+    const userId = user._id.toString();
+    const kycStatus = kycByUser.get(userId) ?? 'missing';
+    result.set(userId, {
+      kyc_status: kycStatus,
+      overall_status: deriveOverallStatus(
+        kycStatus,
+        user.categories_selected ?? [],
+        approvedCategoriesByUser.get(userId) ?? new Set(),
+        rejectedUsers.has(userId),
+      ),
+    });
+  }
+
+  return result;
+};
+
+export const deriveOverallStatus = (
+  kycStatus: KycUserStatus,
+  selectedCategoryIds: string[],
+  approvedCategoryIds: Set<string>,
+  hasRejectedRecord: boolean,
+): UserOverallStatus => {
+  if (kycStatus !== 'approved') return 'pending';
+  if (selectedCategoryIds.length === 0) return 'incomplete';
+  if (selectedCategoryIds.every((id) => approvedCategoryIds.has(id))) return 'verified';
+  if (approvedCategoryIds.size > 0) return 'partially_verified';
+  if (hasRejectedRecord) return 'rejected';
+  return 'pending';
+};
 
 interface RecentActivityItem {
   admin: { id: string; fullName: string };
@@ -326,24 +423,29 @@ export const adminService = {
       UserModel.countDocuments(filter),
     ]);
 
+    const statusMap = await buildRealtimeStatusMap(users);
+
     return {
-      users: users.map((user) => ({
-        id: user._id.toString(),
-        fullName: user.fullName,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        countryCode: user.countryCode,
-        emailVerified: user.emailVerified,
-        phoneVerified: user.phoneVerified,
-        headline: user.headline,
-        overall_status: user.overall_status ?? 'incomplete',
-        track: user.track,
-        kyc_status: user.kyc_status ?? 'missing',
-        isActive: user.isActive !== false,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      })),
+      users: users.map((user) => {
+        const realtime = statusMap.get(user._id.toString());
+        return {
+          id: user._id.toString(),
+          fullName: user.fullName,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          countryCode: user.countryCode,
+          emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified,
+          headline: user.headline,
+          overall_status: realtime?.overall_status ?? 'incomplete',
+          track: user.track,
+          kyc_status: realtime?.kyc_status ?? 'missing',
+          isActive: user.isActive !== false,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        };
+      }),
       pagination: {
         page,
         limit,
@@ -378,6 +480,9 @@ export const adminService = {
       0,
     );
 
+    const statusMap = await buildRealtimeStatusMap([user]);
+    const realtime = statusMap.get(user._id.toString());
+
     return {
       user: {
         id: user._id.toString(),
@@ -399,8 +504,8 @@ export const adminService = {
         work_history: user.work_history ?? [],
         education: user.education ?? [],
         public_profile: user.public_profile ?? false,
-        kyc_status: user.kyc_status ?? 'missing',
-        overall_status: user.overall_status ?? 'incomplete',
+        kyc_status: realtime?.kyc_status ?? 'missing',
+        overall_status: realtime?.overall_status ?? 'incomplete',
         isActive: user.isActive !== false,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,

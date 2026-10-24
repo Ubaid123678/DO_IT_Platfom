@@ -5,6 +5,19 @@ import { api } from './api';
 let categoriesCache: SkillCategory[] | null = null;
 const skillItemsCache: Record<string, SkillItem[]> = {};
 
+// Evidence images are rendered wherever data:/https: URIs work (admin detail,
+// public profile). Device picker URIs (file://) are local-only and unreadable
+// by anyone else, so always convert to base64 data URLs before submitting.
+// ponytail: base64 inflates payload ~33% — move to a multipart upload endpoint
+// if evidence bundles grow past a few MB.
+export const toUploadableImageUri = async (uri: string): Promise<string> => {
+  if (/^(data:|https?:|blob:)/.test(uri)) return uri;
+  const base64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return `data:image/jpeg;base64,${base64}`;
+};
+
 export interface SkillCategory {
   id: string;
   name: string;

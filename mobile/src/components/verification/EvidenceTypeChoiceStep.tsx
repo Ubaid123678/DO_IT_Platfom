@@ -4,7 +4,7 @@ import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity,
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getCategoryCompletedKeys, getEvidenceKey, useWizard } from '@/src/context/VerificationWizardContext';
-import { verificationService } from '@/src/services/verificationService';
+import { verificationService, toUploadableImageUri } from '@/src/services/verificationService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const physicalEvidenceTypes = [
@@ -79,13 +79,20 @@ export default function EvidenceTypeChoiceStep() {
     dispatch({ type: 'SET_STEP', step: stepMap[typeKey] as any || 'certificate-upload' });
   };
 
-  const buildEvidenceBatch = () => {
+  const buildEvidenceBatch = async () => {
     const batch: {
       category_id: string;
       skill_item_id?: string;
       evidence_type: string;
       evidence_payload: Record<string, unknown>;
     }[] = [];
+
+    // Device picker URIs (file://) are local-only; convert to base64 data URLs
+    // so the evidence is actually stored server-side and renderable by admins.
+    const asUploadable = async (uris: { uri: string; [k: string]: unknown }[]) =>
+      Promise.all(
+        uris.map(async (item) => ({ ...item, uri: await toUploadableImageUri(item.uri) })),
+      );
 
     for (const cat of state.selectedCategories) {
       const items = state.selectedSkillItems.find(s => s.category_id === cat.category_id);
@@ -111,7 +118,7 @@ export default function EvidenceTypeChoiceStep() {
             evidence_payload: {
               portfolio: hasPortfolio ? portfolio : { url: '', description: '' },
               oauth: { connected: hasOAuth, username: oauthUsername },
-              certificates,
+              certificates: await asUploadable(certificates),
               skill_item_ids: skillItemIds,
             },
           });
@@ -132,8 +139,8 @@ export default function EvidenceTypeChoiceStep() {
             // no skill_item_id for errand bundle
             evidence_type: 'errand',
             evidence_payload: {
-              background_check: backgroundChecks,
-              vehicle_docs: vehicleDocs,
+              background_check: await asUploadable(backgroundChecks),
+              vehicle_docs: await asUploadable(vehicleDocs),
               service_area: serviceArea
                 ? {
                     city: serviceArea.city,
@@ -157,8 +164,8 @@ export default function EvidenceTypeChoiceStep() {
             // no skill_item_id for physical bundle
             evidence_type: 'physical',
             evidence_payload: {
-              photos,
-              certificates,
+              photos: await asUploadable(photos),
+              certificates: await asUploadable(certificates),
               skill_item_ids: skillItemIds,
             },
           });
@@ -183,7 +190,7 @@ export default function EvidenceTypeChoiceStep() {
         await verificationService.selectCategories(categoryIds, skillItemIds);
       }
 
-      const batch = buildEvidenceBatch();
+      const batch = await buildEvidenceBatch();
       await verificationService.submitAllEvidence(batch);
       dispatch({ type: 'CLEAR_RESUBMIT' });
       dispatch({ type: 'SET_STEP', step: 'pending-review' });

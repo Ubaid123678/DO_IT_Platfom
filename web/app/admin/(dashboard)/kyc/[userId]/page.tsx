@@ -69,9 +69,14 @@ export default function AdminKycDetailPage() {
 
   const isNotFound = error instanceof ApiRequestError && error.status === 404;
   const isPending = data?.status === "pending";
+  const isApproved = data?.status === "approved";
+  const canApprove = isPending;
+  const canReject = isPending || isApproved;
 
   const submitReview = async () => {
-    if (!dialogAction || !isPending) return;
+    if (!dialogAction) return;
+    if (dialogAction === "approve" && !canApprove) return;
+    if (dialogAction === "reject" && !canReject) return;
     const trimmedReason = reason.trim();
     if (dialogAction === "reject" && !trimmedReason) {
       setReasonError("Rejection reason is required");
@@ -277,19 +282,31 @@ export default function AdminKycDetailPage() {
       )}
 
       <Card title="Review decision">
-        {isPending ? (
-          <div className="flex flex-wrap gap-3">
-            <Button onClick={() => setDialogAction("approve")}>Approve</Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                setReason("");
-                setReasonError("");
-                setDialogAction("reject");
-              }}
-            >
-              Reject
-            </Button>
+        {canApprove || canReject ? (
+          <div className="space-y-3">
+            {isApproved && (
+              <p className="text-sm leading-6 text-text-secondary">
+                This KYC is currently approved. You can revoke it by rejecting
+                with a reason.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-3">
+              {canApprove && (
+                <Button onClick={() => setDialogAction("approve")}>
+                  Approve
+                </Button>
+              )}
+              <Button
+                variant="danger"
+                onClick={() => {
+                  setReason("");
+                  setReasonError("");
+                  setDialogAction("reject");
+                }}
+              >
+                {isApproved ? "Reject approved KYC" : "Reject"}
+              </Button>
+            </div>
           </div>
         ) : (
           <p className="text-sm text-text-secondary">
