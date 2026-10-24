@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 3.0
-Last updated: 2026-10-12 (Phase 4 jobs-core stabilization: backend + mobile TypeScript clean, backend test suite 60/60. See §8 for the review-fix log.)
+Version: 3.1
+Last updated: 2026-10-13 (Phase 4 stabilization complete: backend + mobile TypeScript clean, backend suite 65 tests. Phase 11 is next. See §8 and §9.)
 Owner: Engineering
 
 ## 1. Purpose
@@ -12,15 +12,15 @@ Update this file at the end of each completed phase.
 
 > Note on verification numbers: earlier entries in the phase log record "12/12 tests"
 > because that was the suite size when they were written. The current suite is
-> 11 files / 60 tests (see §8). Treat §8 as the current, verified state.
+> 11 files / 65 tests (see §8/§9). Treat §9 as the current, verified state.
 
 ## 2. Overall Progress
 
 - Total phases planned: 14
 - Completed phases: 11 (Phase 0, Phase 1, Phase 2, Phase 3, Phase 4, Phase 5, Phase 6, Phase 7, Phase 8, Phase 9, Phase 10)
-- In progress phases: 1 (Phase 4 jobs-core stabilization / device testing)
-- Current phase: Phase 4 - Jobs Core (stabilization and physical-device testing)
-- Next phase: Phase 11 - Analytics & Admin Dashboard (after Phase 4 sign-off)
+- In progress phases: 0
+- Current phase: Phase 11 - Analytics & Admin Dashboard
+- Next phase: Phase 11 - Analytics & Admin Dashboard
 
 ## 2.1 Execution Mode
 
@@ -739,7 +739,7 @@ No nested repositories are used in mobile or web folders.
 
 ## 5. Next Planned Work
 
-Phases 0 through 10 are implemented. The active focus is **Phase 4 (Jobs Core) stabilization on a physical device**. Phase 11 (Analytics & Admin Dashboard) starts after Phase 4 sign-off. See §8 for the current verified state and the review-fix log.
+Phases 0 through 10 are implemented and Phase 4 stabilization is **complete**. The next phase is **Phase 11 (Analytics & Admin Dashboard)**. See §9 for the current verified state and the round-2 stabilization log.
 
 ## 6. Update Template For Future Phase Completions
 
@@ -877,3 +877,74 @@ that appears in older phase entries.
 - The email/SMS/FCM integrations now compile but require real credentials to run.
 - Multi-currency (Wise/FX) endpoints exist but the wallet itself is single-currency
   USD end-to-end; full per-currency wallets remain a future phase.
+---
+
+## 9. Phase 4 Stabilization — Round 2 (2026-10-13)
+
+Second review/device-testing pass. Phase 4 stabilization is now complete; Phase 11
+is next.
+
+### Current verified state
+
+- Backend `cd backend && npx tsc --noEmit` — **0 errors**.
+- Backend `cd backend && npx vitest run` — **11 files / 65 tests pass**.
+- Mobile `cd mobile && npx tsc --noEmit` — **0 errors**.
+
+### Architecture decisions locked in
+
+- **Server is the single source of truth for onboarding gates.** The provider
+  dashboard unlocks on `kyc approved && overall_status === 'verified' &&
+  getProfile().required_complete`. The device-local AsyncStorage
+  `@doit_verification_complete` sentinel was **removed** entirely.
+- **Track-aware profile completion.** The profile response now returns
+  `required_completeness`, `required_complete`, `required_fields`,
+  `required_missing` (the form's `*` fields) alongside `completeness` (60/40
+  strength incl. optional). The provider meter shows the track-relevant %.
+- **Themed confirmations.** `src/components/common/ConfirmSheet.tsx` replaces
+  native `Alert.alert` for all confirmation dialogs (native, always-white dialogs
+  ignored the app theme). Native `Alert` remains for transient success/error.
+- **Relevant-jobs feed and the apply gate both use category OR skill** so a
+  provider never sees a job they cannot apply to.
+
+### Fixes applied
+
+- **Job detail crash** — backend populates `requirements.categories` /
+  `skillItems` into `{_id,name,job_type}` objects; the `Job` type claimed
+  `string[]` and the screen rendered the raw object. Widened to `JobRef`
+  (string | object), render name/id, and list skill items.
+- **Filter counts showed 0** — `getJobStats` aggregation `$match` received a
+  string id; aggregations do not auto-cast to `ObjectId` (`find()` does). Cast.
+- **Proposal view 403** — `getProposalById` compared populated
+  `providerId`/`clientId` via `.toString()` (`[object Object]`). Read `_id`.
+- **`isOwner` / `isAssignedProvider` always false** — ObjectId compared to string;
+  stringified both sides.
+- **Digital job create 500** — `country: ''` failed the model's `minlength: 2`;
+  digital jobs now omit address fields; physical/errand coerce empty optionals to
+  `undefined`. Empty strings/arrays are stripped from the job payload.
+- **Onboarding flapping** — wizard retries on transient failure instead of dumping
+  a verified provider on category selection; gate no longer trusts local state.
+- **Proposals** — restored the submit-proposal screen (declared as a hidden tab),
+  aligned the apply gate with the relevant feed, added owner→proposals navigation
+  from job detail, refetch-on-focus (ref-based, no reload loop).
+- **Wallet/earnings** — fixed an infinite reload loop (pagination in refs),
+  filter tabs now actually filter, Top Up icon colour fixed, provider earnings
+  screen wired to real wallet/job/review data.
+- **Duplicate FlatList keys** — concurrent page loads appended the same page;
+  added an in-flight guard + `_id` dedupe (my-jobs, browse-jobs, proposals,
+  job-proposals, disputes).
+- **UI polish** — fixed filter-row reflow (fixed-height rows), list bottom
+  padding, balance card layout, signed transaction amounts.
+- **Slow network** — timeout 10s → 20s; response-less network errors log as
+  warnings, not errors.
+- **Admin job handling** — added `GET /jobs/admin/list` and admin web pages
+  (note: touches `web/`, which is otherwise deferred).
+
+### Notes carried forward
+
+- Proposal updates on mobile are refetch-on-focus, not live push. The backend
+  emits `proposal_received`; wire the socket listener for true realtime.
+- Stripe top-up is a test/demo path (`/wallet/topup/demo`, disabled in
+  production); real card capture still needs wiring.
+- Public provider profile viewer and `(provider)/profile.tsx` stats/reviews remain
+  partly mock-driven.
+- Resume upload still uses multipart (candidate for base64 migration).

@@ -350,6 +350,10 @@ Backlog by lane:
 Exit checks:
 - Mobile app is feature-complete and QA signed
 
+Status note (2026-10-13): Phase 4 (Jobs Core) stabilization round 2 is complete —
+backend + mobile TypeScript clean, backend suite 11 files / 65 tests. See
+`docs/IMPLEMENTATION_STATUS.md` §8/§9. Next: Phase 11 (Analytics & Admin Dashboard).
+
 ## Sprint 14 - Website and Admin Completion (Phase 11)
 
 Sprint Goal:

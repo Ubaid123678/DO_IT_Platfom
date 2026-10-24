@@ -1,95 +1,203 @@
-# Do It Platform Handoff Prompt (current state)
+# Do It Platform — Handoff Prompt
 
-Use this prompt in a new chat to continue from the current repository state. Phases 0-10 are implemented; Phase 4 (Jobs Core) is under physical-device testing before Phase 11 (Analytics & Admin Dashboard) begins.
+Copy the block below into a new chat. It is self-contained.
 
 ---
 
-I am continuing the Do It platform implementation.
-The app-first delivery path is active, with mobile and shared backend as the focus.
-Phases 0 through 10 are implemented. Phase 4 (Jobs Core) is under physical-device testing; Phase 11 is next.
+I am continuing the **Do It Platform** (mobile + shared backend). Follow the
+documentation in `docs/` as the source of truth and only append updates there
+when a phase is completed.
 
-Read these files first:
-- docs/LLM_ARCHITECTURE_PACK.md (condensed system architecture — read this first)
-- docs/DO_IT_MASTER_DOCUMENTATION.md
-- docs/IMPLEMENTATION_PHASES.md
-- docs/SPRINT_TASK_BOARD.md
-- docs/IMPLEMENTATION_STATUS.md (single source of truth — see Phase 10 completion section)
-- docs/HANDOFF_PROMPT.md
-- docs/PHASE_4_JOBS_CORE.md (detailed design doc for Phase 4)
-- docs/PHASE_5_PROPOSALS_MATCHING.md (detailed design doc for Phase 5)
-- docs/PHASE_6_WALLET_ESCROW.md (detailed design doc for Phase 6)
-- docs/PHASE_7_PAYOUTS_FX.md (detailed design doc for Phase 7)
-- docs/PHASE_8_DISPUTES_REVIEWS.md (detailed design doc for Phase 8)
-- docs/PHASE_9_MESSAGING_REALTIME.md (detailed design doc for Phase 9)
-- docs/PHASE_10_FRAUD_SECURITY.md (detailed design doc for Phase 10)
-- web/ADMIN_REMAINING.md (for deferred web work tracking)
+## Repo facts (verified 2026-10-13)
 
-Execution mode:
-- App-first (mobile + shared backend)
-- Website/admin frontend remains deferred for now
+```
+backend  npx tsc --noEmit → 0 errors
+backend  npx vitest run   → 11 files / 65 tests pass
+mobile   npx tsc --noEmit → 0 errors
+```
 
-Current repo truth:
-- Phases 0 through 10 are implemented. Phase 4 (Jobs Core) is under physical-device testing; Phase 11 is the next phase after sign-off.
-- Backend has auth, KYC, verification, jobs, proposals, wallet, payouts, disputes, reviews, messaging, notifications, fraud modules.
-- Backend and mobile TypeScript are clean (`npx tsc --noEmit` — 0 errors each). Backend test suite: 11 files / 60 tests pass. (Older docs say "12/12 tests" — that was the suite size earlier; see IMPLEMENTATION_STATUS.md §8.)
-- Messaging (email/SMS via nodemailer+twilio, FCM via firebase-admin) compiles with the optional deps installed but needs real credentials to run.
-- Token refresh interceptor, OTP debug mode, and base64 image upload work.
-- Avatar/profile-photo upload uses base64 JSON transport (KYC-proven) after React Native multipart uploads kept failing.
-- Avatar persistence bug fixed: mutating the `provider_profile` / `track_data` Mixed subdocuments in place is silently dropped by Mongoose change tracking; the fix uses `user.markModified('provider_profile')` (and object reassignment in `updateProfile`).
-- Mobile TypeScript check passes: `cd mobile && npx tsc --noEmit`.
-- Backend checks pass: `cd backend && npx tsc --noEmit` and `cd backend && npx vitest run`.
+- Monorepo: `backend/` (Express + TS + MongoDB + Redis), `mobile/` (Expo / React
+  Native, SDK 57, `expo-router`), `web/` (Next.js — **deferred**, owned by
+  another developer; do not modify unless explicitly asked).
+- We work **only** on mobile + the backend modules the mobile app uses. The
+  backend is shared with the website, so do not break existing contracts.
+- Active scope: **mobile app + shared backend**. Website/admin frontend is
+  deferred.
+- Database is **MongoDB Atlas (cloud)**; the backend runs **locally** during
+  development.
 
-What has already been done in this repo:
-- Phase 3 complete: verification module (categories/skills, evidence records, admin review, OAuth connect, resume parse), 11 mobile wizard screens, status hub, and the per-track profile completion flow.
-- Phase 4 complete: job model with geo-indexing and status state machine, 7-step job creation wizard, provider browse feed with geo-filters, job detail with status transitions, client/provider job management screens.
-- Phase 5 complete: proposal model with state machine (submitted → accepted|rejected|withdrawn|expired), provider submission flow (fixed/hourly bids, cover letter, timeline), client accept/reject with auto-reject others, matching engine with geo/skill/rating scoring, client/provider proposal management screens, proposal detail with bid breakdown.
-- Phase 6 complete: wallet model with double-entry ledger, Stripe top-up flow with webhook reconciliation, escrow lock on proposal acceptance (auto-triggered from Phase 5), escrow release on job completion (90/10 split), platform fee deduction (10%), provider payout requests, mobile wallet screens (balance, top-up, history, escrow status).
-- Phase 7 complete: Wise integration for cross-border payouts, Stripe Connect Express onboarding, multi-currency wallet with FX rate caching, automated payout scheduling with Wise webhook reconciliation, provider payout screens, client/provider wallet screens.
-- Phase 8 complete: dispute model with state machine (open → evidence_submitted → under_review → resolved → closed), evidence submission (documents, images, videos, text, links with 7-day deadline), admin verdict system (client_wins/provider_wins/split with escrow routing), review system (5-star + 4 detailed categories, flagging, moderation, helpful votes), client/provider dispute/review management screens.
-- Phase 9 complete: Socket.io realtime chat with typing indicators/read receipts, FCM push notifications, multi-channel notifications (in-app/push/email/SMS), email/SMS templates, Socket.io Redis adapter, mobile chat/inbox/notification screens.
-- Phase 10 complete: Fraud rules engine with 12 rule types, Bull queue integration, fraud flags with admin review workflow, evidence submission, case management, security actions, statistics/export, mobile fraud alerts/security settings/audit log screens.
+## Read first
 
-Deferred / known mock areas (NOT blocking): public profile viewer and `(provider)/profile.tsx` stats/reviews still use mock data; resume upload still uses multipart transport (may need the same base64 migration if it fails on device); web/admin portal remains deferred; Stripe Connect integration for provider payouts is now implemented; Wise integration for cross-border payouts is now implemented; Email/SMS and FCM modules have missing optional dependencies (nodemailer, twilio, firebase-admin) — install for production.
+- `docs/LLM_ARCHITECTURE_PACK.md` (condensed architecture)
+- `docs/IMPLEMENTATION_STATUS.md` — **single source of truth** (§8 is the current
+  verified state; older "12/12 tests" lines are stale)
+- `docs/IMPLEMENTATION_PHASES.md` — phase plans 0–14
+- `docs/DO_IT_MASTER_DOCUMENTATION.md`
+- `docs/SPRINT_TASK_BOARD.md`
+- `docs/PROFILE_COMPLETION_PER_TRACK.md`
+- Per-phase designs: `PHASE_4_JOBS_CORE.md`, `PHASE_5_PROPOSALS_MATCHING.md`,
+  `PHASE_6_WALLET_ESCROW.md`, `PHASE_7_PAYOUTS_FX.md`,
+  `PHASE_8_DISPUTES_REVIEWS.md`, `PHASE_9_MESSAGING_REALTIME.md`,
+  `PHASE_10_FRAUD_SECURITY.md`
 
-Implementation rules:
-1. Keep the Express + TypeScript modular structure under backend/src/modules.
-2. Use Joi validation for every write endpoint.
-3. Keep API responses consistent with the existing envelope format.
-4. Keep authorization and role checks explicit on protected routes.
-5. Add or update integration tests for each implemented endpoint group.
-6. Do not break auth, KYC, jobs, proposals, wallet, payouts, disputes, reviews, messaging, notifications, or fraud contracts already used by mobile.
-7. `provider_profile` and `track_data` are `Schema.Types.Mixed` — always `markModified` (or reassign a new object) after mutating them, or writes are silently dropped.
+## Where the project actually stands
 
-Frontend integration rules:
-1. Do not redesign completed UI unless required for API state handling.
-2. Replace mock screen data with service calls under mobile/src/services where still needed.
-3. Preserve theme token usage and existing navigation flow.
-4. Add loading, empty, and error handling around live API calls where missing.
-5. Keep route file ownership in mobile/app/*.tsx only.
+Phases 0–10 are implemented. Phase 4 (Jobs Core) has just finished an extended
+**stabilization pass** (device testing + review fixes). Phase 11 is next.
 
-Definition of done for Phase 11:
-1. Analytics engine (event tracking, aggregation, dashboards).
+Implemented mobile surfaces: auth/onboarding, KYC gate, provider verification
+wizard (category → skill → evidence), per-track profile completion, client
+profile completion, job creation wizard (physical/digital/errand), provider
+relevant-jobs feed + apply/submit proposal, client My Jobs, job detail with
+status transitions, proposals (client + provider + detail), wallet/earnings,
+disputes, reviews, chat/notifications screens, fraud/security.
+
+Backend modules: `auth`, `kyc`, `verification`, `jobs`, `proposals`, `wallet`
+(+ payouts/fx), `disputes`, `reviews`, `messaging`, `fraud`, `admin`.
+
+## Verified state and known ceilings (do not regress)
+
+- **Server is source of truth** for onboarding gates. The provider dashboard
+  unlocks on `kyc approved && overall_status === 'verified' &&
+  getProfile().required_complete`. The old device-local AsyncStorage
+  `@doit_verification_complete` sentinel was **removed** — do not reintroduce it.
+- **Profile completion is track-aware:** backend returns `completeness`
+  (60/40 strength incl. optional) **and** `required_completeness` /
+  `required_complete` / `required_missing` (the form's `*` fields only). The
+  provider meter shows `required_completeness`; strength is secondary.
+- **Visible pop-ups must be themed**, not native `Alert.alert`. Use
+  `src/components/common/ConfirmSheet.tsx` for confirmations. Native `Alert` is
+  acceptable only for transient success/error toasts.
+- **Refresh-on-focus patterns must use refs for pagination** (e.g. wallet,
+  proposals). Putting `skip`/`hasMore` in a `useCallback` dep array alongside
+  `useFocusEffect` causes an infinite reload loop.
+- **Mongoose object-vs-string bugs are a recurring class.** `.lean()` returns
+  ObjectIds and populated fields become objects; always compare
+  `String(obj?._id ?? obj)` — never `obj.toString()`. Aggregations do **not**
+  auto-cast string ids (cast with `new mongoose.Types.ObjectId(id)`).
+- **`.lean()` skips `{}` schema defaults** — job responses are normalized in
+  `serializeJob` (`provider`/`escrow`/`dispute`/`review` default to `{}`).
+- **Proposal matching:** the relevant feed and the `createProposal` gate both use
+  category **OR** skill. Keep them aligned.
+- **Escrow money flow (verified):** lock on proposal accept → release on job
+  complete (90% provider / 10% platform, platform wallet auto-created) → refund
+  on cancel. `balance` and `availableBalance` must stay equal outside escrow.
+  The ledger is a **record only** — callers apply their own balance changes.
+- **Digital jobs** are remote: `location` is `{type:'Point',coordinates:[0,0]}`
+  only (country/city omitted to avoid the `minlength:2` validator).
+- HTTP timeout is 20s; network errors log as warnings (not errors).
+- Base64 JSON is the proven image transport (KYC, avatar); multipart has failed
+  on device before.
+- `provider_profile` / `track_data` are `Schema.Types.Mixed` — always
+  `markModified` (or reassign a new object) or writes are silently dropped.
+- Messaging (nodemailer/twilio/firebase-admin) compiles with optional deps
+  installed but needs real credentials to run. Socket.io realtime is wired in
+  the backend; mobile proposals currently use refetch-on-focus, not live push.
+
+## Rules
+
+### Backend
+1. Keep the modular structure under `backend/src/modules`.
+2. Joi validation on every write endpoint.
+3. Keep the existing response envelope.
+4. Explicit role/auth checks on protected routes.
+5. Add tests for new endpoint groups; keep `npx vitest run` green.
+6. Never break contracts already consumed by mobile.
+
+### Mobile
+1. Do not redesign completed UI unless required for state/API handling.
+2. Replace mock screen data with `src/services/*` calls where still mocked.
+3. Preserve theme tokens and the existing navigation flow.
+4. Add loading / empty / error states around live API calls.
+5. Route files stay in `mobile/app/**` only.
+
+### Process
+- Conventional commits (`feat:`, `fix:`, `refactor:`, `perf:`, `test:`, `docs:`).
+- Keep changes atomic; do not reformat unrelated files.
+- Run both typechecks and the backend suite before declaring work done:
+  `cd backend && npx tsc --noEmit && npx vitest run`
+  `cd mobile && npx tsc --noEmit`
+- Do **not** start/kill the backend: the user runs `npm run dev` in their own
+  terminal.
+- Update `docs/IMPLEMENTATION_STATUS.md` when a phase completes.
+
+---
+
+## Work to do now (in order)
+
+### A. Documentation catch-up (do this first)
+
+The docs lag the actual state. Update in place, no new files:
+
+1. **`docs/IMPLEMENTATION_STATUS.md`**
+   - Bump version/date; set "Current phase: Phase 11 — Analytics & Admin
+     Dashboard", Phase 4 stabilization **completed**.
+   - §8: update verified numbers to **65 tests** (was 60) and 11 files.
+   - Add a **§9 "Phase 4 stabilization — round 2"** log covering the fixes since
+     §8 (see the list below). Keep it factual and terse.
+2. **`docs/HANDOFF_PROMPT.md`** — replace with this prompt (or keep it in sync).
+3. **`docs/IMPLEMENTATION_PHASES.md`** — mark Phase 4 stabilization complete;
+   leave Phases 11–14 as planned.
+4. **`docs/SPRINT_TASK_BOARD.md`** — move the Phase 4 stabilization items to done.
+
+Round-2 fixes to record in §9:
+- Job-detail crash rendering populated `requirements.categories` objects
+  (`JobRef` type widened; renders name/id; skill items now listed).
+- `getJobStats` aggregation used a string id → all filter counts showed 0; cast
+  to `ObjectId`.
+- `getProposalById` 403 — populated `providerId`/`clientId` compared via
+  `.toString()`; read `_id`.
+- `getJobById` `isOwner`/`isAssignedProvider` ObjectId-vs-string comparison fixed.
+- Digital job create 500 — `country: ''` failed `minlength:2`; digital omits
+  address, physical/errand coerce empties to `undefined`.
+- Provider onboarding flapping — removed the AsyncStorage completion sentinel;
+  gate now uses `required_complete`; wizard retries on transient failure.
+- Track-relevant completion added (`required_completeness`, `required_complete`).
+- Proposals: relevant feed + apply gate aligned (category OR skill); apply screen
+  restored; submit-proposal declared as a hidden tab.
+- Wallet: infinite reload loop (refs), filter tabs now actually filter, Top Up
+  icon color fixed, earnings screen wired to real data.
+- Duplicate-key crashes on paginated lists (in-flight guard + `_id` dedupe across
+  my-jobs / browse / proposals / job-proposals / disputes).
+- Native white confirm dialogs replaced with themed `ConfirmSheet` (job-detail,
+  proposal-detail, job-proposals).
+- Admin job handling added (backend `GET /jobs/admin/list` + admin web pages) —
+  note this touches `web/`, which is otherwise deferred.
+
+### B. Then Phase 11 — Analytics & Admin Dashboard
+
+Per `docs/IMPLEMENTATION_PHASES.md` §Phase 11. Deliverables:
+1. Analytics event tracking + aggregation.
 2. Admin dashboard (user management, fraud monitoring, system health).
 3. Business metrics (GMV, conversion, retention, provider quality).
-4. Export/reporting (scheduled reports, CSV/PDF).
+4. Reporting/export (scheduled reports, CSV/PDF).
 5. Mobile analytics screens (earnings, performance, insights).
-6. Backend `npx tsc --noEmit` (0 errors) and `npx vitest run` (60 tests) pass.
-7. Mobile `npx tsc --noEmit` passes.
-8. docs/IMPLEMENTATION_STATUS.md updated after completion.
 
-Immediate next work:
-1. Phase 11 - Analytics & Admin Dashboard:
-   - Design and implement analytics event tracking system
-   - Build admin dashboard with user/fraud/system monitoring
-   - Implement business metrics aggregation (GMV, conversion, retention)
-   - Create scheduled reporting with CSV/PDF export
-   - Build mobile analytics screens (earnings, performance, insights)
-   - Backend `npx tsc --noEmit` (0 errors) and `npx vitest run` (60 tests) pass
-   - Mobile `npx tsc --noEmit` passes
-   - docs/IMPLEMENTATION_STATUS.md updated after completion
+Definition of done: both typechecks clean, backend suite green, status doc
+updated.
+
+### C. Remaining phases (documented, not started)
+
+- **Phase 12** — Website & Admin Portal finalization (deferred; another dev owns
+  `web/`).
+- **Phase 13** — Performance, reliability, pre-launch stabilization.
+- **Phase 14** — Production launch & post-launch operations.
+
+## Known gaps / follow-ups (not blocking Phase 11)
+
+- Public provider profile viewer and `(provider)/profile.tsx` stats/reviews are
+  still partly mock-driven.
+- Mobile proposals updates are refetch-on-focus; wire the Socket.io
+  `proposal_received` event for true realtime if needed.
+- Resume upload still uses multipart (candidate for base64 migration if it fails
+  on device).
+- Stripe top-up is a **test/demo** path (`/wallet/topup/demo`, disabled in
+  production); real card capture still needs wiring.
+- Deployment for evaluation: DB is on Atlas; backend is local. For an offline
+  demo, deploy the backend and set `EXPO_PUBLIC_API_BASE_URL` before building the
+  APK (see the deployment discussion in the previous session).
 
 ---
 
-Start by designing the analytics event tracking system; implement admin dashboard with user/fraud/system monitoring; build business metrics aggregation; create mobile analytics screens.
-
-(End of file)
+Start by doing **Section A (documentation catch-up)**, then confirm the verified
+command output, then propose the Phase 11 implementation order.

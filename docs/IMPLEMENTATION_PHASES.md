@@ -372,6 +372,9 @@ Exit Criteria:
 - Jobs can be created, discovered, and managed reliably
 - Location and category filtering validated
 
+Status: Completed (stabilization round 2, 2026-10-13). See
+`docs/IMPLEMENTATION_STATUS.md` §8 and §9 for the verified state and fix log.
+
 ### What was actually implemented (Phase 4)
 
 Backend (`backend/src/modules/jobs/`):
