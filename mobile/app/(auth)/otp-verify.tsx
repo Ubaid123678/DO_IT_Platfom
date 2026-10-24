@@ -93,7 +93,7 @@ export default function OtpVerifyScreen() {
   const [error, setError] = useState('');
   const [debugOtp, setDebugOtp] = useState(params.debugOtp ?? '');
 
-  const otpRefs = useRef<Array<TextInput | null>>([]);
+  const otpRefs = useRef<Array<React.ElementRef<typeof TextInput> | null>>([]);
 
   const allFilled = otp.every((digit) => digit.length === 1);
 

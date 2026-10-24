@@ -55,8 +55,16 @@ interface MatchingResult {
   notified: number;
 }
 
-const MIN_RATING = 4.0;
 const DEFAULT_LIMIT = 10;
+
+// ponytail: matching is deferred, not dead. The User schema has no `rating`
+// path (reviews never write one) and provider_profile stores city, not
+// coordinates, so the $near/rating filters below match nobody. Realtime
+// location matching needs: (1) coordinates on provider_profile (the profile
+// wizard only asks city), or (2) a live GPS ping at match time, plus a
+// `rating` field written by review.service. Wire the client "Find matches"
+// UI at the same time. Until then this returns [] for every job.
+const EFFECTIVE_MIN_RATING = 0;
 
 const calculateDistance = (
   lat1: number,
@@ -89,7 +97,7 @@ const calculateSkillOverlap = (
 
 export const matchingEngine = {
   findMatchingProviders: async (options: MatchingOptions): Promise<MatchingResult> => {
-    const { jobId, limit = DEFAULT_LIMIT, minRating = MIN_RATING } = options;
+    const { jobId, limit = DEFAULT_LIMIT, minRating = EFFECTIVE_MIN_RATING } = options;
 
     const job = await JobModel.findById(jobId)
       .populate('requirements.categories', 'name job_type')

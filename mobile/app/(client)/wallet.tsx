@@ -264,7 +264,7 @@ export default function WalletScreen() {
                 {activeTab === 'all' ? 'Your transactions will appear here' : `No ${TYPE_LABELS[activeTab]?.toLowerCase() || activeTab} transactions`}
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

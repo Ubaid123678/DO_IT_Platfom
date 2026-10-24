@@ -147,6 +147,17 @@ export interface IUser extends Document {
   track?: ProviderTrack;
   provider_profile?: ProviderProfile;
   track_data?: TrackData;
+  pushPreferences?: {
+    enabled?: boolean;
+    types?: string[];
+    quietHours?: { enabled: boolean; start: string; end: string; timezone?: string };
+  };
+  deviceTokens?: Array<{
+    token: string;
+    platform: 'ios' | 'android' | 'web';
+    deviceId?: string;
+    createdAt: Date;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -248,6 +259,14 @@ const userSchema = new Schema<IUser>(
       default: {},
     },
     track_data: { type: Schema.Types.Mixed, required: false, default: {} },
+    // Notification/push state. Plain Mixed: written via $set/$addToSet only,
+    // never mutated in place, so Mongoose change tracking is not an issue.
+    pushPreferences: { type: Schema.Types.Mixed, required: false, default: { enabled: true } },
+    deviceTokens: {
+      type: [{ type: Schema.Types.Mixed }],
+      required: false,
+      default: [],
+    },
   },
   { timestamps: true },
 );

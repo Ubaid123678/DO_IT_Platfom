@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   View,
   useColorScheme,
-  type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -97,14 +96,11 @@ export default function WelcomeOnboardingScreen() {
         <View style={styles.dotsRow}>
           {dots.map((dot, index) => {
             const isActive = index === currentSlide;
-            const animatedStyle: Animated.WithAnimatedObject<ViewStyle> = {
-              width: dot,
-            };
 
             return (
               <Animated.View
                 key={`dot-${index}`}
-                style={[styles.dot, isActive ? styles.dotActive : styles.dotInactive, animatedStyle]}
+                style={[styles.dot, isActive ? styles.dotActive : styles.dotInactive, { width: dot }]}
               />
             );
           })}

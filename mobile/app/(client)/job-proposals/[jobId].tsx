@@ -141,15 +141,11 @@ export default function JobProposalsScreen() {
   }, [loadingMore, hasMore, loadProposals]);
 
   const renderProposal = ({ item }: { item: Proposal }) => (
-    <TouchableOpacity style={styles.proposalCard} onPress={() => router.push(`/proposal-detail/${item._id}` as any)} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.proposalCard} onPress={() => router.push(`/(shared)/proposal-detail/${item._id}` as any)} activeOpacity={0.8}>
       <View style={styles.cardHeader}>
         <View style={styles.providerInfo}>
           <View style={styles.providerAvatar}>
-            {item.provider?.provider_profile?.avatar_url ? (
-              <Text style={styles.providerAvatarText}>{item.provider?.fullName?.[0] || 'P'}</Text>
-            ) : (
-              <Text style={styles.providerAvatarText}>{item.provider?.fullName?.[0] || 'P'}</Text>
-            )}
+            <Text style={styles.providerAvatarText}>{item.provider?.fullName?.[0] || 'P'}</Text>
           </View>
           <View style={styles.providerDetails}>
             <Text style={styles.providerName}>{item.provider?.fullName || 'Provider'}</Text>
@@ -279,7 +275,7 @@ export default function JobProposalsScreen() {
                 {activeTab === 'all' ? 'Proposals will appear here when providers apply' : `No ${getTabLabel(activeTab).toLowerCase()} proposals`}
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

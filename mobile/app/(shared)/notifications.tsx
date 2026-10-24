@@ -4,27 +4,9 @@ import { Alert, FlatList, RefreshControl, SafeAreaView, ScrollView, StyleSheet, 
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { notificationService, type INotification, type NotificationStatus, type NotificationType } from '@/src/services/notificationService';
+import { notificationService, type INotification, type NotificationType } from '@/src/services/notificationService';
 import { socketService } from '@/src/services/socketService';
 import { Colors, type AppColors } from '@/src/theme/colors';
-
-const STATUS_LABELS: Record<NotificationStatus, string> = {
-  pending: 'Pending',
-  sent: 'Sent',
-  delivered: 'Delivered',
-  read: 'Read',
-  failed: 'Failed',
-  dismissed: 'Dismissed',
-};
-
-const STATUS_COLORS: Record<NotificationStatus, string> = {
-  pending: '#F39C12',
-  sent: '#3498DB',
-  delivered: '#3498DB',
-  read: '#27AE60',
-  failed: '#E74C3C',
-  dismissed: '#95A5A6',
-};
 
 const TYPE_LABELS: Record<NotificationType, string> = {
   message: 'Message',
@@ -128,7 +110,9 @@ export default function NotificationsScreen() {
   const [skip, setSkip] = useState(0);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | NotificationStatus>('all');
+  // User-facing tabs only. pending/sent/delivered are delivery-pipeline
+  // states, never shown as filters — "unread" covers everything not read.
+  const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'read'>('all');
   const [stats, setStats] = useState<any>({
     pending: 0, sent: 0, delivered: 0, read: 0, failed: 0, dismissed: 0, unread: 0
   });
@@ -179,7 +163,7 @@ export default function NotificationsScreen() {
   useEffect(() => {
     loadNotifications(true);
     loadStats();
-  }, []);
+  }, [activeTab, loadNotifications, loadStats]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -246,12 +230,11 @@ export default function NotificationsScreen() {
           <Text style={styles.notificationTitle} numberOfLines={1}>{item.title}</Text>
           <Text style={styles.notificationBody} numberOfLines={2}>{item.body}</Text>
         </View>
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: STATUS_COLORS[item.status as NotificationStatus] }
-        ]}>
-          <Text style={styles.statusBadgeText}>{STATUS_LABELS[item.status as NotificationStatus]}</Text>
-        </View>
+        {/* Unread dot — pipeline states (pending/sent/delivered) mean the same
+            thing to a user: "not read yet". A badge reading "Pending" is noise. */}
+        {item.status !== 'read' && item.status !== 'dismissed' && (
+          <View style={styles.unreadDot} />
+        )}
       </View>
 
       <View style={styles.notificationMeta}>
@@ -262,7 +245,7 @@ export default function NotificationsScreen() {
           </TouchableOpacity>
         )}
         {item.data?.proposalId && (
-          <TouchableOpacity onPress={() => router.push(`/proposal-detail/${item.data.proposalId}`)}>
+          <TouchableOpacity onPress={() => router.push(`/(shared)/proposal-detail/${item.data.proposalId}`)}>
             <Text style={styles.metaText}>Proposal: {item.data.proposalId.substring(0, 8)}...</Text>
           </TouchableOpacity>
         )}
@@ -360,9 +343,9 @@ export default function NotificationsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Filter Tabs */}
+      {/* Filter Tabs — user states, not delivery-pipeline states */}
       <ScrollView horizontal contentContainerStyle={styles.filterContainer} showsHorizontalScrollIndicator={false}>
-        {(['all', 'pending', 'sent', 'delivered', 'read', 'failed', 'dismissed'] as const).map((status) => (
+        {(['all', 'unread', 'read'] as const).map((status) => (
           <TouchableOpacity
             key={status}
             style={[
@@ -381,7 +364,7 @@ export default function NotificationsScreen() {
               styles.filterTabCount,
               activeTab === status && styles.filterTabCountActive,
             ]}>
-              {status === 'all' ? total : stats[status]?.count || 0}
+              {status === 'all' ? total : status === 'unread' ? stats.unread : stats.read}
             </Text>
           </TouchableOpacity>
         ))}
@@ -406,7 +389,7 @@ export default function NotificationsScreen() {
                 {activeTab === 'all' ? 'You\'re all caught up!' : `No ${activeTab} notifications`}
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 
@@ -486,8 +469,7 @@ const makeStyles = (C: any) =>
     notificationInfo: { flex: 1, marginLeft: 12 },
     notificationTitle: { fontSize: 15, fontWeight: '600', color: '#1A1A2E', marginBottom: 4 },
     notificationBody: { fontSize: 13, color: '#4A5568', lineHeight: 18 },
-    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-    statusBadgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
+    unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#1A9E8F', marginLeft: 8 },
     notificationMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
     notificationTime: { fontSize: 11, color: '#9CA3AF' },
     metaText: { fontSize: 12, color: '#3498DB', fontWeight: '500' },

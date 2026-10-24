@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 3.1
-Last updated: 2026-10-13 (Phase 4 stabilization complete: backend + mobile TypeScript clean, backend suite 65 tests. Phase 11 is next. See §8 and §9.)
+Version: 3.3
+Last updated: 2026-10-24 (Phase 5 proposal handling finalized + Phase 9 messaging/notification REST API actually mounted. Backend 12 files / 70 tests, mobile + backend TypeScript clean. See §10.)
 Owner: Engineering
 
 ## 1. Purpose
@@ -948,3 +948,119 @@ is next.
 - Public provider profile viewer and `(provider)/profile.tsx` stats/reviews remain
   partly mock-driven.
 - Resume upload still uses multipart (candidate for base64 migration).
+
+---
+
+## 10. Phase 5 Proposal Handling — Finalization (2026-10-24)
+
+Testing/debugging pass on the proposal loop (submit → review → accept → escrow).
+Phase 5 is now finalized for device testing; Phase 11 remains next.
+
+### Current verified state
+
+- Backend `cd backend && npx tsc --noEmit` — **0 errors**.
+- Backend `cd backend && npx vitest run` — **12 files / 70 tests pass** (new:
+  `proposal.service.test.ts`, 5 tests over the money-path).
+- Mobile `cd mobile && npx tsc --noEmit` — **0 errors** (was 63 after the
+  Expo 58 / RN 0.88 / React 19.3 upgrade in commit 667d869; all cleared).
+
+### Money-path fixes (backend, `proposal.service.ts`)
+
+- **Escrow idempotency** — the key was `escrow_lock_<id>_<Date.now()>`, so the
+  wallet's duplicate check could never match and a retried accept double-locked
+  funds. Now deterministic: `escrow_lock_<proposalId>`.
+- **Hourly bids** — `bidAmount` was client-controlled; an hourly bid with
+  `bidAmount: 0` passed validation and escrowed $0. The server now computes
+  `bidAmount = hourlyRate × estimatedHours` (rounded) and rejects totals ≤ 0;
+  the client-sent amount is ignored for hourly bids.
+- **Accept atomicity** — accept was four unguarded writes (lock escrow → accept
+  → assign → reject others). Two concurrent accepts could both pass the
+  open-check and double-escrow one job. `acceptProposal` now atomically claims
+  the job first (`findOneAndUpdate({ status: 'open' }, { status: 'in_progress' })`
+  — the claim is the mutex), then performs the writes; any failure refunds the
+  escrow (same deterministic key) and reopens the job best-effort.
+- **`applicationsCount`** — withdraw no longer decrements it (reject/accept/
+  expire never did, so the count drifted). Count = proposals ever submitted.
+
+### Notifications wired
+
+`messagingService.sendNotification` (`channels: ['in_app']`, fire-and-forget —
+a notification failure can never fail the money/state op) on all four events:
+proposal received (→ client), accepted / rejected (→ provider), withdrawn
+(→ client). Types already existed in `message.model.ts`.
+
+### Matching engine — deferred, not dead
+
+`findMatchingProviders` filters on `rating >= 4.0` and
+`provider_profile.location.$near`, but the User schema has no `rating` path
+(reviews never write one) and profiles store city, not coordinates — it returned
+`[]` for every job. `minRating` now defaults to 0 and the limitation is marked
+with a `ponytail:` comment in `matching.service.ts`. Revisit when (a) profiles
+carry coordinates (or matches resolve GPS at match time) and (b) reviews update
+a user rating; wire the client "Find matches" UI at the same time.
+
+### Mobile fixes
+
+- **Proposal detail navigation (device-reported bug)** — the proposal lists and
+  notifications pushed `/proposal-detail/<id>`, a route that does not exist at
+  root level; expo-router fell back to the initial route (splash → home). All
+  three now push `/(shared)/proposal-detail/<id>`.
+- **Role checks in proposal detail** — `isProvider`/`isClient` were "field is
+  present" checks (always true), so both role action blocks rendered for
+  everyone; providers saw a working-looking Accept button that 403'd. Now
+  compares against the AuthContext user id.
+- **Provider proposals refetch-on-focus** — the provider list did not refresh
+  after submitting (the client list did); also converted it to the ref-based
+  pagination pattern (§9 reload-loop rule) and refetches tab counts on focus.
+- **RN 0.88 type fallout cleared (63 errors)** — `ListEmptyComponent` null →
+  undefined (8 screens), tab-bar `color` cast (2 layouts), OTP refs to
+  `React.ElementRef`, removed dead `Animated.WithAnimatedObject` usage,
+  category-selection fake FlatList → ScrollView, webview 14 props cast
+  (marked `ponytail:`; bump the package when a RN-0.88-compatible release
+  exists).
+- Removed dead avatar if/else branches (both branches identical) in the two
+  proposal list screens and proposal detail.
+
+### Notes carried forward
+
+- Matching endpoints return `[]` until coordinates + ratings exist (above).
+- Provider tab counts still cost one request per status (5 total); one
+  aggregation endpoint would collapse them — do it with the Phase 11 pass.
+- Socket.io `proposal_received` is emitted by the backend; mobile proposals
+  remain refetch-on-focus. Wiring the listener is optional polish.
+- Website/admin frontend remains deferred.
+
+### Messaging/notifications REST API (device-testing round 2, 2026-10-24)
+
+The notification screen 404'd because **the messaging module had no controller
+and no routes** — models, service, and validators existed but nothing was
+mounted. Fixes:
+
+- **`messaging.routes.ts` (new)** — thin HTTP handlers over the existing
+  `messagingService`, mounted at `/api/v1/messaging` and `/api/v1/notifications`
+  (12 routes: conversations CRUD-lite, messages send/list/read/delete,
+  notifications list/stats/read/read-all/dismiss/preferences). Repo-standard
+  envelope, `authenticate` on all routes, Joi validators reused.
+- **Socket.io now initialized** — `socketService.initialize(server)` was never
+  called, so every emit would have thrown on `io!`. Attached to the HTTP server
+  in bootstrap; emits are guarded no-ops until initialized.
+- **`pushPreferences` / `deviceTokens` are now real schema paths** on the User
+  model (were missing → Mongoose strict mode silently dropped `$set` writes,
+  the recurring §9 bug class). Added `getPushPreferences` returning the mobile
+  contract shape with defaults.
+- **Notification filters are user states** — the screen showed
+  pending/sent/delivered (delivery-pipeline states; every new notification is
+  `pending`, hence walls of "Pending"). Tabs are now All / Unread / Read.
+  Server `status=unread` filter maps to `status ∈ {pending, sent, delivered}`;
+  the card badge is a plain unread dot.
+- **Client Messages screen is live** — was `setTimeout(mock)`, now calls
+  `getUserConversations`; empty until someone actually messages.
+- **Chat `isOwn` fixed** — compared `senderId === ''` (every bubble rendered as
+  "other"); now compares against the AuthContext user id.
+- Notification routes exist on both client and provider roles (shared screen).
+
+### Verification (2026-10-24)
+
+- Backend `npx tsc --noEmit` 0 errors; `npx vitest run` 12 files / 70 tests.
+- Mobile `npx tsc --noEmit` 0 errors.
+- Smoke: unauthenticated `GET /notifications` → 401 (route exists, auth gates).

@@ -307,7 +307,7 @@ export default function DisputeListScreen() {
                 {activeTab === 'all' ? 'Your disputes will appear here' : `No ${activeTab.replace('_', ' ')} disputes`}
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

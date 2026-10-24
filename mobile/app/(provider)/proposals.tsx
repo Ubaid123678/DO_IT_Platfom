@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
@@ -50,33 +50,34 @@ export default function ProviderProposalsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [skip, setSkip] = useState(0);
-  const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ProposalStatus | 'all'>('all');
   const [counts, setCounts] = useState<Record<ProposalStatus, number>>({
     submitted: 0, accepted: 0, rejected: 0, withdrawn: 0, expired: 0,
   });
+  // Pagination + active tab in refs so loadProposals has a stable identity
+  // (otherwise the focus effect re-fires every time skip advances → reload loop).
   const inFlightRef = useRef(false);
+  const skipRef = useRef(0);
+  const hasMoreRef = useRef(true);
+  const activeTabRef = useRef<ProposalStatus | 'all'>('all');
 
   const loadProposals = useCallback(async (reset = false) => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     if (reset) {
-      setSkip(0);
-      setProposals([]);
-      setHasMore(true);
+      skipRef.current = 0;
+      hasMoreRef.current = true;
     }
-    if (!hasMore && !reset) {
+    if (!hasMoreRef.current && !reset) {
       inFlightRef.current = false;
       return;
     }
 
     try {
-      const currentSkip = reset ? 0 : skip;
+      const currentSkip = reset ? 0 : skipRef.current;
       const result = await proposalService.getProviderProposals({
-        status: activeTab === 'all' ? undefined : activeTab,
+        status: activeTabRef.current === 'all' ? undefined : activeTabRef.current,
         skip: currentSkip,
         limit: 20,
       });
@@ -88,9 +89,9 @@ export default function ProviderProposalsScreen() {
           return [...prev, ...result.proposals.filter((p) => !seen.has(p._id))];
         });
       }
-      setTotal(result.total);
-      setHasMore(result.proposals.length === 20);
-      setSkip(currentSkip + result.proposals.length);
+      const more = result.proposals.length === 20;
+      hasMoreRef.current = more;
+      skipRef.current = currentSkip + result.proposals.length;
       setError(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to load proposals';
@@ -101,7 +102,7 @@ export default function ProviderProposalsScreen() {
       setRefreshing(false);
       setLoadingMore(false);
     }
-  }, [activeTab, skip, hasMore]);
+  }, []);
 
   // Per-status counts for the tabs (all-time, independent of the active tab).
   const loadCounts = useCallback(async () => {
@@ -119,21 +120,25 @@ export default function ProviderProposalsScreen() {
   }, []);
 
   useEffect(() => {
+    activeTabRef.current = activeTab;
     loadProposals(true);
-  }, [activeTab]);
+  }, [activeTab, loadProposals]);
 
-  // Counts are all-time; fetch once, not on every tab change.
-  useEffect(() => {
-    void loadCounts();
-  }, [loadCounts]);
+  // Refetch on focus so a newly submitted proposal shows without a restart
+  // (same pattern as the client job-proposals screen).
+  useFocusEffect(
+    useCallback(() => {
+      loadProposals(true);
+      void loadCounts();
+    }, [loadProposals, loadCounts]),
+  );
 
 
   const renderProposal = ({ item }: { item: Proposal }) => (
-    <TouchableOpacity style={styles.proposalCard} onPress={() => router.push(`/proposal-detail/${item._id}` as any)} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.proposalCard} onPress={() => router.push(`/(shared)/proposal-detail/${item._id}` as any)} activeOpacity={0.8}>
       <View style={styles.cardHeader}>
         <View style={styles.jobInfo}>
-          <Text style={styles.jobTitle}>{item.job?.title || 'Job'}</Text>
-          <View style={styles.jobMeta}>
+          <Text style={styles.jobTitle}>{item.job?.title || 'Job'}</Text>          <View style={styles.jobMeta}>
             {item.job?.type && (
               <View style={styles.metaItem}>
                 <Ionicons name="briefcase-outline" size={12} color={C.textHint} />
@@ -209,14 +214,15 @@ export default function ProviderProposalsScreen() {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadProposals(true);
-  }, [loadProposals]);
+    void loadCounts();
+  }, [loadProposals, loadCounts]);
 
   const onEndReached = useCallback(() => {
-    if (!loadingMore && hasMore) {
+    if (!loadingMore && hasMoreRef.current) {
       setLoadingMore(true);
       loadProposals(false);
     }
-  }, [loadingMore, hasMore, loadProposals]);
+  }, [loadingMore, loadProposals]);
 
   if (loading && proposals.length === 0) {
     return (
@@ -275,7 +281,7 @@ export default function ProviderProposalsScreen() {
                 {activeTab === 'all' ? 'Your submitted proposals will appear here' : `No ${getTabLabel(activeTab).toLowerCase()} proposals`}
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

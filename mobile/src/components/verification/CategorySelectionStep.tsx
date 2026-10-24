@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useWizard } from '@/src/context/VerificationWizardContext';
@@ -219,11 +219,10 @@ return (
         </View>
       )}
 
-      <FlatList
-        data={[]}
-        renderItem={null}
-        ListHeaderComponent={() => (
-          <>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
             {physicalCats.length > 0 && (
               <>
                 <Text style={styles.sectionLabel}>Physical Services</Text>
@@ -244,11 +243,7 @@ return (
                 {errandCats.map(cat => renderCategoryCard(cat, errandLocked))}
               </>
             )}
-          </>
-        )}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      />
+      </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity

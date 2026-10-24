@@ -146,7 +146,7 @@ export default function ProviderLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} />
+            <Ionicons name={focused ? 'home' : 'home-outline'} color={color as string} size={size} />
           ),
         }}
       />
@@ -155,7 +155,7 @@ export default function ProviderLayout() {
         options={{
           title: 'Browse',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'search' : 'search-outline'} color={color} size={size} />
+            <Ionicons name={focused ? 'search' : 'search-outline'} color={color as string} size={size} />
           ),
         }}
       />
@@ -164,7 +164,7 @@ export default function ProviderLayout() {
         options={{
           title: 'Proposals',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'document-text' : 'document-text-outline'} color={color} size={size} />
+            <Ionicons name={focused ? 'document-text' : 'document-text-outline'} color={color as string} size={size} />
           ),
         }}
       />
@@ -173,7 +173,7 @@ export default function ProviderLayout() {
         options={{
           title: 'Earnings',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'wallet' : 'wallet-outline'} color={color} size={size} />
+            <Ionicons name={focused ? 'wallet' : 'wallet-outline'} color={color as string} size={size} />
           ),
         }}
       />
@@ -182,7 +182,7 @@ export default function ProviderLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} color={color} size={size} />
+            <Ionicons name={focused ? 'person' : 'person-outline'} color={color as string} size={size} />
           ),
         }}
       />

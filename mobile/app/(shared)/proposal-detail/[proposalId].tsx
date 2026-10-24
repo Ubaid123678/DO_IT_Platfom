@@ -6,6 +6,7 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 import Ionicons from '@expo/vector-icons/Ionicons';
 import ConfirmSheet from '@/src/components/common/ConfirmSheet';
 import { proposalService, type Proposal, type ProposalStatus } from '@/src/services/proposalService';
+import { useAuthContext } from '@/src/context/AuthContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const STATUS_LABELS: Record<ProposalStatus, string> = {
@@ -43,6 +44,7 @@ export default function ProposalDetailScreen() {
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
   const router = useRouter();
+  const { user } = useAuthContext();
   const { proposalId } = useLocalSearchParams<{ proposalId?: string }>();
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -115,8 +117,8 @@ export default function ProposalDetailScreen() {
     },
   } as const;
 
-  const isProvider = proposal?.providerId;
-  const isClient = proposal?.clientId;
+  const isProvider = String(proposal?.providerId ?? '') === (user?._id ?? '');
+  const isClient = String(proposal?.clientId ?? '') === (user?._id ?? '');
   const canAcceptReject = proposal?.status === 'submitted';
   const canWithdraw = proposal?.status === 'submitted';
 
@@ -132,8 +134,7 @@ export default function ProposalDetailScreen() {
 
   if (!proposal) return null;
 
-  const isOwner = isClient; // In a real app, check against current user
-  const isProposer = isProvider;
+  const isOwner = isClient;
 
   return (
     <SafeAreaViewCompat style={styles.container}>
@@ -241,11 +242,7 @@ export default function ProposalDetailScreen() {
             <Text style={styles.sectionTitle}>Provider</Text>
             <View style={styles.providerCard}>
               <View style={styles.providerAvatar}>
-                {proposal.provider.provider_profile?.avatar_url ? (
-                  <Text style={styles.providerAvatarText}>{proposal.provider.fullName?.[0] || 'P'}</Text>
-                ) : (
-                  <Text style={styles.providerAvatarText}>{proposal.provider.fullName?.[0] || 'P'}</Text>
-                )}
+                <Text style={styles.providerAvatarText}>{proposal.provider.fullName?.[0] || 'P'}</Text>
               </View>
               <View style={styles.providerInfo}>
                 <Text style={styles.providerName}>{proposal.provider.fullName || 'Provider'}</Text>

@@ -384,16 +384,23 @@ export default function LocationPicker({
 
         {/* Map */}
         <View style={styles.mapContainer}>
-          <WebView
-            ref={mapRef}
-            style={styles.map}
-            originWhitelist={['*']}
-            source={{ html: createMapHtml(mapRegion.latitude, mapRegion.longitude) }}
-            javaScriptEnabled
-            domStorageEnabled
-            onMessage={handleMapMessage}
-            onError={(event) => console.error('MapTiler WebView error:', event.nativeEvent)}
-          />
+          {/* ponytail: react-native-webview@14.0.1 types collapse to `never`
+              under RN 0.88; createElement through any until the webview
+              package is bumped to an RN-0.88-compatible release. Runtime is
+              unaffected. */}
+          {React.createElement(
+            WebView as unknown as React.ComponentType<Record<string, unknown>>,
+            {
+              ref: mapRef,
+              style: styles.map,
+              originWhitelist: ['*'],
+              source: { html: createMapHtml(mapRegion.latitude, mapRegion.longitude) },
+              javaScriptEnabled: true,
+              domStorageEnabled: true,
+              onMessage: handleMapMessage as unknown as (event: WebViewMessageEvent) => void,
+              onError: (event: { nativeEvent?: unknown }) => console.error('MapTiler WebView error:', event.nativeEvent),
+            } as Record<string, unknown>
+          )}
 
           <View style={styles.mapControls}>
             <TouchableOpacity

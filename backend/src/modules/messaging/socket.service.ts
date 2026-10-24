@@ -277,8 +277,10 @@ export const socketService = {
 
       io!.adapter(createAdapter(pubClient, subClient));
       console.log('Redis adapter initialized for Socket.io');
-    } catch (error) {
-      console.error('Failed to initialize Redis adapter:', error);
+    } catch {
+      // Expected in dev without Redis running — the adapter only matters for
+      // multi-server scaling. Single server works fine without it.
+      console.warn('[socket] Redis adapter unavailable, continuing single-server (set REDIS_URL or start redis-server to enable)');
     }
   },
 
@@ -290,19 +292,26 @@ export const socketService = {
   },
 
   emitToUser: (userId: string, event: keyof ServerToClientEvents, data: any) => {
-    io!.to(`user:${userId}`).emit(event, data);
+    // ponytail: socket is initialized alongside the HTTP server; until then
+    // (and in any worker/test context) emits are silently dropped instead of
+    // crashing the request that already succeeded.
+    if (!io) return;
+    io.to(`user:${userId}`).emit(event, data);
   },
 
   emitToConversation: (conversationId: string, event: keyof ServerToClientEvents, data: any) => {
-    io!.to(`conversation:${conversationId}`).emit(event, data);
+    if (!io) return;
+    io.to(`conversation:${conversationId}`).emit(event, data);
   },
 
   emitToRole: (role: string, event: keyof ServerToClientEvents, data: any) => {
-    io!.to(`role:${role}`).emit(event, data);
+    if (!io) return;
+    io.to(`role:${role}`).emit(event, data);
   },
 
   broadcast: (event: keyof ServerToClientEvents, data: any) => {
-    io!.emit(event, data);
+    if (!io) return;
+    io.emit(event, data);
   },
 
   getConnectedUsers: () => {

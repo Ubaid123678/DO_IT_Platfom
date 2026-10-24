@@ -336,7 +336,7 @@ export default function ProviderJobsScreen() {
                 {activeTab === 'all' ? 'Jobs you\'re assigned to will appear here' : `No ${getTabLabel(activeTab).toLowerCase()} jobs`}
               </Text>
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

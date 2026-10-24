@@ -291,7 +291,7 @@ export default function MyJobsScreen() {
                 </TouchableOpacity>
               )}
             </View>
-          ) : null
+          ) : undefined
         }
       />
 

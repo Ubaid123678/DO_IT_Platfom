@@ -91,7 +91,7 @@ export default function ClientLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} />
+            <Ionicons name={focused ? 'home' : 'home-outline'} color={color as string} size={size} />
           ),
         }}
       />
@@ -102,7 +102,7 @@ export default function ClientLayout() {
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? 'search' : 'search-outline'}
-              color={color}
+              color={color as string}
               size={size}
             />
           ),
@@ -113,7 +113,7 @@ export default function ClientLayout() {
         options={{
           title: 'My Jobs',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'briefcase' : 'briefcase-outline'} color={color} size={size} />
+            <Ionicons name={focused ? 'briefcase' : 'briefcase-outline'} color={color as string} size={size} />
           ),
         }}
       />
@@ -122,7 +122,7 @@ export default function ClientLayout() {
         options={{
           title: 'Messages',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} color={color} size={size} />
+            <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} color={color as string} size={size} />
           ),
         }}
       />
@@ -131,7 +131,7 @@ export default function ClientLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} color={color} size={size} />
+            <Ionicons name={focused ? 'person' : 'person-outline'} color={color as string} size={size} />
           ),
         }}
       />

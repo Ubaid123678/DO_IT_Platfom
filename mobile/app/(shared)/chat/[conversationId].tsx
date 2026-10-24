@@ -5,6 +5,7 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { messagingService, type IMessage, type IConversation } from '@/src/services/messagingService';
+import { useAuthContext } from '@/src/context/AuthContext';
 import { socketService } from '@/src/services/socketService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
@@ -29,6 +30,7 @@ export default function ChatScreen() {
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
   const router = useRouter();
+  const { user } = useAuthContext();
   const { conversationId } = useLocalSearchParams<{ conversationId?: string }>();
   
   const [messages, setMessages] = useState<IMessage[]>([]);
@@ -170,7 +172,7 @@ export default function ChatScreen() {
   }, [loadMessages]);
 
   const renderMessage = useCallback(({ item }: { item: any }) => {
-    const isOwn = item.senderId === ''; // Will be determined by actual user ID
+    const isOwn = String(item.senderId ?? '') === (user?._id ?? '');
     return (
       <TouchableOpacity style={styles.messageContainer} activeOpacity={0.8}>
         <View style={[
@@ -257,7 +259,7 @@ export default function ChatScreen() {
               <Text style={styles.emptyTitle}>No messages yet</Text>
               <Text style={styles.emptySubtitle}>Start the conversation!</Text>
             </View>
-          ) : null
+          ) : undefined
         }
         onContentSizeChange={() => {
           flatListRef.current?.scrollToEnd({ animated: false });

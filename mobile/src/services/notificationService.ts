@@ -2,6 +2,9 @@ import { api } from './api';
 
 // Types
 export type NotificationStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'dismissed';
+// Tab-level filter: "unread" is server-side (anything not read/dismissed);
+// raw pipeline states stay available for edge UIs but users see unread/read.
+export type NotificationFilter = 'unread' | 'read' | 'all';
 export type NotificationType = 
   | 'message'
   | 'job_created' | 'job_updated' | 'job_assigned' | 'job_completed' | 'job_cancelled'
@@ -27,7 +30,7 @@ export type INotification = {
 };
 
 export type GetNotificationsParams = {
-  status?: NotificationStatus;
+  status?: NotificationFilter | NotificationStatus;
   skip?: number;
   limit?: number;
 };

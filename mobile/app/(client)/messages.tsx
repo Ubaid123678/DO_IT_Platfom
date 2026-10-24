@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { messagingService } from '@/src/services/messagingService';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 type Conversation = {
@@ -81,14 +82,36 @@ export default function ClientMessagesScreen() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setConversations(mockConversations);
+  // Live conversations from the messaging API; falls back to empty (the
+  // backend has no conversations until someone messages, which is honest).
+  const loadConversations = useCallback(async () => {
+    try {
+      const result = await messagingService.getUserConversations({ limit: 50 });
+      setConversations(
+        result.conversations.map((c) => {
+          const other = c.participants.find((p) => p._id && p.fullName);
+          return {
+            id: c._id,
+            name: c.title || other?.fullName || 'Conversation',
+            jobTitle: c.jobTitle ?? '',
+            lastMessage: c.lastMessagePreview ?? '',
+            time: c.lastMessageAt
+              ? new Date(c.lastMessageAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+              : '',
+            unread: 0,
+          } as Conversation;
+        }),
+      );
+    } catch {
+      setConversations([]);
+    } finally {
       setLoading(false);
-    }, 320);
-
-    return () => clearTimeout(timer);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadConversations();
+  }, [loadConversations]);
 
   const filteredConversations = useMemo(() => {
     const query = search.trim().toLowerCase();

@@ -86,7 +86,7 @@ interface GetConversationsParams {
 
 interface GetNotificationsParams {
   userId: string;
-  status?: 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'dismissed' | 'all';
+  status?: 'unread' | 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'dismissed' | 'all';
   type?: string;
   limit?: number;
   skip?: number;
@@ -400,7 +400,13 @@ export const messagingService = {
 
   getNotifications: async (userId: string, params: GetNotificationsParams): Promise<{ notifications: INotification[]; total: number }> => {
     const filter: any = { userId };
-    if (params.status && params.status !== 'all') filter.status = params.status;
+    // "unread" is the user-facing filter: everything not yet read/dismissed.
+    // pending/sent/delivered are delivery-pipeline states, not user states.
+    if (params.status === 'unread') {
+      filter.status = { $in: ['pending', 'sent', 'delivered'] };
+    } else if (params.status && params.status !== 'all') {
+      filter.status = params.status;
+    }
     if (params.type) filter.type = params.type;
 
     const sort: Record<string, 1 | -1> = {};
@@ -494,6 +500,31 @@ export const messagingService = {
     await UserModel.findByIdAndUpdate(userId, {
       $set: { pushPreferences: preferences },
     });
+  },
+
+  getPushPreferences: async (userId: string): Promise<{
+    enabled: boolean;
+    types: Record<string, boolean>;
+    quietHours: { enabled: boolean; start: string; end: string; timezone: string };
+  }> => {
+    const user = await UserModel.findById(userId).select('pushPreferences').lean();
+    const saved = (user?.pushPreferences ?? {}) as {
+      enabled?: boolean;
+      types?: string[];
+      quietHours?: { enabled: boolean; start: string; end: string; timezone?: string };
+    };
+    // Mobile contract: types is a Record keyed by NotificationType (all false
+    // until the user opts in per-type); quietHours always complete.
+    return {
+      enabled: saved.enabled ?? true,
+      types: Object.fromEntries((saved.types ?? []).map((t) => [t, true])),
+      quietHours: {
+        enabled: saved.quietHours?.enabled ?? false,
+        start: saved.quietHours?.start ?? '22:00',
+        end: saved.quietHours?.end ?? '08:00',
+        timezone: saved.quietHours?.timezone ?? 'UTC',
+      },
+    };
   },
 
   // Admin functions

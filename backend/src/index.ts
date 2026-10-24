@@ -13,6 +13,7 @@ import { requireAdmin } from './middleware/authorization.middleware.js';
 import apiRouter from './routes/index.js';
 import { initializeVerificationWorker } from './modules/verification/verification.worker.js';
 import { ensureAdminUser } from './modules/auth/auth.service.js';
+import { socketService } from './modules/messaging/socket.service.js';
 
 const app: Express = express();
 const PORT = process.env.PORT || 8080;
@@ -153,6 +154,13 @@ const bootstrap = async (): Promise<void> => {
   }
 
   const server = app.listen(PORT, () => {
+    // Attach Socket.io to the same HTTP server (auth handshake + rooms wired
+    // in socket.service). Realtime chat/notifications are live from here.
+    try {
+      socketService.initialize(server);
+    } catch (error) {
+      console.warn('[socket] Socket.io initialization failed (REST still works):', error);
+    }
     console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║

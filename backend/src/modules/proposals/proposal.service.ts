@@ -4,6 +4,23 @@ import { JobModel } from '../jobs/job.model.js';
 import UserModel from '../auth/auth.model.js';
 import { jobService as JobService } from '../jobs/job.service.js';
 import { walletService } from '../wallet/wallet.service.js';
+import { messagingService } from '../messaging/messaging.service.js';
+
+// Proposal events notify in-app only (no email/push creds needed). A
+// notification failure must never fail the money/state op that just succeeded,
+// so it is fire-and-forget.
+const safeNotify = (input: {
+  userId: string;
+  type: 'proposal_received' | 'proposal_accepted' | 'proposal_rejected' | 'proposal_withdrawn';
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+  relatedEntityId?: string;
+}) => {
+  void messagingService
+    .sendNotification({ ...input, channels: ['in_app'] })
+    .catch(() => undefined);
+};
 
 const serializeProposal = (proposal: any) => {
   const obj = proposal.toJSON?.() ?? proposal;
@@ -79,11 +96,22 @@ export const proposalService = {
       );
     }
 
+    // Server computes the hourly total. Never trust client-side money math:
+    // the client controls hourlyRate/estimatedHours but not bidAmount for
+    // hourly bids (a 0-amount hourly bid would escrow $0).
+    let bidAmount = input.bidAmount;
+    if (input.bidType === 'hourly') {
+      bidAmount = Math.round((input.hourlyRate ?? 0) * (input.estimatedHours ?? 0));
+      if (bidAmount <= 0) {
+        throw new AppError('Hourly rate and estimated hours must be greater than zero', 400, 'INVALID_BID');
+      }
+    }
+
     const proposal = await ProposalModel.create({
       jobId: input.jobId,
       providerId,
       clientId: job.client.clientId,
-      bidAmount: input.bidAmount,
+      bidAmount,
       bidType: input.bidType,
       hourlyRate: input.hourlyRate,
       estimatedHours: input.estimatedHours,
@@ -95,6 +123,15 @@ export const proposalService = {
 
     // Increment job applications count
     await JobModel.updateOne({ _id: input.jobId }, { $inc: { 'metadata.applicationsCount': 1 } });
+
+    safeNotify({
+      userId: job.client.clientId.toString(),
+      type: 'proposal_received',
+      title: 'New proposal received',
+      body: `You have a new proposal on "${job.title}".`,
+      data: { jobId: input.jobId, proposalId: proposal._id.toString() },
+      relatedEntityId: proposal._id.toString(),
+    });
 
     return serializeProposal(proposal);
   },
@@ -199,32 +236,61 @@ export const proposalService = {
       throw new AppError('Proposal cannot be accepted', 400, 'PROPOSAL_NOT_ACCEPTABLE');
     }
 
-    if (job.status !== 'open') {
-      throw new AppError('Job is not open for assignment', 400, 'JOB_NOT_OPEN');
+    // Atomically claim the job. The conditional update is the mutex: two
+    // concurrent accepts (or an accept racing a withdraw) cannot both pass,
+    // because only one findAndUpdate matches status:'open'.
+    const claimed = await JobModel.findOneAndUpdate(
+      { _id: job._id, status: 'open' },
+      { $set: { status: 'in_progress' } },
+      { new: true }
+    );
+    if (!claimed) throw new AppError('Job is not open for assignment', 400, 'JOB_NOT_OPEN');
+
+    try {
+      // Deterministic idempotency key: retries after a lost response must be
+      // no-ops, not a second escrow lock. (Date.now() made every call unique.)
+      const idempotencyKey = `escrow_lock_${proposal._id}`;
+
+      await walletService.lockEscrow(
+        job._id.toString(),
+        proposal._id.toString(),
+        proposal.bidAmount,
+        idempotencyKey
+      );
+
+      await proposal.accept(clientId, message);
+
+      await JobService.assignProvider(proposal.jobId.toString(), proposal.providerId.toString(), proposal._id.toString());
+
+      // Reject all other submitted proposals for this job
+      await ProposalModel.updateMany(
+        { jobId: proposal.jobId, status: 'submitted', _id: { $ne: proposal._id } },
+        { status: 'rejected', rejectedAt: new Date(), respondedAt: new Date() }
+      );
+    } catch (err) {
+      // Best-effort rollback: reopen the job so the client can pick another
+      // proposal. lockEscrow refunds on its own failure; if it succeeded and a
+      // later step failed, refund here (keyed to the same deterministic id).
+      try {
+        await walletService.refundEscrow(
+          job._id.toString(),
+          proposal.bidAmount,
+          'Proposal acceptance failed',
+          `escrow_lock_${proposal._id}`
+        );
+      } catch { /* escrow may not have locked; nothing to refund */ }
+      await JobModel.updateOne({ _id: job._id, status: 'in_progress' }, { $set: { status: 'open' } });
+      throw err;
     }
 
-    // Lock escrow for the job using the proposal's bid amount
-    const escrowAmount = proposal.bidAmount;
-    const idempotencyKey = `escrow_lock_${proposal._id}_${Date.now()}`;
-
-    await walletService.lockEscrow(
-      job._id.toString(),
-      proposal._id.toString(),
-      escrowAmount,
-      idempotencyKey
-    );
-
-    // Accept the proposal
-    await proposal.accept(clientId, message);
-
-    // Assign provider to job and transition to in_progress
-    await JobService.assignProvider(proposal.jobId.toString(), proposal.providerId.toString(), proposal._id.toString());
-
-    // Reject all other submitted proposals for this job
-    await ProposalModel.updateMany(
-      { jobId: proposal.jobId, status: 'submitted', _id: { $ne: proposal._id } },
-      { status: 'rejected', rejectedAt: new Date(), respondedAt: new Date() }
-    );
+    safeNotify({
+      userId: proposal.providerId.toString(),
+      type: 'proposal_accepted',
+      title: 'Your proposal was accepted',
+      body: `Your proposal for "${job.title}" was accepted. Escrow is funded.`,
+      data: { jobId: proposal.jobId.toString(), proposalId: proposal._id.toString() },
+      relatedEntityId: proposal._id.toString(),
+    });
 
     return serializeProposal(proposal);
   },
@@ -246,6 +312,15 @@ export const proposalService = {
 
     await proposal.reject(clientId, message);
 
+    safeNotify({
+      userId: proposal.providerId.toString(),
+      type: 'proposal_rejected',
+      title: 'Proposal update',
+      body: `Your proposal for "${job.title}" was not selected.`,
+      data: { jobId: proposal.jobId.toString(), proposalId: proposal._id.toString() },
+      relatedEntityId: proposal._id.toString(),
+    });
+
     return serializeProposal(proposal);
   },
 
@@ -261,10 +336,20 @@ export const proposalService = {
       throw new AppError('Proposal cannot be withdrawn', 400, 'PROPOSAL_NOT_WITHDRAWABLE');
     }
 
+    const job = await JobModel.findById(proposal.jobId).select('title client.clientId');
+
     await proposal.withdraw();
 
-    // Decrement job applications count
-    await JobModel.updateOne({ _id: proposal.jobId }, { $inc: { 'metadata.applicationsCount': -1 } });
+    if (job) {
+      safeNotify({
+        userId: job.client.clientId.toString(),
+        type: 'proposal_withdrawn',
+        title: 'Proposal withdrawn',
+        body: `A provider withdrew their proposal on "${job.title}".`,
+        data: { jobId: proposal.jobId.toString(), proposalId: proposal._id.toString() },
+        relatedEntityId: proposal._id.toString(),
+      });
+    }
 
     return serializeProposal(proposal);
   },

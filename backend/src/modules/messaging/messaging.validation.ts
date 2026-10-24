@@ -84,7 +84,7 @@ export const messagingValidators = {
 
   // Notification validators
   getNotifications: Joi.object({
-    status: Joi.string().valid('pending', 'sent', 'delivered', 'read', 'failed', 'dismissed', 'all').default('all'),
+    status: Joi.string().valid('unread', 'pending', 'sent', 'delivered', 'read', 'failed', 'dismissed', 'all').default('all'),
     type: Joi.string().valid(
       'message',
       'job_created', 'job_updated', 'job_assigned', 'job_completed', 'job_cancelled',
