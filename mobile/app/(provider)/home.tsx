@@ -19,6 +19,7 @@ import { io, Socket } from 'socket.io-client';
 import JobStatusBadge from '@/src/components/job/JobStatusBadge';
 import { verificationService } from '@/src/services/verificationService';
 import { walletService } from '@/src/services/walletService';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { jobService } from '@/src/services/jobService';
 import { proposalService } from '@/src/services/proposalService';
 import { reviewService } from '@/src/services/reviewService';
@@ -40,10 +41,9 @@ type NearbyJob = {
 };
 
 type EarningsState = {
-  totalUsd: number;
-  totalPkr: string;
-  pendingClearanceUsd: number;
-  pendingClearancePkr: string;
+  balanceCents: number;
+  escrowCents: number;
+  availableCents: number;
 };
 
 type StatsState = {
@@ -73,15 +73,15 @@ export default function ProviderHomeScreen() {
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
+  const { fmt, currency } = useCurrency();
 
   const [user, setUser] = useState<UserState>({ name: '', avatarUrl: null, email: '' });
   const [isOnline, setIsOnline] = useState(true);
   const [nearbyJobs, setNearbyJobs] = useState<NearbyJob[]>([]);
   const [earnings, setEarnings] = useState<EarningsState>({
-    totalUsd: 0,
-    totalPkr: '0',
-    pendingClearanceUsd: 0,
-    pendingClearancePkr: '0',
+    balanceCents: 0,
+    escrowCents: 0,
+    availableCents: 0,
   });
   const [stats, setStats] = useState<StatsState>({ activeJobs: 0, proposals: 0, completed: 0, rating: 0 });
   const [loading, setLoading] = useState(true);
@@ -170,34 +170,17 @@ export default function ProviderHomeScreen() {
       // Load wallet/earnings
       try {
         const walletRes = await walletService.getWalletStats();
-        const balanceUsd = walletRes.balance / 100; // cents to dollars
-        const escrowUsd = walletRes.escrowBalance / 100;
-        const availableUsd = walletRes.availableBalance / 100;
-
-        // Fetch FX rate for PKR conversion (approximate)
-        let usdToPkr = 279;
-        try {
-          const fxRes = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-          const fxData = await fxRes.json();
-          usdToPkr = fxData.rates?.PKR ?? 279;
-        } catch {
-          // use fallback
-        }
-
-        const totalPkr = Math.round(balanceUsd * usdToPkr).toLocaleString();
-        const pendingPkr = Math.round(escrowUsd * usdToPkr).toLocaleString();
-        const pendingClearancePkr = pendingPkr;
-
+        // Amounts stay in USD cents; the shared currency context renders them
+        // in the user's display currency (no per-screen FX fetch).
         setEarnings({
-          totalUsd: balanceUsd,
-          totalPkr,
-          pendingClearanceUsd: escrowUsd,
-          pendingClearancePkr,
+          balanceCents: walletRes.balance,
+          escrowCents: walletRes.escrowBalance,
+          availableCents: walletRes.availableBalance,
         });
       } catch (e: any) {
         // Wallet might not exist yet for new providers
         console.warn('[Home] Wallet stats fetch failed:', e?.response?.status || e?.message);
-        setEarnings({ totalUsd: 0, totalPkr: '0', pendingClearanceUsd: 0, pendingClearancePkr: '0' });
+        setEarnings({ balanceCents: 0, escrowCents: 0, availableCents: 0 });
       }
 
       // Load provider job stats
@@ -368,8 +351,8 @@ export default function ProviderHomeScreen() {
 
         <View style={styles.earningsCard}>
           <Text style={styles.earningsLabel}>Total Earnings</Text>
-          <Text style={styles.earningsAmount}>{`$${earnings.totalUsd.toFixed(2)}`}</Text>
-          <Text style={styles.earningsPkr}>{`≈ PKR ${earnings.totalPkr}`}</Text>
+          <Text style={styles.earningsAmount}>{fmt(earnings.balanceCents)}</Text>
+          <Text style={styles.earningsPkr}>{`${currency.code} balance`}</Text>
           <View style={styles.earningsActionsRow}>
             <TouchableOpacity style={styles.earningsActionButton} onPress={() => router.push('/(provider)/earnings')}>
               <Text style={styles.earningsActionText}>Withdraw</Text>
@@ -378,7 +361,7 @@ export default function ProviderHomeScreen() {
               <Text style={styles.earningsActionText}>View Details</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.pendingText}>{`Pending clearance: $${earnings.pendingClearanceUsd.toFixed(2)} (≈ PKR ${earnings.pendingClearancePkr})`}</Text>
+          <Text style={styles.pendingText}>{`Pending clearance: ${fmt(earnings.escrowCents)}`}</Text>
         </View>
 
         <View style={styles.statsGrid}>
@@ -466,7 +449,7 @@ export default function ProviderHomeScreen() {
                 >
                   <JobStatusBadge status={job.status as any} />
                   <Text style={styles.nearbyTitle} numberOfLines={2}>{job.title}</Text>
-                  <Text style={styles.nearbyBudget}>{`$${job.budget.toFixed(0)}`}</Text>
+                  <Text style={styles.nearbyBudget}>{fmt(job.budget)}</Text>
                   <View style={styles.nearbyBottomRow}>
                     <Text style={styles.nearbyDistance}>{job.distance || 'Remote'}</Text>
                     <TouchableOpacity style={styles.applyButton}>

@@ -6,16 +6,15 @@ import * as Localization from 'expo-localization';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useJobCreation } from '@/src/context/JobCreationContext';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
-import { getCurrencyFromLocaleObject, formatCurrency, PLATFORM_FEE_PERCENT } from '@/src/utils/currency';
-import type { Locale } from 'expo-localization';
+import { PLATFORM_FEE_PERCENT } from '@/src/utils/currency';
 
 export default function JobBudgetStep() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
-  const localeObj = Localization.getLocales()[0] as Locale;
-  const currency = getCurrencyFromLocaleObject(localeObj);
+  const { currency } = useCurrency();
   const styles = makeStyles(C);
   const { state, dispatch, goNext, goBack, canGoNext } = useJobCreation();
   const router = useRouter();
@@ -32,10 +31,12 @@ export default function JobBudgetStep() {
   const platformFeeDisplay = amount ? `${currency.symbol}${platformFeeAmount.toFixed(2)}` : null;
   const providerAmountDisplay = amount ? `${currency.symbol}${providerAmount.toFixed(2)}` : null;
 
-  // Update currency in form data when step mounts
+  // Form amounts are typed in the display currency; submission converts them to
+  // canonical USD cents. Keep the form's currency marker at USD so nothing
+  // downstream treats the typed number as already-converted.
   useEffect(() => {
-    if (state.formData.budget.currency !== currency.code) {
-      dispatch({ type: 'UPDATE_NESTED_FORM', section: 'budget', field: 'currency', value: currency.code });
+    if (state.formData.budget.currency !== 'USD') {
+      dispatch({ type: 'UPDATE_NESTED_FORM', section: 'budget', field: 'currency', value: 'USD' });
     }
   }, [currency.code]);
 
@@ -172,11 +173,11 @@ export default function JobBudgetStep() {
                   </Text>
                   <Text style={styles.feeRow}>
                     <Text style={styles.feeLabel}>Platform Fee ({PLATFORM_FEE_PERCENT}%)</Text>
-                    <Text style={styles.feeValue}>{currency.symbol}${(parseFloat(totalHourly) * 0.1).toFixed(2)}</Text>
+                    <Text style={styles.feeValue}>{currency.symbol}{(parseFloat(totalHourly) * 0.1).toFixed(2)}</Text>
                   </Text>
                   <Text style={styles.feeRow}>
                     <Text style={styles.feeLabel}>Provider Receives</Text>
-                    <Text style={styles.feeValue}>{currency.symbol}${(parseFloat(totalHourly) * 0.9).toFixed(2)}</Text>
+                    <Text style={styles.feeValue}>{currency.symbol}{(parseFloat(totalHourly) * 0.9).toFixed(2)}</Text>
                   </Text>
                 </View>
               )}

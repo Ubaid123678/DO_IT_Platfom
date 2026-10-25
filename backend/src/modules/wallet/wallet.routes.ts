@@ -1,8 +1,15 @@
 import { Router } from 'express';
 import { walletController } from './wallet.controller.js';
+import { payoutController } from './payout.controller.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 
 const router = Router();
+
+// Public: display-currency rates. The app resolves its currency before login
+// and needs a real rate to render amounts in PKR/EUR/etc. Rates are not
+// sensitive; everything else below stays authenticated.
+router.get('/fx/rates', payoutController.getFxRates);
+router.get('/wise/rate', payoutController.getExchangeRate);
 
 // All routes require authentication
 router.use(authenticate);

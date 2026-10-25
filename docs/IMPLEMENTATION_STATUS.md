@@ -1,7 +1,7 @@
 # Do It Platform - Implementation Status
 
-Version: 3.3
-Last updated: 2026-10-24 (Phase 5 proposal handling finalized + Phase 9 messaging/notification REST API actually mounted. Backend 12 files / 70 tests, mobile + backend TypeScript clean. See §10.)
+Version: 3.4
+Last updated: 2026-10-24 (Money handling finalized: USD-cents canonical + dynamic display currency, funded-wallet posting gate. Backend 12 files / 71 tests, mobile + backend TypeScript clean. See §11.)
 Owner: Engineering
 
 ## 1. Purpose
@@ -1064,3 +1064,51 @@ mounted. Fixes:
 - Backend `npx tsc --noEmit` 0 errors; `npx vitest run` 12 files / 70 tests.
 - Mobile `npx tsc --noEmit` 0 errors.
 - Smoke: unauthenticated `GET /notifications` → 401 (route exists, auth gates).
+
+
+---
+
+## 11. Money Handling — Currency Finalization (2026-10-24)
+
+### Model (locked)
+
+**USD cents are the canonical unit everywhere**: MongoDB (`job.budget.amount`,
+`proposal.bidAmount`, wallet balances), all transactions/ledger rows, and
+Stripe. Payment rails only speak USD, so converting at the storage layer would
+be wrong. The **display layer** converts to the user's currency.
+
+- `mobile/src/context/CurrencyContext.tsx` (new) owns: selected currency,
+  `USD→X` rate (cached 1h + persisted), `fmt(usdCents)`, `toUsdCents(local)`,
+  `fromUsdCents(usdCents)`.
+- Default currency = device region via `expo-localization` (native; no IP
+  lookup, no new dependency). Pakistan → PKR automatically.
+- Override in **Settings → Currency** (USD/PKR/INR/EUR/GBP/AED/SAR/CAD/AUD),
+  persisted in AsyncStorage. Rate cached so a cold start never flashes USD.
+- Backend `GET /wallet/fx/rates` is now **public** (the app resolves currency
+  before login); FX sources are Wise → open.er-api.com (keyless, carries PKR)
+  → static fallback table (now includes PKR). Verified live: USD→PKR 276.8.
+
+### Posting gate (requested)
+
+`createJob` now rejects an unfunded client:
+`Insufficient wallet balance to post this job. Top up first.`
+(`INSUFFICIENT_WALLET_BALANCE`). Budget is validated `> 0` and hourly budgets
+are derived server-side (`rate × hours`, both USD cents — the earlier `×100`
+double-conversion is fixed). Wallet is **still not charged at post time**;
+escrow locks on proposal accept.
+
+### Screens converted (no more hardcoded `$`)
+
+job creation (budget/review), provider browse + client my-jobs + job detail,
+proposal lists + detail + submit, both wallets, top-up, earnings, both profile
+screens, provider home, active-job, both withdraw screens. Provider home's
+hardcoded PKR fetch block was removed in favour of the shared context.
+
+### Known ceilings (marked in code)
+
+- One cached rate per currency, refreshed hourly, not locked per transaction.
+  Upgrade: persist the rate on money rows when real FX settlement is needed.
+- Both withdraw screens are still visual mocks (`availableBalance = 0`, action
+  just closes after a timer) — marked `ponytail:`; wire `requestPayout` before
+  launch.
+- The escrowed amount is the **accepted bid**, not the posted budget.

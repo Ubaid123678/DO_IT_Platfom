@@ -91,6 +91,25 @@ export const jobService = {
     if (!client) throw new AppError('Client not found', 404, 'CLIENT_NOT_FOUND');
     if (client.role !== 'client') throw new AppError('Only clients can create jobs', 403, 'CLIENT_REQUIRED');
 
+    // The budget is what escrow will have to cover on accept, so the client
+    // must be able to fund it before the job goes live. Amounts are USD cents
+    // (canonical unit for wallet/Stripe); the app displays the local currency.
+    // hourlyRate arrives already in USD cents, so the total is just rate×hours.
+    const budgetAmount = input.budget.type === 'hourly'
+      ? Math.round((input.budget.hourlyRate ?? 0) * (input.budget.estimatedHours ?? 0))
+      : Math.round(input.budget.amount);
+    if (budgetAmount <= 0) {
+      throw new AppError('Budget must be greater than zero', 400, 'INVALID_BUDGET');
+    }
+    const wallet = await walletService.getBalance(clientId);
+    if (wallet.availableBalance < budgetAmount) {
+      throw new AppError(
+        'Insufficient wallet balance to post this job. Top up first.',
+        400,
+        'INSUFFICIENT_WALLET_BALANCE',
+      );
+    }
+
     // Extract base requirements for validation
     const baseRequirements = {
       categories: input.requirements.categories as string[],
@@ -171,8 +190,13 @@ export const jobService = {
       location: locationData,
       budget: {
         type: input.budget.type,
-        amount: input.budget.amount,
-        currency: input.budget.currency || 'USD',
+        // Canonical money = USD cents, always. For hourly jobs the amount is
+        // derived server-side (rate × hours) so it can never disagree with the
+        // rate. hourlyRate itself is stored in USD cents (mobile converts from
+        // the display currency before sending).
+        amount: budgetAmount,
+        // Canonical: USD cents. Display conversion happens in the app.
+        currency: 'USD',
         hourlyRate: input.budget.hourlyRate,
         estimatedHours: input.budget.estimatedHours,
       },

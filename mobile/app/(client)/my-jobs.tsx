@@ -17,6 +17,7 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { jobService, type Job, type JobStatus } from '@/src/services/jobService';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const STATUS_LABELS: Record<JobStatus, string> = {
@@ -34,12 +35,11 @@ const JOB_TYPE_LABELS: Record<Job['type'], string> = {
   errand: 'Errand',
 };
 
-const formatBudget = (budget: Job['budget']): string => {
-  const amount = budget.amount / 100;
+const formatBudget = (budget: Job['budget'], fmt: (c: number) => string): string => {
   if (budget.type === 'hourly') {
-    return `$${amount.toFixed(2)}/${budget.hourlyRate}/hr`;
+    return `${fmt(budget.hourlyRate ?? budget.amount)}/hr · ${fmt(budget.amount)} total`;
   }
-  return `$${amount.toFixed(2)} fixed`;
+  return `${fmt(budget.amount)} fixed`;
 };
 
 const getStatusColor = (status: JobStatus, C: AppColors): string => {
@@ -63,6 +63,7 @@ const getStatusColor = (status: JobStatus, C: AppColors): string => {
 
 export default function MyJobsScreen() {
   const scheme = useColorScheme();
+  const { fmt } = useCurrency();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
@@ -178,7 +179,7 @@ export default function MyJobsScreen() {
       <View style={styles.jobMeta}>
         <View style={styles.metaItem}>
           <Ionicons name="cash-outline" size={16} color={C.textSecondary} />
-          <Text style={styles.metaText}>{formatBudget(item.budget)}</Text>
+          <Text style={styles.metaText}>{formatBudget(item.budget, fmt)}</Text>
         </View>
         {item.location.city && (
           <View style={styles.metaItem}>

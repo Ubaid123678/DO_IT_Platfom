@@ -532,7 +532,9 @@ export const walletService = {
         type: 'escrow_release',
         status: 'completed',
         amount: -split.providerAmount,
-        currency: job.budget.currency || 'USD',
+        // Canonical unit is USD cents everywhere (wallets, escrow, Stripe).
+        // The job's display currency lives in the app, not in the ledger.
+        currency: 'USD',
         netAmount: -split.providerAmount,
         feeAmount: split.platformFee,
         description: `Escrow released for job ${job.title}`,

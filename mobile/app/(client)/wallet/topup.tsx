@@ -5,15 +5,19 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { walletService } from '@/src/services/walletService';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
-const PRESET_AMOUNTS = [10, 25, 50, 100, 200, 500];
+// Presets are canonical USD amounts; the UI renders/converts them to the
+// selected display currency.
+const PRESET_USD = [10, 25, 50, 100, 200, 500];
 
 export default function TopUpScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
+  const { currency, fmt, toUsdCents, fromUsdCents } = useCurrency();
   const router = useRouter();
 
   const [amount, setAmount] = useState('');
@@ -21,8 +25,9 @@ export default function TopUpScreen() {
   const [confirming, setConfirming] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
-  const handlePresetAmount = (preset: number) => {
-    setAmount(String(preset));
+  const handlePresetAmount = (presetUsd: number) => {
+    // Preset is a round USD figure; show its local equivalent in the input.
+    setAmount(String(Math.round(fromUsdCents(presetUsd * 100) * 100) / 100));
   };
 
   const handleCustomAmount = (text: string) => {
@@ -35,19 +40,16 @@ export default function TopUpScreen() {
     }
   };
 
-  const handleTopUp = async () => {
-    if (!amount || parseFloat(amount) < 1) {
-      Alert.alert('Error', 'Please enter a valid amount (minimum $1.00)');
-      return;
-    }
+  // Convert the entered display-currency amount to canonical USD cents.
+  const amountCents = amount ? toUsdCents(parseFloat(amount) || 0) : 0;
 
-    const amountCents = Math.round(parseFloat(amount) * 100);
-    if (amountCents < 100) {
-      Alert.alert('Error', 'Minimum top-up amount is $1.00');
+  const handleTopUp = async () => {
+    if (!amount || amountCents < 100) {
+      Alert.alert('Error', `Minimum top-up is ${fmt(100)}`);
       return;
     }
     if (amountCents > 10000000) {
-      Alert.alert('Error', 'Maximum top-up amount is $100,000.00');
+      Alert.alert('Error', `Maximum top-up is ${fmt(10000000)}`);
       return;
     }
 
@@ -55,7 +57,7 @@ export default function TopUpScreen() {
     try {
       // Test-mode demo: credit the wallet directly (no live card flow).
       await walletService.demoTopUp(amountCents);
-      Alert.alert('Success', `$${(amountCents / 100).toFixed(2)} added to your wallet.`);
+      Alert.alert('Success', `${fmt(amountCents)} added to your wallet.`);
       router.back();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to top up';
@@ -86,11 +88,11 @@ export default function TopUpScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Text style={styles.title}>Add Funds</Text>
-          <Text style={styles.subtitle}>Minimum $1.00 • Maximum $100,000.00</Text>
+          <Text style={styles.subtitle}>{`Minimum ${fmt(100)} • Maximum ${fmt(10000000)}`}</Text>
 
           <View style={styles.amountCard}>
             <View style={styles.amountDisplay}>
-              <Text style={styles.currencySymbol}>$</Text>
+              <Text style={styles.currencySymbol}>{currency.symbol}</Text>
               <TextInput
                 style={styles.amountInput}
                 value={amount}
@@ -105,7 +107,7 @@ export default function TopUpScreen() {
             <View style={styles.presetContainer}>
               <Text style={styles.presetLabel}>Quick Amounts</Text>
               <View style={styles.presetButtons}>
-                {PRESET_AMOUNTS.map((preset) => (
+                {PRESET_USD.map((preset) => (
                   <TouchableOpacity
                     key={preset}
                     style={[
@@ -119,7 +121,7 @@ export default function TopUpScreen() {
                       styles.presetBtnText,
                       amount === String(preset) && styles.presetBtnTextActive,
                     ]}>
-                      ${preset}
+                      {fmt(preset * 100)}
                     </Text>
                   </TouchableOpacity>
                 ))}

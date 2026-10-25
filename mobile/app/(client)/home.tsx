@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import JobCard from '@/src/components/job/JobCard';
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { authService } from '@/src/services/authService';
 import { walletService } from '@/src/services/walletService';
 import { jobService } from '@/src/services/jobService';
@@ -59,6 +60,7 @@ export default function ClientHomeScreen() {
   const scheme = useColorScheme();
   const C = scheme === 'dark' ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
+  const { fmt } = useCurrency();
 
   const [user, setUser] = useState<UserState | null>(null);
   const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
@@ -111,7 +113,7 @@ export default function ClientHomeScreen() {
           id: job._id,
           title: job.title,
           category: job.requirements?.categories?.[0]?.name || 'General',
-          budget: job.budget?.amount ? `$${(job.budget.amount / 100).toFixed(2)}` : '$0.00',
+          budget: fmt(job.budget?.amount ?? 0),
           status: job.status,
           applicationsCount: job.metadata?.applicationsCount ?? 0,
         })));
@@ -215,7 +217,7 @@ export default function ClientHomeScreen() {
 
         <View style={styles.walletCard}>
           <Text style={styles.walletLabel}>Wallet Balance</Text>
-          <Text style={styles.walletAmount}>{`$${walletBalance.toFixed(2)}`}</Text>
+          <Text style={styles.walletAmount}>{fmt(walletBalance * 100)}</Text>
           <Text style={styles.walletConverted}>Available balance</Text>
 
           <View style={styles.walletActionsRow}>

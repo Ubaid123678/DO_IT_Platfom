@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import JobStatusBadge from '@/src/components/job/JobStatusBadge';
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { useCurrency } from '@/src/context/CurrencyContext';
 
 type ActiveJob = {
   id: string;
@@ -70,6 +71,7 @@ export default function ProviderActiveJobScreen() {
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C, isDark);
+  const { fmt } = useCurrency();
 
   const [job, setJob] = useState<ActiveJob | null>(null);
   const [proofPhotos, setProofPhotos] = useState<string[]>([]);
@@ -207,7 +209,7 @@ export default function ProviderActiveJobScreen() {
           </View>
 
           <View style={styles.priceRow}>
-            <Text style={styles.priceText}>{`$${job.budget.toFixed(0)}`}</Text>
+            <Text style={styles.priceText}>{fmt(job.budget * 100)}</Text>
           </View>
 
           <View style={styles.deadlineRow}>

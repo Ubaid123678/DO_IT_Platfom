@@ -2,15 +2,14 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme, Alert } from 'react-native';
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
-import * as Localization from 'expo-localization';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useJobCreation } from '@/src/context/JobCreationContext';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { jobService } from '@/src/services/jobService';
 import { walletService } from '@/src/services/walletService';
 import { Colors, type AppColors } from '@/src/theme/colors';
-import { getCurrencyFromLocaleObject, formatCurrency, PLATFORM_FEE_PERCENT } from '@/src/utils/currency';
-import type { Locale } from 'expo-localization';
+import { PLATFORM_FEE_PERCENT } from '@/src/utils/currency';
 
 const JOB_TYPE_LABELS: Record<string, string> = {
   physical: 'Physical Service',
@@ -66,8 +65,8 @@ export default function JobReviewStep() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
-  const localeObj = Localization.getLocales()[0] as Locale;
-  const currency = getCurrencyFromLocaleObject(localeObj);
+  // Display currency (device default or Settings override) + USD conversion.
+  const { currency, toUsdCents, fmt } = useCurrency();
   const styles = makeStyles(C);
   const { state, dispatch, goBack, goNext } = useJobCreation();
   const router = useRouter();
@@ -78,7 +77,7 @@ export default function JobReviewStep() {
   useEffect(() => {
     let active = true;
     walletService.getWalletStats()
-      .then((s) => { if (active) setAvailableBalance((s.availableBalance ?? 0) / 100); })
+      .then((s) => { if (active) setAvailableBalance(s.availableBalance ?? 0); })
       .catch(() => { if (active) setAvailableBalance(null); });
     return () => { active = false; };
   }, []);
@@ -87,10 +86,11 @@ export default function JobReviewStep() {
   const jobType = state.jobType;
   const req = formData.requirements;
 
-  // Platform fee is deducted from provider, not added to client
-  const budgetAmount = parseFloat(formData.budget.amount); // in dollars (from TextInput)
-  const platformFeeAmount = Math.round(budgetAmount * (PLATFORM_FEE_PERCENT / 100) * 100) / 100; // in dollars
-  const providerAmount = budgetAmount - platformFeeAmount; // in dollars
+  // Form amounts are in the display currency. Fee math uses display units;
+  // only the submitted payload is converted to canonical USD cents.
+  const budgetAmount = parseFloat(formData.budget.amount) || 0;
+  const platformFeeAmount = Math.round(budgetAmount * (PLATFORM_FEE_PERCENT / 100) * 100) / 100;
+  const providerAmount = budgetAmount - platformFeeAmount;
   const platformFeeDisplay = `${currency.symbol}${platformFeeAmount.toFixed(2)}`;
   const providerAmountDisplay = `${currency.symbol}${providerAmount.toFixed(2)}`;
   const totalBudgetDisplay = `${currency.symbol}${budgetAmount.toFixed(2)}`;
@@ -207,11 +207,15 @@ export default function JobReviewStep() {
         description: formData.description,
         type: jobType!,
         location: locationData,
+        // Canonical payload: USD cents. `amount` is the job total (hourly total
+        // included); hourlyRate is USD cents per hour.
         budget: {
           type: formData.budget.type,
-          amount: Math.round(parseFloat(formData.budget.amount) * 100),
-          currency: formData.budget.currency,
-          hourlyRate: formData.budget.hourlyRate ? parseFloat(formData.budget.hourlyRate) : undefined,
+          amount: toUsdCents(parseFloat(formData.budget.amount) || 0),
+          currency: 'USD',
+          hourlyRate: formData.budget.hourlyRate
+            ? toUsdCents(parseFloat(formData.budget.hourlyRate))
+            : undefined,
           estimatedHours: formData.budget.estimatedHours ? parseFloat(formData.budget.estimatedHours) : undefined,
         },
         schedule: {
@@ -461,22 +465,22 @@ export default function JobReviewStep() {
             <View>
               <Text style={styles.reviewLabel}>Budget</Text>
               <Text style={styles.reviewValue}>
-                {BUDGET_TYPE_LABELS[formData.budget.type]}: {formatCurrency(budgetAmount * 100, currency)}
+                {BUDGET_TYPE_LABELS[formData.budget.type]}: {currency.symbol}{budgetAmount.toFixed(2)}
               </Text>
             </View>
           </View>
           {availableBalance !== null && (
             <View style={styles.reviewRow}>
               <Ionicons
-                name={availableBalance >= budgetAmount ? 'wallet-outline' : 'alert-circle-outline'}
+                name={availableBalance >= toUsdCents(budgetAmount) ? 'wallet-outline' : 'alert-circle-outline'}
                 size={20}
-                color={availableBalance >= budgetAmount ? C.success : C.error}
+                color={availableBalance >= toUsdCents(budgetAmount) ? C.success : C.error}
               />
               <View>
                 <Text style={styles.reviewLabel}>Wallet balance</Text>
-                <Text style={[styles.reviewValue, availableBalance < budgetAmount && { color: C.error }]}>
-                  {`${currency.symbol}${availableBalance.toFixed(2)} available`}
-                  {availableBalance < budgetAmount ? ' — top up before accepting a proposal' : ''}
+                <Text style={[styles.reviewValue, availableBalance < toUsdCents(budgetAmount) && { color: C.error }]}>
+                  {`${fmt(availableBalance)} available`}
+                  {availableBalance < toUsdCents(budgetAmount) ? ' — top up before posting this job' : ''}
                 </Text>
               </View>
             </View>

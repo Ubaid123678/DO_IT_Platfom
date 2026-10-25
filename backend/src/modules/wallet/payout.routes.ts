@@ -22,11 +22,11 @@ router.post('/connect/login-link', payoutController.createLoginLink);
 
 // Wise endpoints
 router.post('/wise/recipient', payoutController.createWiseRecipient);
-router.get('/wise/rate', payoutController.getExchangeRate);
+// NOTE: GET /wise/rate and GET /fx/rates are registered as public reads in
+// wallet.routes.ts (the app resolves currency before login).
 router.post('/wise/convert', payoutController.convertCurrency);
 
 // FX rates
-router.get('/fx/rates', payoutController.getFxRates);
 router.post('/fx/convert', payoutController.convertCurrency);
 
 // Webhooks (no auth required for webhooks)

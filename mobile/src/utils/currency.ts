@@ -105,17 +105,6 @@ export const formatCurrency = (amount: number, currency?: { code: string; symbol
   return `${curr.symbol}${dollars.toFixed(2)}`;
 };
 
-export const getDeviceCurrency = (): { code: string; symbol: string; locale: string } => {
-  // Try to get from device locale
-  try {
-    // In React Native, we can use I18nManager or expo-localization
-    // For now, fallback to default
-    return CURRENCY_MAP.default;
-  } catch {
-    return CURRENCY_MAP.default;
-  }
-};
-
 // Platform fee is 10% - deducted from provider, not added to client
 export const PLATFORM_FEE_PERCENT = 10;
 

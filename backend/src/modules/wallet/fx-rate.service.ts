@@ -14,9 +14,10 @@ class FxRateService {
   private maxCacheSize: number = 500;
 
   private readonly fallbackRates: Record<string, Record<string, number>> = {
-    USD: { EUR: 0.92, GBP: 0.79, CAD: 1.35, AUD: 1.52, JPY: 149.5, INR: 83.1, PHP: 56.2, MXN: 17.1, BRL: 4.95, NGN: 780 },
-    EUR: { USD: 1.09, GBP: 0.86, CAD: 1.47, AUD: 1.65, JPY: 162.5, INR: 90.3, PHP: 61.1, MXN: 18.6, BRL: 5.38, NGN: 848 },
-    GBP: { USD: 1.27, EUR: 1.16, CAD: 1.71, AUD: 1.92, JPY: 189.0, INR: 105.0, PHP: 71.1, MXN: 21.6, BRL: 6.25, NGN: 986 },
+    USD: { EUR: 0.92, GBP: 0.79, CAD: 1.35, AUD: 1.52, JPY: 149.5, INR: 83.1, PKR: 278, PHP: 56.2, MXN: 17.1, BRL: 4.95, NGN: 780, AED: 3.67, SAR: 3.75 },
+    EUR: { USD: 1.09, GBP: 0.86, CAD: 1.47, AUD: 1.65, JPY: 162.5, INR: 90.3, PKR: 302, PHP: 61.1, MXN: 18.6, BRL: 5.38, NGN: 848 },
+    GBP: { USD: 1.27, EUR: 1.16, CAD: 1.71, AUD: 1.92, JPY: 189.0, INR: 105.0, PKR: 353, PHP: 71.1, MXN: 21.6, BRL: 6.25, NGN: 986 },
+    PKR: { USD: 1 / 278, EUR: 1 / 302, GBP: 1 / 353, INR: 0.3 },
   };
 
   private generateCacheKey(base: string, target: string): string {
@@ -88,16 +89,16 @@ class FxRateService {
   }
 
   private async fetchFromExchangerateHost(base: string, target: string): Promise<number> {
-    const response = await fetch(
-      `https://api.exchangerate.host/latest?base=${base}&symbols=${target}`
-    );
+    // open.er-api.com is free, needs no API key, and carries PKR (ECB-only
+    // sources like frankfurter.app do not). exchangerate.host became key-gated.
+    const response = await fetch(`https://open.er-api.com/v6/latest/${base}`);
 
     if (!response.ok) {
-      throw new Error(`exchangerate.host error: ${response.status}`);
+      throw new Error(`open.er-api.com error: ${response.status}`);
     }
 
     const data = await response.json() as any;
-    if (!data.rates?.[target]) {
+    if (data?.result !== 'success' || !data.rates?.[target]) {
       throw new Error(`Rate not found for ${base}/${target}`);
     }
 

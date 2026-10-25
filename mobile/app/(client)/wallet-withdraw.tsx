@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { useCurrency } from '@/src/context/CurrencyContext';
 
 type WithdrawMethodId = 'bank' | 'wallet' | 'new';
 
@@ -62,9 +63,13 @@ export default function WalletWithdrawScreen() {
 
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const availableBalance = 3330;
-  const providerCurrency: string = 'PKR';
-  const rate = 278.5;
+  // ponytail: this screen is still a visual mock — the withdraw action only
+  // closes after a timer. Amounts now render in the user's real display
+  // currency; wire the payout API (walletService.requestPayout) before launch.
+  const { currency, rate: fxRate, fmt, toUsdCents, fromUsdCents } = useCurrency();
+  const availableBalance = 0;
+  const providerCurrency: string = currency.code;
+  const rate = fxRate;
   const amountNumber = Number.parseFloat(amount || '0');
   const hasAmount = Number.isFinite(amountNumber) && amountNumber > 0;
   const converted = useMemo(() => (hasAmount ? amountNumber * rate : 0), [amountNumber, hasAmount]);
@@ -106,7 +111,7 @@ export default function WalletWithdrawScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.availableBanner}>
           <Ionicons name="checkmark-circle" size={22} color={C.success} />
-          <Text style={styles.availableText}>{`Available: $${availableBalance.toLocaleString('en-US', {
+          <Text style={styles.availableText}>{`Available: ${fmt(availableBalance)}${(availableBalance).toLocaleString('en-US', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}`}</Text>
@@ -116,7 +121,7 @@ export default function WalletWithdrawScreen() {
           <Text style={styles.amountLabel}>Enter Withdrawal Amount</Text>
 
           <View style={styles.amountRow}>
-            <Text style={styles.dollarSymbol}>$</Text>
+            <Text style={styles.dollarSymbol}>{currency.symbol}</Text>
             <TextInput
               style={styles.amountInput}
               value={amount}
@@ -139,7 +144,7 @@ export default function WalletWithdrawScreen() {
                   style={[styles.quickPill, selected ? styles.quickPillSelected : styles.quickPillIdle]}
                   onPress={() => setAmount(value.toString())}
                 >
-                  <Text style={selected ? styles.quickPillTextSelected : styles.quickPillTextIdle}>{`$${value}`}</Text>
+                  <Text style={selected ? styles.quickPillTextSelected : styles.quickPillTextIdle}>{fmt(toUsdCents(value))}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -179,14 +184,9 @@ export default function WalletWithdrawScreen() {
           <View style={styles.conversionCard}>
             <View style={styles.conversionTopRow}>
               <Ionicons name="information-circle" size={20} color={C.amber} />
-              <Text style={styles.conversionTitle}>{`$${(hasAmount ? amountNumber : 100).toFixed(2)} USD = ${providerCurrency} ${(
-                (hasAmount ? amountNumber : 100) * rate
-              ).toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`}</Text>
+              <Text style={styles.conversionTitle}>{`${hasAmount ? amountNumber.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '0'} ${providerCurrency} = ${fmt(toUsdCents(hasAmount ? amountNumber : 0))}`}</Text>
             </View>
-            <Text style={styles.conversionRateText}>{`Rate: 1 USD = ${rate} ${providerCurrency}`}</Text>
+            <Text style={styles.conversionRateText}>{`Rate: 1 USD = ${rate.toFixed(2)} ${providerCurrency}`}</Text>
             <Text style={styles.conversionHintText}>Rate valid for 15 minutes</Text>
           </View>
         ) : null}
@@ -198,7 +198,7 @@ export default function WalletWithdrawScreen() {
 
         <View style={styles.infoRow}>
           <Ionicons name="cash" size={16} color={C.success} />
-          <Text style={styles.feeText}>Platform fee: $0.00 (waived)</Text>
+          <Text style={styles.feeText}>Platform fee: waived</Text>
         </View>
 
         <TouchableOpacity
@@ -209,10 +209,7 @@ export default function WalletWithdrawScreen() {
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text style={styles.withdrawButtonText}>{`Withdraw $${amount || '0.00'} → ${providerCurrency} ${converted.toLocaleString('en-US', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`}</Text>
+            <Text style={styles.withdrawButtonText}>{`Withdraw ${amount || '0.00'} ${providerCurrency}`}</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -224,14 +221,11 @@ export default function WalletWithdrawScreen() {
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Amount</Text>
-              <Text style={styles.summaryValue}>{`$${amount || '0.00'}`}</Text>
+              <Text style={styles.summaryValue}>{`${amount || '0.00'} ${providerCurrency}`}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Receive</Text>
-              <Text style={styles.summaryValue}>{`${providerCurrency} ${converted.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`}</Text>
+              <Text style={styles.summaryValue}>{fmt(toUsdCents(hasAmount ? amountNumber : 0))}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Method</Text>

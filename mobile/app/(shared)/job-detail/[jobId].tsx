@@ -18,6 +18,7 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 import Ionicons from '@expo/vector-icons/Ionicons';
 import ConfirmSheet from '@/src/components/common/ConfirmSheet';
 import { jobService, type Job, type JobStatus } from '@/src/services/jobService';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const STATUS_LABELS: Record<JobStatus, string> = {
@@ -45,12 +46,11 @@ const JOB_TYPE_LABELS: Record<Job['type'], string> = {
   errand: 'Errand & Delivery',
 };
 
-const formatBudget = (budget: Job['budget']): string => {
-  const amount = budget.amount / 100;
+const formatBudget = (budget: Job['budget'], fmt: (c: number) => string): string => {
   if (budget.type === 'hourly') {
-    return `$${amount.toFixed(2)} total (${budget.hourlyRate}/hr × ${budget.estimatedHours}hrs est.)`;
+    return `${fmt(budget.amount)} total (${fmt(budget.hourlyRate ?? 0)}/hr × ${budget.estimatedHours}hrs est.)`;
   }
-  return `$${amount.toFixed(2)} fixed price`;
+  return `${fmt(budget.amount)} fixed price`;
 };
 
 const formatDate = (dateString?: string): string => {
@@ -94,6 +94,7 @@ const getAvailableTransitions = (status: JobStatus, isOwner: boolean, isAssigned
 
 export default function JobDetailScreen() {
   const scheme = useColorScheme();
+  const { fmt } = useCurrency();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
@@ -213,7 +214,7 @@ export default function JobDetailScreen() {
           <View style={styles.metaCard}>
             <Ionicons name="cash-outline" size={20} color={C.primary} />
             <Text style={styles.metaLabel}>Budget</Text>
-            <Text style={styles.metaValue}>{formatBudget(job.budget)}</Text>
+            <Text style={styles.metaValue}>{formatBudget(job.budget, fmt)}</Text>
           </View>
           <View style={styles.metaCard}>
             <Ionicons name="calendar-outline" size={20} color={C.primary} />

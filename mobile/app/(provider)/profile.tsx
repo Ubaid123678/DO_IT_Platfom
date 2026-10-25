@@ -22,6 +22,7 @@ import { walletService } from '@/src/services/walletService';
 import { jobService } from '@/src/services/jobService';
 import { reviewService } from '@/src/services/reviewService';
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { useCurrency } from '@/src/context/CurrencyContext';
 
 type UserState = {
   name: string;
@@ -66,6 +67,7 @@ export default function ProviderProfileScreen() {
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
+  const { fmt } = useCurrency();
 
   const [user, setUser] = useState<UserState | null>(null);
   const [providerProfile, setProviderProfile] = useState<ProviderProfileState | null>(null);
@@ -311,7 +313,7 @@ export default function ProviderProfileScreen() {
             </View>
             <View style={styles.verticalDivider} />
             <View style={styles.statCol}>
-              <Text style={styles.statValue}>{`$${providerProfile.earned.toLocaleString()}`}</Text>
+              <Text style={styles.statValue}>{fmt(providerProfile.earned)}</Text>
               <Text style={styles.statLabel}>Earned</Text>
             </View>
           </View>

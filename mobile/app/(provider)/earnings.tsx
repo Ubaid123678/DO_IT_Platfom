@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { walletService } from '@/src/services/walletService';
 import { jobService } from '@/src/services/jobService';
 import { reviewService } from '@/src/services/reviewService';
@@ -117,17 +118,13 @@ const computeSummary = (
 };
 
 
-const formatAmount = (value: number) => {
-  const abs = Math.abs(value);
-  return `${value >= 0 ? '+' : '-'}$${abs.toFixed(0)}`;
-};
-
 export default function ProviderEarningsScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
+  const { fmt } = useCurrency();
 
   const [period, setPeriod] = useState<Period>('month');
   const [transactions, setTransactions] = useState<EarningsTransaction[]>([]);
@@ -254,7 +251,7 @@ export default function ProviderEarningsScreen() {
             })}
           </View>
 
-          <Text style={styles.totalText}>{`$${(wallet.balance / 100).toFixed(2)}`}</Text>
+          <Text style={styles.totalText}>{fmt(wallet.balance)}</Text>
           <Text style={styles.totalSubText}>Total earnings</Text>
 
           <View style={styles.metricsRow}>
@@ -263,7 +260,7 @@ export default function ProviderEarningsScreen() {
               <Text style={styles.metricLabel}>Completed</Text>
             </View>
             <View style={styles.metricCol}>
-              <Text style={styles.metricValue}>{`Avg/Job: $${summary.avgJob}`}</Text>
+              <Text style={styles.metricValue}>{`Avg/Job: ${fmt(summary.avgJob)}`}</Text>
               <Text style={styles.metricLabel}>Efficiency</Text>
             </View>
             <View style={styles.metricCol}>
@@ -302,12 +299,12 @@ export default function ProviderEarningsScreen() {
         <View style={styles.breakdownRow}>
           <View style={styles.pendingCard}>
             <Text style={styles.breakdownLabel}>Pending</Text>
-            <Text style={styles.pendingValue}>{`$${(wallet.escrowBalance / 100).toFixed(2)}`}</Text>
+            <Text style={styles.pendingValue}>{fmt(wallet.escrowBalance)}</Text>
           </View>
 
           <View style={styles.availableCard}>
             <Text style={styles.breakdownLabel}>Available</Text>
-            <Text style={styles.availableValue}>{`$${(wallet.availableBalance / 100).toFixed(2)}`}</Text>
+            <Text style={styles.availableValue}>{fmt(wallet.availableBalance)}</Text>
           </View>
         </View>
 
@@ -350,7 +347,7 @@ export default function ProviderEarningsScreen() {
                 </View>
 
                 <View style={styles.rightCol}>
-                  <Text style={[styles.amountText, { color: amountColor }]}>{formatAmount(item.amount)}</Text>
+                  <Text style={[styles.amountText, { color: amountColor }]}>{`${item.amount >= 0 ? '+' : '-'}${fmt(Math.abs(item.amount))}`}</Text>
                   <View style={styles.completedPill}>
                     <Text style={styles.completedPillText}>Completed</Text>
                   </View>

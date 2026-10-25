@@ -5,6 +5,7 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { proposalService, type BidType } from '@/src/services/proposalService';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { jobService } from '@/src/services/jobService';
 import { getApiErrorMessage } from '@/src/services/api';
 import { Colors, type AppColors } from '@/src/theme/colors';
@@ -45,9 +46,8 @@ export default function SubmitProposalScreen() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `$${(amount / 100).toFixed(2)}`;
-  };
+  // Inputs are typed in the display currency; the API takes USD cents.
+  const { currency, fmt, toUsdCents } = useCurrency();
 
   const calculateTotal = () => {
     if (bidType === 'hourly' && hourlyRate && estimatedHours) {
@@ -82,9 +82,9 @@ export default function SubmitProposalScreen() {
     try {
       await proposalService.createProposal({
         jobId: jobId!,
-        bidAmount: Math.round(total * 100), // Convert to cents
+        bidAmount: toUsdCents(total),
         bidType,
-        hourlyRate: bidType === 'hourly' ? parseFloat(hourlyRate) : undefined,
+        hourlyRate: bidType === 'hourly' ? toUsdCents(parseFloat(hourlyRate)) : undefined,
         estimatedHours: bidType === 'hourly' ? parseFloat(estimatedHours) : undefined,
         coverLetter,
         estimatedTimeline,
@@ -129,7 +129,7 @@ export default function SubmitProposalScreen() {
           <View style={styles.jobInfoCard}>
             <Text style={styles.jobTitle}>{job?.title || 'Job Opportunity'}</Text>
             <Text style={styles.jobMeta}>
-              {job?.budget?.amount ? `Client budget: $${(job.budget.amount / 100).toFixed(2)}` : 'Tap to view full job details'}
+              {job?.budget?.amount ? `Client budget: ${fmt(job.budget.amount)}` : 'Tap to view full job details'}
             </Text>
           </View>
 
@@ -162,7 +162,7 @@ export default function SubmitProposalScreen() {
               {bidType === 'fixed' ? 'Total Bid Amount' : 'Hourly Rate'} <Text style={styles.required}>*</Text>
             </Text>
             <View style={styles.currencyInput}>
-              <Text style={styles.currencySymbol}>$</Text>
+              <Text style={styles.currencySymbol}>{currency.symbol}</Text>
               <TextInput
                 style={styles.currencyInputField}
                 placeholder={bidType === 'fixed' ? 'e.g. 500' : 'e.g. 50'}
@@ -190,15 +190,15 @@ export default function SubmitProposalScreen() {
             <View style={styles.totalBreakdown}>
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Bid Total</Text>
-                <Text style={styles.breakdownValue}>{formatCurrency(Math.round(total * 100))}</Text>
+                <Text style={styles.breakdownValue}>{fmt(toUsdCents(total))}</Text>
               </View>
               <View style={styles.breakdownRow}>
                 <Text style={styles.breakdownLabel}>Platform Fee (10%)</Text>
-                <Text style={styles.breakdownValue}>-{formatCurrency(Math.round(platformFee * 100))}</Text>
+                <Text style={styles.breakdownValue}>-{fmt(toUsdCents(platformFee))}</Text>
               </View>
               <View style={[styles.breakdownRow, styles.breakdownTotal]}>
                 <Text style={styles.breakdownLabel}>You Receive</Text>
-                <Text style={styles.breakdownValue}>{formatCurrency(Math.round(youReceive * 100))}</Text>
+                <Text style={styles.breakdownValue}>{fmt(toUsdCents(youReceive))}</Text>
               </View>
             </View>
           </View>

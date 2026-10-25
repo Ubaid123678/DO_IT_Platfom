@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BottomSheet from '@/src/components/common/BottomSheet';
+import { SELECTABLE_CURRENCIES, useCurrency } from '@/src/context/CurrencyContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 type Tone = 'teal' | 'amber' | 'gray' | 'error';
@@ -43,7 +44,9 @@ export default function SettingsScreen() {
 
   const [language, setLanguage] = useState('English');
   const [languageSheetVisible, setLanguageSheetVisible] = useState(false);
+  const [currencySheetVisible, setCurrencySheetVisible] = useState(false);
   const [showNotifSettings, setShowNotifSettings] = useState(true);
+  const { currency, setCurrencyCode } = useCurrency();
 
   const iconPalette = (tone: Tone) => {
     if (tone === 'amber') {
@@ -150,7 +153,8 @@ export default function SettingsScreen() {
             label="Currency"
             icon="cash-outline"
             tone="teal"
-            rightNode={<Text style={styles.rightValueText}>USD - $</Text>}
+            rightNode={<Text style={styles.rightValueText}>{`${currency.code} - ${currency.symbol}`}</Text>}
+            onPress={() => setCurrencySheetVisible(true)}
           />
           <SettingsRow
             label="Theme"
@@ -269,6 +273,31 @@ export default function SettingsScreen() {
               }}
             >
               <Text style={active ? styles.langOptionTextActive : styles.langOptionText}>{lang}</Text>
+              {active ? <Ionicons name="checkmark" size={18} color={C.primary} /> : null}
+            </TouchableOpacity>
+          );
+        })}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={currencySheetVisible}
+        onClose={() => setCurrencySheetVisible(false)}
+        title="Select Currency"
+      >
+        {SELECTABLE_CURRENCIES.map((option) => {
+          const active = currency.code === option.code;
+          return (
+            <TouchableOpacity
+              key={option.code}
+              style={[styles.langOption, active ? styles.langOptionActive : null]}
+              onPress={() => {
+                void setCurrencyCode(option.code);
+                setCurrencySheetVisible(false);
+              }}
+            >
+              <Text style={active ? styles.langOptionTextActive : styles.langOptionText}>
+                {`${option.code} - ${option.symbol}`}
+              </Text>
               {active ? <Ionicons name="checkmark" size={18} color={C.primary} /> : null}
             </TouchableOpacity>
           );

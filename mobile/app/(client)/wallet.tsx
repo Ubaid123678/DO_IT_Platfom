@@ -6,6 +6,7 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { walletService, type Wallet, type Transaction, type TransactionType, type TransactionStatus } from '@/src/services/walletService';
 import { Colors, type AppColors } from '@/src/theme/colors';
+import { useCurrency } from '@/src/context/CurrencyContext';
 
 const TYPE_LABELS: Record<TransactionType, string> = {
   topup: 'Top-up',
@@ -27,14 +28,6 @@ const STATUS_COLORS: Record<TransactionStatus, string> = {
   cancelled: '#95A5A6',
 };
 
-const formatCurrency = (cents: number, currency = 'USD'): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(cents / 100);
-};
-
 const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -50,6 +43,7 @@ export default function WalletScreen() {
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
   const styles = makeStyles(C);
+  const { fmt } = useCurrency();
   const router = useRouter();
 
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -148,7 +142,7 @@ export default function WalletScreen() {
 
   const formatAmount = (amount: number) => {
     const prefix = amount >= 0 ? '+' : '-';
-    return `${prefix}${formatCurrency(Math.abs(amount))}`;
+    return `${prefix}${fmt(Math.abs(amount))}`;
   };
 
   const renderTransaction = ({ item }: { item: Transaction }) => (
@@ -214,15 +208,15 @@ export default function WalletScreen() {
       <View style={styles.balanceRow}>
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available</Text>
-          <Text style={styles.balanceAmount}>{formatCurrency(stats?.availableBalance || 0)}</Text>
+          <Text style={styles.balanceAmount}>{fmt(stats?.availableBalance || 0)}</Text>
         </View>
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>In Escrow</Text>
-          <Text style={styles.balanceAmount}>{formatCurrency(stats?.escrowBalance || 0)}</Text>
+          <Text style={styles.balanceAmount}>{fmt(stats?.escrowBalance || 0)}</Text>
         </View>
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Total</Text>
-          <Text style={styles.balanceAmount}>{formatCurrency(stats?.balance || 0)}</Text>
+          <Text style={styles.balanceAmount}>{fmt(stats?.balance || 0)}</Text>
         </View>
       </View>
 

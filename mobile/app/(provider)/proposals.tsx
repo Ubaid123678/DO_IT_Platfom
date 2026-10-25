@@ -17,6 +17,7 @@ import {
 import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-context';
 
 import { proposalService, type Proposal, type ProposalStatus, type ProposalListResponse } from '@/src/services/proposalService';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const STATUS_LABELS: Record<ProposalStatus, string> = {
@@ -35,15 +36,12 @@ const STATUS_COLORS: Record<ProposalStatus, string> = {
   expired: '#F39C12',
 };
 
-const formatCurrency = (amount: number): string => {
-  return `$${(amount / 100).toFixed(2)}`;
-};
-
 export default function ProviderProposalsScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const C = isDark ? Colors.dark : Colors.light;
+  const { fmt } = useCurrency();
   const styles = makeStyles(C, isDark);
 
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -162,8 +160,8 @@ export default function ProviderProposalsScreen() {
         <Text style={styles.bidLabel}>Your Bid</Text>
         <Text style={styles.bidAmount}>
           {item.bidType === 'hourly'
-            ? `$${(item.bidAmount / 100).toFixed(2)}/hr${item.estimatedHours ? ` × ${item.estimatedHours}hrs` : ''} = ${formatCurrency(item.bidTotal || item.bidAmount)}`
-            : formatCurrency(item.bidAmount)}
+            ? `${fmt(item.hourlyRate ?? item.bidAmount)}/hr${item.estimatedHours ? ` × ${item.estimatedHours}hrs` : ''} = ${fmt(item.bidAmount)}`
+            : fmt(item.bidAmount)}
         </Text>
       </View>
 

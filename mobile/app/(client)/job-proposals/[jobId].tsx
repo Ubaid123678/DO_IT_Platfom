@@ -6,6 +6,7 @@ import { SafeAreaView as SafeAreaViewCompat } from 'react-native-safe-area-conte
 import Ionicons from '@expo/vector-icons/Ionicons';
 import ConfirmSheet from '@/src/components/common/ConfirmSheet';
 import { proposalService, type Proposal, type ProposalStatus, type ProposalListResponse } from '@/src/services/proposalService';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { getApiErrorMessage } from '@/src/services/api';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
@@ -25,10 +26,6 @@ const STATUS_COLORS: Record<ProposalStatus, string> = {
   expired: '#F39C12',
 };
 
-const formatCurrency = (amount: number): string => {
-  return `$${(amount / 100).toFixed(2)}`;
-};
-
 export default function JobProposalsScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -36,6 +33,7 @@ export default function JobProposalsScreen() {
   const styles = makeStyles(C);
   const router = useRouter();
   const { jobId } = useLocalSearchParams<{ jobId?: string }>();
+  const { fmt } = useCurrency();
 
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -166,8 +164,8 @@ export default function JobProposalsScreen() {
         <Text style={styles.bidLabel}>Bid</Text>
         <Text style={styles.bidAmount}>
           {item.bidType === 'hourly'
-            ? `$${(item.bidAmount / 100).toFixed(2)}/hr${item.estimatedHours ? ` × ${item.estimatedHours}hrs` : ''} = ${formatCurrency(item.bidTotal || item.bidAmount)}`
-            : formatCurrency(item.bidAmount)}
+            ? `${fmt(item.hourlyRate ?? item.bidAmount)}/hr${item.estimatedHours ? ` × ${item.estimatedHours}hrs` : ''} = ${fmt(item.bidAmount)}`
+            : fmt(item.bidAmount)}
         </Text>
       </View>
 

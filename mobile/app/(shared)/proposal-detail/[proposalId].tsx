@@ -7,6 +7,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import ConfirmSheet from '@/src/components/common/ConfirmSheet';
 import { proposalService, type Proposal, type ProposalStatus } from '@/src/services/proposalService';
 import { useAuthContext } from '@/src/context/AuthContext';
+import { useCurrency } from '@/src/context/CurrencyContext';
 import { Colors, type AppColors } from '@/src/theme/colors';
 
 const STATUS_LABELS: Record<ProposalStatus, string> = {
@@ -25,10 +26,6 @@ const STATUS_COLORS: Record<ProposalStatus, string> = {
   expired: '#F39C12',
 };
 
-const formatCurrency = (amount: number): string => {
-  return `$${(amount / 100).toFixed(2)}`;
-};
-
 const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString('en-US', {
     weekday: 'short',
@@ -45,6 +42,7 @@ export default function ProposalDetailScreen() {
   const styles = makeStyles(C);
   const router = useRouter();
   const { user } = useAuthContext();
+  const { fmt } = useCurrency();
   const { proposalId } = useLocalSearchParams<{ proposalId?: string }>();
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -171,7 +169,7 @@ export default function ProposalDetailScreen() {
                   </Text>
                   <Text style={styles.jobMetaItem}>
                     <Ionicons name="cash-outline" size={14} color={C.textHint} />
-                    <Text>{formatCurrency(job.budget?.amount || 0)}</Text>
+                    <Text>{fmt(job.budget?.amount || 0)}</Text>
                   </Text>
                   <Text style={styles.jobMetaItem}>
                     <Ionicons name="calendar-outline" size={14} color={C.textHint} />
@@ -195,15 +193,15 @@ export default function ProposalDetailScreen() {
               <Text style={styles.detailLabel}>Bid Amount</Text>
               <Text style={styles.detailValue}>
                 {proposal.bidType === 'hourly'
-                  ? `${formatCurrency(proposal.bidAmount)}/hr${proposal.estimatedHours ? ` × ${proposal.estimatedHours}hrs` : ''}`
-                  : formatCurrency(proposal.bidAmount)}
+                  ? `${fmt(proposal.hourlyRate ?? proposal.bidAmount)}/hr${proposal.estimatedHours ? ` × ${proposal.estimatedHours}hrs` : ''}`
+                  : fmt(proposal.bidAmount)}
               </Text>
             </View>
             {proposal.bidType === 'hourly' && (
               <>
                 <View style={styles.detailCard}>
                   <Text style={styles.detailLabel}>Hourly Rate</Text>
-                  <Text style={styles.detailValue}>{formatCurrency(proposal.hourlyRate || 0)}/hr</Text>
+                  <Text style={styles.detailValue}>{fmt(proposal.hourlyRate || 0)}/hr</Text>
                 </View>
                 <View style={styles.detailCard}>
                   <Text style={styles.detailLabel}>Estimated Hours</Text>
@@ -213,15 +211,15 @@ export default function ProposalDetailScreen() {
             )}
             <View style={styles.detailCard}>
               <Text style={styles.detailLabel}>Total Bid</Text>
-              <Text style={[styles.detailValue, styles.detailValueTotal]}>{formatCurrency(proposal.bidTotal || proposal.bidAmount)}</Text>
+              <Text style={[styles.detailValue, styles.detailValueTotal]}>{fmt(proposal.bidAmount)}</Text>
             </View>
             <View style={styles.detailCard}>
               <Text style={styles.detailLabel}>Platform Fee (10%)</Text>
-              <Text style={styles.detailValue}>-{formatCurrency(Math.round((proposal.bidTotal || proposal.bidAmount) * 0.1))}</Text>
+              <Text style={styles.detailValue}>-{fmt(Math.round(proposal.bidAmount * 0.1))}</Text>
             </View>
             <View style={styles.detailCard}>
               <Text style={styles.detailLabel}>You Receive</Text>
-              <Text style={[styles.detailValue, styles.detailValueTotal]}>{formatCurrency(Math.round((proposal.bidTotal || proposal.bidAmount) * 0.9))}</Text>
+              <Text style={[styles.detailValue, styles.detailValueTotal]}>{fmt(Math.round(proposal.bidAmount * 0.9))}</Text>
             </View>
             <View style={styles.detailCard}>
               <Text style={styles.detailLabel}>Estimated Timeline</Text>

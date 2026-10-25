@@ -31,7 +31,12 @@ vi.mock('../verification/verification.model.js', () => ({
 }));
 
 vi.mock('../wallet/wallet.service.js', () => ({
-  walletService: { releaseEscrow: mockedReleaseEscrow, refundEscrow: mockedRefundEscrow },
+  walletService: {
+    releaseEscrow: mockedReleaseEscrow,
+    refundEscrow: mockedRefundEscrow,
+    // Posting now requires a funded wallet; give tests unlimited balance.
+    getBalance: vi.fn().mockResolvedValue({ availableBalance: 10_000_00, balance: 10_000_00, escrowBalance: 0, currency: 'USD' }),
+  },
 }));
 
 import { jobService } from './job.service.js';
@@ -155,6 +160,28 @@ describe('jobService.transitionStatus', () => {
     await jobService.transitionStatus('job_1', CLIENT_ID, 'client', 'cancelled');
 
     expect(mockedRefundEscrow).toHaveBeenCalledWith('job_1', 5000, expect.any(String), expect.any(String));
+  });
+});
+
+describe('jobService.createJob wallet gate', () => {
+  it('refuses to post a job the client wallet cannot cover', async () => {
+    mockedUserFindById.mockResolvedValue(clientUser);
+    mockedCategoryFind.mockResolvedValue([{ _id: 'cat1' }]);
+
+    const { walletService } = await import('../wallet/wallet.service.js');
+    (walletService.getBalance as any).mockResolvedValueOnce({ availableBalance: 100, balance: 100, escrowBalance: 0, currency: 'USD' });
+
+    await expect(
+      jobService.createJob(CLIENT_ID, {
+        title: 'Paint a room',
+        description: 'Need the living room painted this weekend please.',
+        type: 'physical',
+        location: baseLocation,
+        budget: { type: 'fixed', amount: 5000, currency: 'USD' },
+        schedule: { timezone: 'UTC', isFlexible: true },
+        requirements: { categories: ['cat1'] },
+      })
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_WALLET_BALANCE' });
   });
 });
 
